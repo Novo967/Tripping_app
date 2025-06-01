@@ -25,7 +25,6 @@ class User(Base):
     __tablename__ = 'users'
     uid = Column('uid', String, primary_key=True)
     profile_image = Column(String)
-engine = create_engine('postgresql://trippingappdb_user:mmH6sl3iPNTJyrVg9hfY2iQWLB8KK8gl@dpg-d0u17ge3jp1c73f7kk2g-a.oregon-postgres.render.com/trippingappdb')
 Base.metadata.create_all(engine)
 
 # ----------------------------
@@ -90,7 +89,12 @@ def upload_image():
     user = session.query(User).filter_by(uid=uid).first()
     user.profile_image = image_url
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"Commit failed: {e}")
+        return jsonify({'error': str(e)}), 500
     return jsonify({'url': image_url})
 
 # ----------------------------
