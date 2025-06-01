@@ -52,6 +52,7 @@ def get_user_profile():
 @app.route('/update-user-profile', methods=['POST'])
 def update_user_profile():
     data = request.get_json()
+    profile_image = data.get('profile_image')
     print("Received data:", data)
     uid = data.get('uid')
     session = Session()
