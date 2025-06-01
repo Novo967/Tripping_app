@@ -86,6 +86,11 @@ def upload_image():
 
     # יצירת URL גישה ציבורי (בהנחה שאתה משרת מ /uploads/<filename>)
     image_url = f"https://tripping-app.onrender.com/uploads/{filename}"
+    session = Session()
+    user = session.query(User).filter_by(uid=uid).first()
+    user.profile_image = image_url
+    session.add(user)
+    session.commit()
     return jsonify({'url': image_url})
 
 # ----------------------------
