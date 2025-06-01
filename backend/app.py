@@ -1,38 +1,111 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
+from sqlalchemy import create_engine, Column, Integer, String, Text, ARRAY
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
+# הגדרות בסיסיות
 app = Flask(__name__)
-UPLOAD_FOLDER = 'static/uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+CORS(app)
+
+UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-import psycopg2
-from dotenv import load_dotenv
+# הגדרת DB
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://trippingappdb_user:mmH6sl3iPNTJyrVg9hfY2iQWLB8KK8gl@dpg-d0u17ge3jp1c73f7kk2g-a.oregon-postgres.render.com/trippingappdb')
+engine = create_engine(DATABASE_URL)
+Base = declarative_base()
+Session = sessionmaker(bind=engine)
 
-load_dotenv()
-import os
+# מודל משתמש
+class User(Base):
+    __tablename__ = 'users'
+    uid = Column(String, primary_key=True)
+    bio = Column(Text)
+    profilePic = Column(String)
+    gallery = Column(ARRAY(String))  # PostgreSQL ARRAY of image URLs
 
-conn = psycopg2.connect(os.getenv("DATABASE_URL"))
-cursor = conn.cursor()
+Base.metadata.create_all(engine)
 
+# ----------------------------
+# 🔵 GET USER PROFILE
+# ----------------------------
+@app.route('/get-user-profile')
+def get_user_profile():
+    uid = request.args.get('uid')
+    session = Session()
+    user = session.query(User).filter_by(uid=uid).first()
 
+    if user:
+        return jsonify({
+            'bio': user.bio,
+            'profilePic': user.profilePic,
+            'gallery': user.gallery or []
+        })
+    else:
+        return jsonify({
+            'bio': '',
+            'profilePic': '',
+            'gallery': []
+        })
+
+# ----------------------------
+# 🟡 UPDATE USER PROFILE
+# ----------------------------
+@app.route('/update-user-profile', methods=['POST'])
+def update_user_profile():
+    data = request.get_json()
+    uid = data.get('uid')
+    bio = data.get('bio')
+    profilePic = data.get('profilePic')
+    gallery = data.get('gallery')
+
+    session = Session()
+    user = session.query(User).filter_by(uid=uid).first()
+
+    if not user:
+        user = User(uid=uid)
+
+    user.bio = bio
+    user.profilePic = profilePic
+    user.gallery = gallery
+
+    session.add(user)
+    session.commit()
+    return jsonify({'status': 'success'})
+
+# ----------------------------
+# 🔴 UPLOAD IMAGE (PROFILE / GALLERY)
+# ----------------------------
 @app.route('/upload-profile-image', methods=['POST'])
 def upload_image():
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image uploaded'}), 400
-
-    image = request.files['image']
-    filename = secure_filename(image.filename)
-    save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    image.save(save_path)
-
-    # נניח שאתה מקבל את ה־uid מה-frontend
+    file = request.files.get('image')
     uid = request.form.get('uid')
+    image_type = request.form.get('type')  # 'profile' or 'gallery'
 
-    # תוכל כאן לעדכן את מסד הנתונים עם הנתיב
+    if not file or not uid:
+        return jsonify({'error': 'Missing data'}), 400
 
-    return jsonify({
-        'message': 'Image uploaded successfully',
-        'image_url': f'{request.host_url}{save_path}'
-    })
+    filename = secure_filename(f"{uid}_{image_type}_{file.filename}")
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    # יצירת URL גישה ציבורי (בהנחה שאתה משרת מ /uploads/<filename>)
+    image_url = f"https://tripping-app.onrender.com/uploads/{filename}"
+    return jsonify({'url': image_url})
+
+# ----------------------------
+# 🟢 Static file serving
+# ----------------------------
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# ----------------------------
+# 🚀 Run locally
+# ----------------------------
+if __name__ == '__main__':
+    app.run(debug=True)

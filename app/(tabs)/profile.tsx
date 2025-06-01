@@ -1,11 +1,4 @@
 import * as ImagePicker from 'expo-image-picker';
-import {
-  arrayUnion,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc
-} from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,7 +11,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { auth, db } from '../../firebaseConfig'; // שים לב: כאן לא משתמשים עוד ב-storage של Firebase
+import { auth } from '../../firebaseConfig'; // עדיין נשתמש ב-auth לצורך זיהוי uid
+
+const SERVER_URL = 'https://triping-6.onrender.com'; // ודא שזה נכון
 
 export default function ProfileScreen() {
   const [bio, setBio] = useState('');
@@ -26,33 +21,29 @@ export default function ProfileScreen() {
   const [gallery, setGallery] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // טען פרופיל מ-Firestore (טקסטים בלבד)
+  // טען את נתוני המשתמש מהשרת
   useEffect(() => {
-    const loadProfile = async () => {
+    const fetchProfile = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
       try {
-        if (!auth.currentUser) {
-          console.log('No logged in user');
-          setLoading(false);
-          return;
-        }
-        const docRef = doc(db, 'users', auth.currentUser.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setBio(data.bio || '');
-          setProfilePic(data.profilePic || null);
-          setGallery(data.gallery || []);
-        }
+        const response = await fetch(`${SERVER_URL}/get-user-profile?uid=${user.uid}`);
+        const data = await response.json();
+
+        setBio(data.bio || '');
+        setProfilePic(data.profile_pic || null);
+        setGallery(data.gallery || []);
       } catch (error) {
-        console.error('Error loading profile:', error);
+        console.error('Error fetching profile:', error);
       } finally {
         setLoading(false);
       }
     };
-    loadProfile();
+
+    fetchProfile();
   }, []);
 
-  // פונקציה שמעלה את התמונה לשרת Flask
   const uploadImageToServer = async (uri: string, isProfilePic = false) => {
     const user = auth.currentUser;
     if (!user) {
@@ -70,7 +61,7 @@ export default function ProfileScreen() {
     formData.append('type', isProfilePic ? 'profile' : 'gallery');
 
     try {
-      const response = await fetch('https://triping-6.onrender.com/upload-profile-image', {
+      const response = await fetch(`${SERVER_URL}/upload-profile-image`, {
         method: 'POST',
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -82,12 +73,8 @@ export default function ProfileScreen() {
       if (response.ok) {
         if (isProfilePic) {
           setProfilePic(result.url);
-          // נשמור ב-Firestore את הכתובת החדשה
-          await updateDoc(doc(db, 'users', user.uid), { profilePic: result.url });
         } else {
           setGallery(prev => [...prev, result.url]);
-          // נשמור ב-Firestore את הכתובת בגלריה (arrayUnion)
-          await updateDoc(doc(db, 'users', user.uid), { gallery: arrayUnion(result.url) });
         }
       } else {
         throw new Error(result.error || 'Upload failed');
@@ -98,7 +85,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // בוחר תמונה ומעלה לשרת
   const pickImage = async (isProfilePic = false) => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -118,22 +104,34 @@ export default function ProfileScreen() {
     }
   };
 
-  // שמירת הטקסטים בפרופיל בלבד
   const saveProfile = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('שגיאה', 'משתמש לא מחובר');
+      return;
+    }
+
     try {
-      if (!auth.currentUser) {
-        Alert.alert('שגיאה', 'משתמש לא מחובר');
-        return;
+      const response = await fetch(`${SERVER_URL}/update-user-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: user.uid,
+          bio,
+        }),
+      });
+
+      if (response.ok) {
+        Alert.alert('הפרופיל נשמר בהצלחה!');
+      } else {
+        const err = await response.json();
+        throw new Error(err.error || 'שגיאה בשמירת הפרופיל');
       }
-      await setDoc(
-        doc(db, 'users', auth.currentUser.uid),
-        { bio },
-        { merge: true }
-      );
-      Alert.alert('הפרופיל נשמר בהצלחה!');
-    } catch (error) {
+    } catch (err) {
       Alert.alert('שגיאה', 'לא הצלחנו לשמור את הפרופיל.');
-      console.log(error);
+      console.error(err);
     }
   };
 
