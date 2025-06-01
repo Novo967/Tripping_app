@@ -54,6 +54,7 @@ def update_user_profile():
     data = request.get_json()
     print("Received data:", data)
     uid = data.get('uid')
+    user = db_session.query(User).filter_by(uid=data['uid']).first()
     user.profile_image = data.get('profile_image', user.profile_image)
 
     session = Session()
