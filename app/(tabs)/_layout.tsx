@@ -33,9 +33,9 @@ export default function Layout() {
         tabBarLabelPosition: 'below-icon',
       })}
     >
-      <Tabs.Screen name="chat" options={{ title: 'צ\'ט' }} />
-      <Tabs.Screen name="home/index" options={{ title: 'בית' }} />
-      <Tabs.Screen name="profile" options={{ title: 'פרופיל' }} />
+      <Tabs.Screen name="chat" options={{ title: 'צ\'ט' , headerShown: false}} />
+      <Tabs.Screen name="home/index" options={{ title: 'בית' , headerShown: false}} />
+      <Tabs.Screen name="profile" options={{ title: 'פרופיל' , headerShown: false}} />
     </Tabs>
   );
 }

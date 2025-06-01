@@ -27,45 +27,62 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const syncUserToBackend = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          console.log('משתמש לא מחובר');
-          return;
-        }
-
-        const userData = {
-          uid: user.uid,
-          email: user.email || '',
-          displayName: user.displayName || '',
-          photoURL: user.photoURL || '',
-        };
-
-        const response = await fetch('https://tripping-app.onrender.com/update-user-profile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(userData),
-        });
-
-        if (response.ok) {
-          console.log('המשתמש עודכן בשרת בהצלחה');
-        } else {
-          console.error('עדכון המשתמש נכשל', await response.text());
-        }
-
-      } catch (error) {
-        console.error('שגיאה בשליחת נתוני המשתמש לשרת:', error);
+  const syncUserToBackend = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('משתמש לא מחובר');
+        setLoading(false);
+        return;
       }
-    };
 
-    syncUserToBackend();
-  }, []);
+      // שולח את פרטי המשתמש לשרת (עדכון)
+      const userData = {
+        uid: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || '',
+        photoURL: user.photoURL || '',
+      };
+
+      const updateRes = await fetch(`${SERVER_URL}/update-user-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+
+      if (!updateRes.ok) {
+        console.error('עדכון המשתמש נכשל', await updateRes.text());
+      } else {
+        console.log('המשתמש עודכן בשרת בהצלחה');
+      }
+
+      // מקבל את תמונת הפרופיל והגלריה מהשרת
+      const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid }),
+      });
+
+      if (profileRes.ok) {
+        const data = await profileRes.json();
+        if (data.profile_image) {
+          setProfilePic(data.profile_image);
+        }
+      } else {
+        console.error('שגיאה בקבלת פרופיל:', await profileRes.text());
+      }
+    } catch (error) {
+      console.error('שגיאה בשליחת או קבלת נתוני המשתמש:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  syncUserToBackend();
+}, []);
 
 
-
+  
 
 
   const uploadImageToServer = async (uri: string, isProfilePic = false) => {

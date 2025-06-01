@@ -32,7 +32,7 @@ Base.metadata.create_all(engine)
 # ----------------------------
 @app.route('/get-user-profile')
 def get_user_profile():
-    uid = request.args.get('uid')
+    uid = request.json.get('uid')
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
 
