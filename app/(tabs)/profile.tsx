@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { auth } from '../../firebaseConfig'; // עדיין נשתמש ב-auth לצורך זיהוי uid
 
-const SERVER_URL = 'https://triping-6.onrender.com'; // ודא שזה נכון
+const SERVER_URL = 'https://tripping-app.onrender.com'; // ודא שזה נכון
 
 export default function ProfileScreen() {
   const [bio, setBio] = useState('');
