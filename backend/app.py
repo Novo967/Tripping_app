@@ -5,7 +5,6 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Text, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from models import Base  # ודא שזו ההגדרה של ה-Base שלך
 
 # הגדרות בסיסיות
 app = Flask(__name__)
