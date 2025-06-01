@@ -39,7 +39,7 @@ def get_user_profile():
 
     if user:
         return jsonify({
-            'profile_image': user.profilePic,
+            'profile_image': user.profile_image,
         })
     else:
         return jsonify({
@@ -53,7 +53,7 @@ def get_user_profile():
 def update_user_profile():
     data = request.get_json()
     uid = data.get('uid')
-    profilePic = data.get('profile_image')
+    profile_image = data.get('profile_image')
 
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
@@ -61,7 +61,7 @@ def update_user_profile():
     if not user:
         user = User(uid=uid)
 
-    user.profilePic = profilePic
+    user.profile_image = profile_image
 
     session.add(user)
     session.commit()
