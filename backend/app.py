@@ -30,7 +30,7 @@ Base.metadata.create_all(engine)
 # ----------------------------
 # 🔵 GET USER PROFILE
 # ----------------------------
-@app.route('/get-user-profile')
+@app.route('/get-user-profile', methods=['POST'])
 def get_user_profile():
     uid = request.json.get('uid')
     session = Session()
