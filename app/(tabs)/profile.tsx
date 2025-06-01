@@ -32,7 +32,7 @@ export default function ProfileScreen() {
         const data = await response.json();
 
         setBio(data.bio || '');
-        setProfilePic(data.profile_pic || null);
+        setProfilePic(data.profile_image || null);
         setGallery(data.gallery || []);
       } catch (error) {
         console.error('Error fetching profile:', error);
