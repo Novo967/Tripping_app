@@ -41,7 +41,7 @@ export default function ProfileScreen() {
         uid: user.uid,
         email: user.email || '',
         displayName: user.displayName || '',
-        photoURL: user.photoURL || '',
+        
       };
 
       const updateRes = await fetch(`${SERVER_URL}/update-user-profile`, {
@@ -62,12 +62,14 @@ export default function ProfileScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: user.uid }),
       });
-
+      
       if (profileRes.ok) {
         const data = await profileRes.json();
         if (data.profile_image) {
           setProfilePic(data.profile_image);
+          
         }
+        console.log("profile image: " + data.profile_image);
       } else {
         console.error('שגיאה בקבלת פרופיל:', await profileRes.text());
       }
