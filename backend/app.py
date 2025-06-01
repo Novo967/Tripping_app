@@ -5,6 +5,7 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Text, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from models import Base  # ודא שזו ההגדרה של ה-Base שלך
 
 # הגדרות בסיסיות
 app = Flask(__name__)
@@ -27,7 +28,7 @@ class User(Base):
     bio = Column(Text)
     profilePic = Column(String)
     gallery = Column(ARRAY(String))  # PostgreSQL ARRAY of image URLs
-
+engine = create_engine('postgresql://trippingappdb_user:mmH6sl3iPNTJyrVg9hfY2iQWLB8KK8gl@dpg-d0u17ge3jp1c73f7kk2g-a.oregon-postgres.render.com/trippingappdb')
 Base.metadata.create_all(engine)
 
 # ----------------------------
@@ -42,13 +43,13 @@ def get_user_profile():
     if user:
         return jsonify({
             'bio': user.bio,
-            'profilePic': user.profilePic,
+            'profile_image': user.profilePic,
             'gallery': user.gallery or []
         })
     else:
         return jsonify({
             'bio': '',
-            'profilePic': '',
+            'profile_image': '',
             'gallery': []
         })
 
@@ -59,9 +60,8 @@ def get_user_profile():
 def update_user_profile():
     data = request.get_json()
     uid = data.get('uid')
-    bio = data.get('bio')
-    profilePic = data.get('profilePic')
-    gallery = data.get('gallery')
+    profilePic = data.get('profile_image')
+    gallery = data.get('gallery_images')
 
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
