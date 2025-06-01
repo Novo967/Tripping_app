@@ -23,10 +23,8 @@ Session = sessionmaker(bind=engine)
 # מודל משתמש
 class User(Base):
     __tablename__ = 'users'
-    uid = Column(String, primary_key=True)
-    bio = Column(Text)
-    profilePic = Column(String)
-    gallery = Column(ARRAY(String))  # PostgreSQL ARRAY of image URLs
+    uid = Column('uid', String, primary_key=True)
+    profile_image = Column(String)
 engine = create_engine('postgresql://trippingappdb_user:mmH6sl3iPNTJyrVg9hfY2iQWLB8KK8gl@dpg-d0u17ge3jp1c73f7kk2g-a.oregon-postgres.render.com/trippingappdb')
 Base.metadata.create_all(engine)
 
@@ -41,15 +39,11 @@ def get_user_profile():
 
     if user:
         return jsonify({
-            'bio': user.bio,
             'profile_image': user.profilePic,
-            'gallery': user.gallery or []
         })
     else:
         return jsonify({
-            'bio': '',
             'profile_image': '',
-            'gallery': []
         })
 
 # ----------------------------
@@ -60,7 +54,6 @@ def update_user_profile():
     data = request.get_json()
     uid = data.get('uid')
     profilePic = data.get('profile_image')
-    gallery = data.get('gallery_images')
 
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
@@ -68,9 +61,7 @@ def update_user_profile():
     if not user:
         user = User(uid=uid)
 
-    user.bio = bio
     user.profilePic = profilePic
-    user.gallery = gallery
 
     session.add(user)
     session.commit()
