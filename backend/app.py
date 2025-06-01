@@ -61,7 +61,7 @@ def update_user_profile():
     if not user:
         user = User(uid=uid)
 
-    user.profile_image = profile_image
+    
 
     session.add(user)
     session.commit()
