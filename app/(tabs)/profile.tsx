@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import {
   doc,
@@ -16,7 +17,6 @@ import {
   View,
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
-
 
 const SERVER_URL = 'https://tripping-app.onrender.com';
 
@@ -73,6 +73,9 @@ export default function ProfileScreen() {
       } else {
         console.error('שגיאה בקבלת פרופיל:', await profileRes.text());
       }
+         // 🟦 שליפת הגלריה מהשרת
+      const galleryData = await fetchGallery(user.uid);
+      setGallery(galleryData);
     } catch (error) {
       console.error('שגיאה בשליחת או קבלת נתוני המשתמש:', error);
     } finally {
@@ -102,7 +105,6 @@ export default function ProfileScreen() {
     } as any);
     formData.append('uid', user.uid);
     formData.append('type', isProfilePic ? 'profile' : 'gallery');
-
     try {
       const response = await fetch(`${SERVER_URL}/upload-profile-image`, {
         method: 'POST',
@@ -191,8 +193,64 @@ export default function ProfileScreen() {
     console.log(error);
   }
 };
+const uploadGalleryImage = async (uid: string) => {
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 1,
+    allowsEditing: true,
+  });
 
+  if (!result.canceled) {
+    const localUri = result.assets[0].uri;
+    const formData = new FormData();
 
+    formData.append('image', {
+      uri: localUri,
+      name: `photo.jpg`,
+      type: 'image/jpeg',
+    } as any); // `as any` דרוש ב־React Native
+
+    formData.append('uid', uid);
+
+    try {
+      const response = await axios.post('https://tripping-app.onrender.com/upload-gallery-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      console.log('Uploaded:', response.data.url);
+      return response.data.url;
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
+  }
+};
+const fetchGallery = async (uid: string) => {
+  try {
+    const res = await axios.post('https://tripping-app.onrender.com/get-gallery', { uid });
+    return res.data.gallery; // מערך של URLים
+  } catch (error) {
+    console.error('Error fetching gallery:', error);
+    return [];
+  }
+};
+
+const GalleryScreen = ({ uid }: { uid: string }) => {
+  const [gallery, setGallery] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadGallery = async () => {
+      const images = await fetchGallery(uid);
+      setGallery(images);
+    };
+    loadGallery();
+  }, []);
+
+  const handleUpload = async () => {
+    const url = await uploadGalleryImage(uid);
+    if (url) {
+      setGallery((prev) => [url, ...prev]); // מציג מיידית
+    }
+  };
+}
   return (
     <View style={styles.container}>
       <FlatList
