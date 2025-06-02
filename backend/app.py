@@ -57,15 +57,12 @@ def update_user_profile():
     uid = data.get('uid')
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
-    user.profile_image = data.get('profile_image', user.profile_image)
-
     if not user:
         user = User(uid=uid)
-
     if profile_image is not None:
         user.profile_image = profile_image
-
     session.add(user)
+
     session.commit()
     return jsonify({'status': 'success'})
 
@@ -89,7 +86,12 @@ def upload_image():
     image_url = f"https://tripping-app.onrender.com/uploads/{filename}"
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
-    user.profile_image = image_url
+    if not user:
+        user = User(uid=uid, profile_image=image_url)
+    else:
+        user.profile_image = image_url
+    session.add(user)
+
     session.add(user)
     try:
         session.commit()
