@@ -29,7 +29,7 @@ class User(Base):
     __tablename__ = 'users'
     uid = Column('uid', String, primary_key=True)
     profile_image = Column(String)
-
+    gallery_images = relationship("GalleryImage", back_populates="user")
 class GalleryImage(Base):
     __tablename__ = 'gallery_images'
     id = Column(Integer, primary_key=True)
