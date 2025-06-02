@@ -6,6 +6,9 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import time
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
+
 # הגדרות בסיסיות
 app = Flask(__name__)
 CORS(app)
@@ -21,10 +24,19 @@ Base = declarative_base()
 Session = sessionmaker(bind=engine)
 
 # מודל משתמש
+
 class User(Base):
     __tablename__ = 'users'
     uid = Column('uid', String, primary_key=True)
     profile_image = Column(String)
+
+class GalleryImage(Base):
+    __tablename__ = 'gallery_images'
+    id = Column(Integer, primary_key=True)
+    uid = Column(String, ForeignKey('users.uid'))
+    image_url = Column(String)
+    user = relationship("User", backref="gallery_images")
+
 Base.metadata.create_all(engine)
 
 # ----------------------------
@@ -93,8 +105,15 @@ def upload_image():
     user = session.query(User).filter_by(uid=uid).first()
     if not user:
         user = User(uid=uid)
-    user.profile_image = image_url
-    session.add(user)
+    if image_type =='profile':
+        user.profile_image = image_url
+        session.add(user)
+    else:
+        gallery_image = GalleryImage(uid=uid, image_url=image_url)
+        session.add(gallery_image)
+    
+
+    
     try:
         session.commit()
     except Exception as e:
@@ -111,6 +130,42 @@ def upload_image():
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/upload-gallery-image', methods=['POST'])
+def upload_gallery_image():
+    file = request.files.get('image')
+    uid = request.form.get('uid')
+
+    if not file or not uid:
+        return jsonify({'error': 'Missing data'}), 400
+
+    filename = secure_filename(f"{uid}_gallery_{int(time.time())}.jpg")
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    image_url = f"https://tripping-app.onrender.com/uploads/{filename}"
+
+    session = Session()
+    try:
+        gallery_image = GalleryImage(uid=uid, image_url=image_url)
+        session.add(gallery_image)
+        session.commit()
+        return jsonify({'url': image_url})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+@app.route('/get-gallery', methods=['POST'])
+def get_gallery():
+    uid = request.json.get('uid')
+    session = Session()
+    try:
+        images = session.query(GalleryImage).filter_by(uid=uid).all()
+        urls = [img.image_url for img in images]
+        return jsonify({'gallery': urls})
+    finally:
+        session.close()
 
 # ----------------------------
 # 🚀 Run locally
