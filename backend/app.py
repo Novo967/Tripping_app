@@ -88,10 +88,7 @@ def upload_image():
     user = session.query(User).filter_by(uid=uid).first()
     if not user:
         user = User(uid=uid, profile_image=image_url)
-    else:
-        user.profile_image = image_url
-    session.add(user)
-
+    user.profile_image = image_url
     session.add(user)
     try:
         session.commit()
