@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Text, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-
+import time
 # הגדרות בסיסיות
 app = Flask(__name__)
 CORS(app)
@@ -81,9 +81,8 @@ def upload_image():
     filename = secure_filename(f"{uid}_{image_type}_{file.filename}")
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
-
-    # יצירת URL גישה ציבורי (בהנחה שאתה משרת מ /uploads/<filename>)
-    image_url = f"https://tripping-app.onrender.com/uploads/{filename}"
+    timestamp = int(time.time())  # מספר שניות מאז 1970
+    image_url = f"https://tripping-app.onrender.com/uploads/{filename}?v={timestamp}"
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
     if not user:
