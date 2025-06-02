@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker
 import time
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, ForeignKey, DateTime
+from datetime import datetime
 
 # הגדרות בסיסיות
 app = Flask(__name__)
@@ -27,15 +29,22 @@ Session = sessionmaker(bind=engine)
 
 class User(Base):
     __tablename__ = 'users'
-    uid = Column('uid', String, primary_key=True)
-    profile_image = Column(String)
-    gallery_images = relationship("GalleryImage", back_populates="user")
+
+    id = Column(String, primary_key=True)
+    email = Column(String, unique=True, nullable=False)
+    name = Column(String)
+
+    gallery_images = relationship("GalleryImage", back_populates="user")  # ✅ תואם ל-GalleryImage
+
 class GalleryImage(Base):
     __tablename__ = 'gallery_images'
-    id = Column(Integer, primary_key=True)
-    uid = Column(String, ForeignKey('users.uid'))
-    image_url = Column(String)
-    user = relationship("User", backref="gallery_images")
+
+    id = Column(String, primary_key=True)
+    uid = Column(String, ForeignKey('users.id'), nullable=False)
+    image_url = Column(String, nullable=False)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="gallery_images")  # ✅ תואם ל-User
 
 Base.metadata.create_all(engine)
 
