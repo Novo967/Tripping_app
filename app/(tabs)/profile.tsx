@@ -26,69 +26,75 @@ export default function ProfileScreen() {
   const [gallery, setGallery] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-  const syncUserToBackend = async () => {
+  // הפונקציה לתפיסת הגלריה מהשרת - מחוץ לכל פונקציה אחרת
+  const fetchGallery = async (uid: string) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.log('משתמש לא מחובר');
-        setLoading(false);
-        return;
-      }
-
-      // שולח את פרטי המשתמש לשרת (עדכון)
-      const userData = {
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.displayName || '',
-        
-      };
-
-      const updateRes = await fetch(`${SERVER_URL}/update-user-profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-      });
-
-      if (!updateRes.ok) {
-        console.error('עדכון המשתמש נכשל', await updateRes.text());
-      } else {
-        console.log('המשתמש עודכן בשרת בהצלחה');
-      }
-
-      // מקבל את תמונת הפרופיל והגלריה מהשרת
-      const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: user.uid }),
-      });
-      
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        if (data.profile_image) {
-          setProfilePic(data.profile_image);
-          
-        }
-        console.log("profile image: " + data.profile_image);
-      } else {
-        console.error('שגיאה בקבלת פרופיל:', await profileRes.text());
-      }
-         // 🟦 שליפת הגלריה מהשרת
-      const galleryData = await fetchGallery(user.uid);
-      setGallery(galleryData);
+      const res = await axios.post(`${SERVER_URL}/get-gallery`, { uid });
+      return res.data.gallery;
     } catch (error) {
-      console.error('שגיאה בשליחת או קבלת נתוני המשתמש:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching gallery:', error);
+      return [];
     }
   };
 
-  syncUserToBackend();
-}, []);
+  useEffect(() => {
+    const syncUserToBackend = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          console.log('משתמש לא מחובר');
+          setLoading(false);
+          return;
+        }
 
+        // שולח את פרטי המשתמש לשרת (עדכון)
+        const userData = {
+          uid: user.uid,
+          email: user.email || '',
+          displayName: user.displayName || '',
+        };
 
-  
+        const updateRes = await fetch(`${SERVER_URL}/update-user-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userData),
+        });
 
+        if (!updateRes.ok) {
+          console.error('עדכון המשתמש נכשל', await updateRes.text());
+        } else {
+          console.log('המשתמש עודכן בשרת בהצלחה');
+        }
+
+        // מקבל את תמונת הפרופיל מהשרת
+        const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: user.uid }),
+        });
+
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          if (data.profile_image) {
+            setProfilePic(data.profile_image);
+          }
+          console.log("profile image: " + data.profile_image);
+        } else {
+          console.error('שגיאה בקבלת פרופיל:', await profileRes.text());
+        }
+
+        // 🟦 שליפת הגלריה מהשרת
+        const galleryData = await fetchGallery(user.uid);
+        setGallery(galleryData);
+      } catch (error) {
+        console.error('שגיאה בשליחת או קבלת נתוני המשתמש:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    syncUserToBackend();
+  }, []);
 
   const uploadImageToServer = async (uri: string, isProfilePic = false) => {
     const user = auth.currentUser;
@@ -159,98 +165,73 @@ export default function ProfileScreen() {
       </View>
     );
   }
-// שמירת הטקסטים בפרופיל בלבד
+
+  // שמירת הטקסטים בפרופיל בלבד
   const saveProfile = async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      Alert.alert('שגיאה', 'משתמש לא מחובר');
-      return;
-    }
-
-    // שמירה בפיירבייס
-    await setDoc(
-      doc(db, 'users', user.uid),
-      { bio },
-      { merge: true }
-    );
-
-    // שליחה לשרת Flask שלך
-    await fetch('https://tripping-app.onrender.com/update-user-profile', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        uid: user.uid,
-        bio: bio,
-      }),
-    });
-
-    Alert.alert('הפרופיל נשמר בהצלחה!');
-  } catch (error) {
-    Alert.alert('שגיאה', 'לא הצלחנו לשמור את הפרופיל.');
-    console.log(error);
-  }
-};
-const uploadGalleryImage = async (uid: string) => {
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 1,
-    allowsEditing: true,
-  });
-
-  if (!result.canceled) {
-    const localUri = result.assets[0].uri;
-    const formData = new FormData();
-
-    formData.append('image', {
-      uri: localUri,
-      name: `photo.jpg`,
-      type: 'image/jpeg',
-    } as any); // `as any` דרוש ב־React Native
-
-    formData.append('uid', uid);
-
     try {
-      const response = await axios.post('https://tripping-app.onrender.com/upload-gallery-image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('שגיאה', 'משתמש לא מחובר');
+        return;
+      }
+
+      // שמירה בפיירבייס
+      await setDoc(
+        doc(db, 'users', user.uid),
+        { bio },
+        { merge: true }
+      );
+
+      // שליחה לשרת Flask שלך
+      await fetch('https://tripping-app.onrender.com/update-user-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: user.uid,
+          bio: bio,
+        }),
       });
-      console.log('Uploaded:', response.data.url);
-      return response.data.url;
+
+      Alert.alert('הפרופיל נשמר בהצלחה!');
     } catch (error) {
-      console.error('Upload failed:', error);
-    }
-  }
-};
-const fetchGallery = async (uid: string) => {
-  try {
-    const res = await axios.post('https://tripping-app.onrender.com/get-gallery', { uid });
-    return res.data.gallery; // מערך של URLים
-  } catch (error) {
-    console.error('Error fetching gallery:', error);
-    return [];
-  }
-};
-
-const GalleryScreen = ({ uid }: { uid: string }) => {
-  const [gallery, setGallery] = useState<string[]>([]);
-
-  useEffect(() => {
-    const loadGallery = async () => {
-      const images = await fetchGallery(uid);
-      setGallery(images);
-    };
-    loadGallery();
-  }, []);
-
-  const handleUpload = async () => {
-    const url = await uploadGalleryImage(uid);
-    if (url) {
-      setGallery((prev) => [url, ...prev]); // מציג מיידית
+      Alert.alert('שגיאה', 'לא הצלחנו לשמור את הפרופיל.');
+      console.log(error);
     }
   };
-}
+
+  const uploadGalleryImage = async (uid: string) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+      allowsEditing: true,
+    });
+
+    if (!result.canceled) {
+      const localUri = result.assets[0].uri;
+      const formData = new FormData();
+
+      formData.append('image', {
+        uri: localUri,
+        name: `photo.jpg`,
+        type: 'image/jpeg',
+      } as any); // `as any` דרוש ב־React Native
+
+      formData.append('uid', uid);
+
+      try {
+        const response = await axios.post('https://tripping-app.onrender.com/upload-gallery-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        console.log('Uploaded:', response.data.url);
+        return response.data.url;
+      } catch (error) {
+        console.error('Upload failed:', error);
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
       <FlatList

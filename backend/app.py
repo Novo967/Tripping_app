@@ -159,13 +159,21 @@ def upload_gallery_image():
 @app.route('/get-gallery', methods=['POST'])
 def get_gallery():
     uid = request.json.get('uid')
+    if not uid:
+        return jsonify({'error': 'Missing uid'}), 400
+
     session = Session()
     try:
         images = session.query(GalleryImage).filter_by(uid=uid).all()
-        urls = [img.image_url for img in images]
+        urls = [img.image_url for img in images]   # [] אם אין תמונות
         return jsonify({'gallery': urls})
+    except Exception as e:
+        session.rollback()
+        import traceback; print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
     finally:
         session.close()
+
 
 # ----------------------------
 # 🚀 Run locally
