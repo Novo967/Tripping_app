@@ -79,7 +79,8 @@ def upload_image():
         return jsonify({'error': 'Missing data'}), 400
 
     # שמירת הקובץ בשם קבוע לפי המשתמש והסוג
-    filename = secure_filename(f"{uid}_{image_type}.jpg")
+    import time
+    filename = secure_filename(f"{uid}_{image_type}_{int(time.time())}_{file.filename}")
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
 
