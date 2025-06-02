@@ -78,15 +78,20 @@ def upload_image():
     if not file or not uid:
         return jsonify({'error': 'Missing data'}), 400
 
-    filename = secure_filename(f"{uid}_{image_type}_{file.filename}")
+    # שמירת הקובץ בשם קבוע לפי המשתמש והסוג
+    filename = secure_filename(f"{uid}_{image_type}.jpg")
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
-    timestamp = int(time.time())  # מספר שניות מאז 1970
+
+    # הוספת timestamp ל-URL למניעת caching
+    timestamp = int(time.time())
     image_url = f"https://tripping-app.onrender.com/uploads/{filename}?v={timestamp}"
+
+    # עדכון במסד הנתונים
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
     if not user:
-        user = User(uid=uid, profile_image=image_url)
+        user = User(uid=uid)
     user.profile_image = image_url
     session.add(user)
     try:
@@ -95,8 +100,10 @@ def upload_image():
         session.rollback()
         print(f"Commit failed: {e}")
         return jsonify({'error': str(e)}), 500
-    return jsonify({'url': image_url})
+    finally:
+        session.close()
 
+    return jsonify({'url': image_url})
 # ----------------------------
 # 🟢 Static file serving
 # ----------------------------
