@@ -26,13 +26,11 @@ Base = declarative_base()
 Session = sessionmaker(bind=engine)
 
 # מודל משתמש
-
 class User(Base):
     __tablename__ = 'users'
-
     id = Column(String, primary_key=True)
-    email = Column(String, unique=True, nullable=False)
-    name = Column(String)
+    uid = Column('uid', String, primary_key=True)
+    profile_image = Column(String)
 
     gallery_images = relationship("GalleryImage", back_populates="user")  # ✅ תואם ל-GalleryImage
 
