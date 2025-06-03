@@ -10,7 +10,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, String, ForeignKey, DateTime
 from datetime import datetime
-
+import uuid
 # הגדרות בסיסיות
 app = Flask(__name__)
 CORS(app)
@@ -37,7 +37,7 @@ class User(Base):
 class GalleryImage(Base):
     __tablename__ = 'gallery_images'
 
-    id = Column(String, primary_key=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     uid = Column(String, ForeignKey('users.id'), nullable=False)
     image_url = Column(String, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
@@ -88,7 +88,7 @@ def update_user_profile():
 # ----------------------------
 # 🔴 UPLOAD IMAGE (PROFILE / GALLERY)
 # ----------------------------
-@app.route('/upload-profile-image', methods=['POST'])
+@app.route('/upload-image', methods=['POST'])
 def upload_image():
     file = request.files.get('image')
     uid = request.form.get('uid')
@@ -118,7 +118,7 @@ def upload_image():
         user.profile_image = image_url
         session.add(user)
     else:
-        gallery_image = GalleryImage(uid=uid, image_url=image_url)
+        gallery_image = GalleryImage(uid=uid, image_url=image_url, uploaded_at=datetime.utcnow())
         session.add(gallery_image)
     
 
