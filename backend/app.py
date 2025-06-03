@@ -140,27 +140,33 @@ def uploaded_file(filename):
 
 @app.route('/upload-gallery-image', methods=['POST'])
 def upload_gallery_image():
-    file = request.files.get('image')
-    uid = request.form.get('uid')
+    data = request.json
+    uid = data.get('uid')
+    image_url = data.get('image_url')
 
-    if not file or not uid:
-        return jsonify({'error': 'Missing data'}), 400
-
-    filename = secure_filename(f"{uid}_gallery_{int(time.time())}.jpg")
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-
-    image_url = f"https://tripping-app.onrender.com/uploads/{filename}"
+    if not uid or not image_url:
+        return jsonify({'error': 'Missing uid or image_url'}), 400
 
     session = Session()
     try:
-        gallery_image = GalleryImage(uid=uid, image_url=image_url)
-        session.add(gallery_image)
+        # ודא שהמשתמש קיים, ואם לא – צור אותו
+        user = session.query(User).filter_by(id=uid).first()
+        if not user:
+            user = User(id=uid, uid=uid, profile_image="")
+            session.add(user)
+            session.commit()
+
+        # הוסף את התמונה לגלריה
+        new_image = GalleryImage(uid=uid, image_url=image_url, uploaded_at=datetime.utcnow())
+        session.add(new_image)
         session.commit()
-        return jsonify({'url': image_url})
+
+        return jsonify({'message': 'Image uploaded successfully'}), 200
+
     except Exception as e:
         session.rollback()
         return jsonify({'error': str(e)}), 500
+
     finally:
         session.close()
 @app.route('/get-gallery', methods=['POST'])
