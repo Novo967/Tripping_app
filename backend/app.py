@@ -113,6 +113,7 @@ def upload_image():
     if not user:
         user = User(id=uid, uid=uid, profile_image="")
         session.add(user)
+        session.commit()
     if image_type =='profile':
         user.profile_image = image_url
         session.add(user)
