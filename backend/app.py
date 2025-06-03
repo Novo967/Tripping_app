@@ -111,7 +111,8 @@ def upload_image():
     session = Session()
     user = session.query(User).filter_by(uid=uid).first()
     if not user:
-        user = User(uid=uid)
+        user = User(id=uid, uid=uid, profile_image="")
+        session.add(user)
     if image_type =='profile':
         user.profile_image = image_url
         session.add(user)
