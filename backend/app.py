@@ -57,19 +57,20 @@ Base.metadata.create_all(engine)
 # ----------------------------
 @app.route('/get-user-profile', methods=['POST'])
 def get_user_profile():
-    uid = request.json.get('uid')
-    session = Session()
-    user = session.query(User).filter_by(uid=uid).first()
     data = request.get_json()
     print("Received data:", data)
+    uid = data.get('uid') if data else None
+    session = Session()
+    user = session.query(User).filter_by(uid=uid).first()
     if user:
-        return jsonify({
-            'profile_image': user.profile_image,
-        })
+        response = {
+            'profile_image': user.profile_image or '',
+        }
     else:
-        return jsonify({
-            'profile_image': '',
-        })
+        response = {'profile_image': ''}
+    print("Response JSON:", response)
+    return jsonify(response)
+
 
 # ----------------------------
 # 🟡 UPDATE USER PROFILE
