@@ -111,8 +111,9 @@ export default function ProfileScreen() {
     } as any);
     formData.append('uid', user.uid);
     formData.append('type', isProfilePic ? 'profile' : 'gallery');
+
     try {
-      const response = await fetch(`${SERVER_URL}/upload-profile-image`, {
+      const response = await fetch(`${SERVER_URL}/upload-image`, {
         method: 'POST',
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -201,36 +202,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const uploadGalleryImage = async (uid: string) => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
-      allowsEditing: true,
-    });
-
-    if (!result.canceled) {
-      const localUri = result.assets[0].uri;
-      const formData = new FormData();
-
-      formData.append('image', {
-        uri: localUri,
-        name: `photo.jpg`,
-        type: 'image/jpeg',
-      } as any); // `as any` דרוש ב־React Native
-
-      formData.append('uid', uid);
-
-      try {
-        const response = await axios.post('https://tripping-app.onrender.com/upload-gallery-image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        console.log('Uploaded:', response.data.url);
-        return response.data.url;
-      } catch (error) {
-        console.error('Upload failed:', error);
-      }
-    }
-  };
+ 
 
   return (
     <View style={styles.container}>
