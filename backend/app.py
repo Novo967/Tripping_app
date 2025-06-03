@@ -28,21 +28,27 @@ Session = sessionmaker(bind=engine)
 # מודל משתמש
 class User(Base):
     __tablename__ = 'users'
+
     id = Column(String, primary_key=True)
-    uid = Column('uid', String, primary_key=True)
+    uid = Column(String(128), unique=True, nullable=False)
     profile_image = Column(String)
 
-    gallery_images = relationship('GalleryImage', backref='user', lazy=True, foreign_keys='GalleryImage.uid', primaryjoin='User.uid==GalleryImage.uid')
+    gallery_images = relationship(
+        'GalleryImage',
+        back_populates='user',
+        foreign_keys='GalleryImage.uid',
+        primaryjoin='User.uid==GalleryImage.uid'
+    )
 
 class GalleryImage(Base):
     __tablename__ = 'gallery_images'
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    uid = Column(String, ForeignKey('users.uid'), nullable=False)
+    uid = Column(String(128), ForeignKey('users.uid'), nullable=False)
     image_url = Column(String, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
-    user = relationship("User", back_populates="gallery_images")  # ✅ תואם ל-User
+    user = relationship("User", back_populates="gallery_images")
 
 Base.metadata.create_all(engine)
 
