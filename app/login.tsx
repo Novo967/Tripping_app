@@ -1,10 +1,17 @@
 import { router } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Alert, Button, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth } from '.././firebaseConfig';
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { auth } from '../firebaseConfig';
 
-export default function LoginScreen({ navigation }: any) {
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -19,9 +26,12 @@ export default function LoginScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
+      <Text style={styles.logo}>Triping</Text>
       <Text style={styles.title}>התחברות</Text>
+
       <TextInput
         placeholder="אימייל"
+        placeholderTextColor="#999"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -30,32 +40,76 @@ export default function LoginScreen({ navigation }: any) {
       />
       <TextInput
         placeholder="סיסמה"
+        placeholderTextColor="#999"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
         style={styles.input}
       />
-      <Button title="התחבר" onPress={handleLogin} />
+
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>התחבר</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity onPress={() => router.push('/register')}>
-        <Text>אין לך חשבון? הרשם כאן</Text>
+        <Text style={styles.link}>אין לך חשבון? הרשם כאן</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
+const PRIMARY_COLOR = '#ff6600'; // כתום
+
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+  container: {
+    flex: 1,
+    backgroundColor: '#f0f2f5',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  logo: {
+    fontSize: 45,
+    fontWeight: 'bold',
+    color: PRIMARY_COLOR,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#000',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
   input: {
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
     borderWidth: 1,
-    borderColor: '#ccc',
-    marginBottom: 12,
-    padding: 10,
-    borderRadius: 8,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#000',
+    marginBottom: 15,
+    elevation: 2, // נותן עומק קל
+  },
+  button: {
+    backgroundColor: PRIMARY_COLOR,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   link: {
-    marginTop: 15,
-    color: 'blue',
     textAlign: 'center',
+    color: '#FF6B00',
+    textDecorationLine: 'underline',
+    fontSize: 14,
+    marginTop: 10,
   },
 });
