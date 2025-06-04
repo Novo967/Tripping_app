@@ -5,16 +5,18 @@ export default function Layout() {
   return (
     <Tabs
       screenOptions={({ route }) => ({
-        tabBarActiveTintColor: 'black',     // צבע אייקון פעיל
-        tabBarInactiveTintColor: '#FFA07A', // אפרסק (Peach)
+        tabBarActiveTintColor: 'black',
+        tabBarInactiveTintColor: '#FFA07A',
         tabBarStyle: {
           backgroundColor: 'white',
-          borderTopWidth: 0, // בלי קו תחתון כדי שלא יהיה בולט
-          elevation: 0, // לא בולט באנדרואיד
-          shadowOpacity: 0, // לא בולט ב-iOS
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          height: 50,
+          paddingBottom: 4,
         },
         tabBarIcon: ({ color, size }) => {
-          let iconName = '';
+          let iconName: keyof typeof Ionicons.glyphMap = 'home-outline'; // טיפוס מדויק
 
           if (route.name === 'chat') {
             iconName = 'chatbubble';
@@ -24,18 +26,19 @@ export default function Layout() {
             iconName = 'person';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={20} color={color} />;
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: '600',
+          marginTop: -2,
         },
         tabBarLabelPosition: 'below-icon',
       })}
     >
-      <Tabs.Screen name="chat" options={{ title: 'צ\'ט' , headerShown: false}} />
-      <Tabs.Screen name="home/index" options={{ title: 'בית' , headerShown: false}} />
-      <Tabs.Screen name="profile" options={{ title: 'פרופיל' , headerShown: false}} />
+      <Tabs.Screen name="chat" options={{ title: 'צ\'ט', headerShown: false }} />
+      <Tabs.Screen name="home/index" options={{ title: 'בית', headerShown: false }} />
+      <Tabs.Screen name="profile" options={{ title: 'פרופיל', headerShown: false }} />
     </Tabs>
   );
 }
