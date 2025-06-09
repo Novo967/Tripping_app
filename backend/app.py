@@ -214,6 +214,29 @@ def get_all_users():
         ]
     }
     return jsonify(response)
+@app.route('/update-user-location', methods=['POST'])
+def update_user_location():
+    data = request.get_json()
+    uid = data.get('uid')
+    lat = data.get('latitude')
+    lng = data.get('longitude')
+
+    session = Session()
+    try:
+        user = session.query(User).filter_by(uid=uid).first()
+        if user:
+            user.latitude = lat
+            user.longitude = lng
+            session.commit()
+            return jsonify({'status': 'ok'})
+        else:
+            return jsonify({'error': 'User not found'}), 404
+    except Exception as e:
+        session.rollback()
+        print('🔥 Error updating location:', e)
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
 
 # ----------------------------
 # 🚀 Run locally
