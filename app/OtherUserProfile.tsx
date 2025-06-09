@@ -24,7 +24,7 @@ const OtherUserProfile = () => {
       const res = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${uid}`);
       const data = await res.json();
 
-      setProfileImage(data.profile_image_url);
+      setProfileImage(data.profile_image);
       setGalleryImages(data.gallery_images || []);
 
       // קריאה ל-Firestore בשביל username
