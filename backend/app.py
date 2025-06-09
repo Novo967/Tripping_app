@@ -250,7 +250,7 @@ def get_other_user_profile():
     gallery_urls = [image.image_url for image in user.gallery_images]
 
     return jsonify({
-        'username': user.username,
+        'username': user.uid,
         'profile_image': user.profile_image,
         'gallery_images': gallery_urls
     })
