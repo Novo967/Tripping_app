@@ -242,8 +242,8 @@ def get_other_user_profile():
     uid = request.args.get('uid')
     if not uid:
         return jsonify({'error': 'uid is required'}), 400
-
-    user = db_session.query(User).filter_by(uid=uid).first()
+    session = Session()
+    user = session.query(User).filter_by(uid=uid).first()
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
