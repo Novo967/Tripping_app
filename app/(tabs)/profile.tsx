@@ -2,19 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    FlatList,
-    Image,
-    ListRenderItemInfo,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Image,
+  ListRenderItemInfo,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 
@@ -25,7 +25,7 @@ export default function ProfileScreen() {
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [gallery, setGallery] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [username, setUsername] = useState('');
   const navigation = useNavigation();
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -68,13 +68,12 @@ export default function ProfileScreen() {
           setLoading(false);
           return;
         }
-
+        
         const userData = {
           uid: user.uid,
           email: user.email || '',
           displayName: user.displayName || '',
         };
-
         const updateRes = await fetch(`${SERVER_URL}/update-user-profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -111,8 +110,18 @@ export default function ProfileScreen() {
         setLoading(false);
       }
     };
-
+    const fetchUsername = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setUsername(data.username || '');
+      }
+    }
+  };
     syncUserToBackend();
+    fetchUsername();
   }, []);
 
   const uploadImageToServer = async (uri: string, isProfilePic = false) => {
@@ -247,6 +256,9 @@ export default function ProfileScreen() {
               >
                 <Ionicons name="pencil" size={20} color="white" />
               </TouchableOpacity>
+            </View>
+            <View style={{ alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#444' }}>{username}</Text>
             </View>
 
             <View style={styles.galleryHeader}>
