@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
+import { auth } from '../../../firebaseConfig'; // או מהנתיב שלך לקובץ ההגדרות של Firebase
 
 interface User {
   uid: string;
@@ -34,26 +36,51 @@ export default function HomeScreen() {
   const [eventTitle, setEventTitle] = useState('');
   const [events, setEvents] = useState<Event[]>([]);
 
-  useEffect(() => {
-    setRegion({
-      latitude: 32.0853,
-      longitude: 34.7818,
-      latitudeDelta: 0.1,
-      longitudeDelta: 0.1,
-    });
+  // 🔁 כאן תכניס את ה־uid שלך או תביא אותו מ־Context בעתיד
+  const currentUser = auth.currentUser;
+  const uid = currentUser?.uid;
 
-    const fetchUsers = async () => {
+
+  useEffect(() => {
+    const getLocationAndFetchUsers = async () => {
       try {
-        const response = await fetch('https://triping-6.onrender.com/get-all-users');
+        // בקשת הרשאה
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setError('Permission to access location was denied');
+          return;
+        }
+
+        // קבלת מיקום נוכחי
+        const location = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = location.coords;
+
+        // עדכון אזור במפה
+        setRegion({
+          latitude,
+          longitude,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        });
+
+        // שליחת מיקום לשרת
+        await fetch('https://tripping-app.onrender.com/update-user-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, latitude, longitude }),
+        });
+
+        // שליפת משתמשים
+        const response = await fetch('https://tripping-app.onrender.com/get-all-users');
         const data = await response.json();
         setUsers(data.users);
       } catch (err) {
-        console.error('❌ Error fetching users:', err);
-        setError('Failed to load users');
+        console.error('❌ Error:', err);
+        setError('Failed to load data');
       }
     };
 
-    fetchUsers();
+    getLocationAndFetchUsers();
   }, []);
 
   const handleAddEvent = () => {

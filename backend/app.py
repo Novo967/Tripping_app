@@ -11,6 +11,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column, String, ForeignKey, DateTime
 from datetime import datetime
 import uuid
+from sqlalchemy import Float 
 # הגדרות בסיסיות
 app = Flask(__name__)
 CORS(app)
@@ -32,7 +33,8 @@ class User(Base):
     id = Column(String, primary_key=True)
     uid = Column(String(128), unique=True, nullable=False)
     profile_image = Column(String)
-
+    latitude = Column(Float)  # ✅ נכון!
+    longitude = Column(Float)  # אותו דבר
     gallery_images = relationship(
         'GalleryImage',
         back_populates='user',
