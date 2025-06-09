@@ -237,6 +237,23 @@ def update_user_location():
         return jsonify({'error': str(e)}), 500
     finally:
         session.close()
+@app.route('/get-other-user-profile', methods=['GET'])
+def get_other_user_profile():
+    uid = request.args.get('uid')
+    if not uid:
+        return jsonify({'error': 'uid is required'}), 400
+
+    user = db_session.query(User).filter_by(uid=uid).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    gallery_urls = [image.url for image in user.gallery]
+
+    return jsonify({
+        'username': user.username,
+        'profile_image': user.profile_image,
+        'gallery': gallery_urls
+    })
 
 # ----------------------------
 # 🚀 Run locally
