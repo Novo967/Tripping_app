@@ -252,7 +252,7 @@ def get_other_user_profile():
     return jsonify({
         'username': user.username,
         'profile_image': user.profile_image,
-        'gallery': gallery_urls
+        'gallery_images': gallery_urls
     })
 
 # ----------------------------
