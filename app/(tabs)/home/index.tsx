@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,8 +12,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Callout, Marker, Region } from 'react-native-maps';
 import { auth } from '../../../firebaseConfig'; // או מהנתיב שלך לקובץ ההגדרות של Firebase
+
+
+
 
 interface User {
   uid: string;
@@ -35,6 +39,8 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [eventTitle, setEventTitle] = useState('');
   const [events, setEvents] = useState<Event[]>([]);
+  const router = useRouter();
+
 
   // 🔁 כאן תכניס את ה־uid שלך או תביא אותו מ־Context בעתיד
   const currentUser = auth.currentUser;
@@ -126,7 +132,15 @@ export default function HomeScreen() {
             <View style={styles.markerContainer}>
               <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
             </View>
+            <Callout onPress={() => router.push(`/OtherUserProfile?uid=${user.uid}`)}>
+            <View style={styles.callout}>
+              <Text style={styles.calloutText}>{user.uid}</Text>
+              <Text style={styles.calloutLink}>🔎 Tap to view profile</Text>
+            </View>
+          </Callout>
+
           </Marker>
+
         ))}
         {events.map((event) => (
           <Marker
@@ -241,4 +255,21 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
   },
+  callout: {
+  backgroundColor: 'white',
+  padding: 8,
+  borderRadius: 8,
+  maxWidth: 150,
+  },
+  calloutText: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  calloutLink: {
+    color: 'blue',
+    textDecorationLine: 'underline',
+    fontSize: 12,
+  },
+
 });
