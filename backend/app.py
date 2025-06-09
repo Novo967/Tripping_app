@@ -196,6 +196,22 @@ def get_gallery():
     finally:
         session.close()
 
+@app.route('/get-all-users', methods=['GET'])
+def get_all_users():
+    session = Session()
+    users = session.query(User).all()
+    response = {
+        'users': [
+            {
+                'uid': user.uid,
+                'latitude': user.latitude,
+                'longitude': user.longitude,
+                'profile_image': user.profile_image or ''
+            }
+            for user in users if user.latitude and user.longitude
+        ]
+    }
+    return jsonify(response)
 
 # ----------------------------
 # 🚀 Run locally
