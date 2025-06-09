@@ -45,6 +45,7 @@ export default function HomeScreen() {
   // 🔁 כאן תכניס את ה־uid שלך או תביא אותו מ־Context בעתיד
   const currentUser = auth.currentUser;
   const uid = currentUser?.uid;
+  
 
 
   useEffect(() => {
