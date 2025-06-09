@@ -15,9 +15,21 @@ import { auth, db } from '../firebaseConfig';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleRegister = async () => {
+    if (!email || !username || !password || !confirmPassword) {
+      Alert.alert('שגיאה', 'נא למלא את כל השדות');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('שגיאה', 'הסיסמאות אינן תואמות');
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -25,12 +37,13 @@ export default function RegisterScreen() {
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email,
         uid: user.uid,
+        username: username,
         createdAt: new Date(),
       });
 
       router.push('/(tabs)/home');
     } catch (error: any) {
-      Alert.alert('Registration Failed', error.message);
+      Alert.alert('נכשל ברישום', error.message);
     }
   };
 
@@ -38,6 +51,15 @@ export default function RegisterScreen() {
     <View style={styles.container}>
       <Text style={styles.appTitle}>Triping</Text>
       <Text style={styles.title}>הרשמה</Text>
+
+      <TextInput
+        placeholder="שם משתמש"
+        placeholderTextColor="#888"
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+        style={styles.input}
+      />
 
       <TextInput
         placeholder="אימייל"
@@ -54,6 +76,15 @@ export default function RegisterScreen() {
         placeholderTextColor="#888"
         value={password}
         onChangeText={setPassword}
+        secureTextEntry
+        style={styles.input}
+      />
+
+      <TextInput
+        placeholder="אימות סיסמה"
+        placeholderTextColor="#888"
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
         secureTextEntry
         style={styles.input}
       />
