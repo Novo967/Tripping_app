@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
-import {
-  doc,
-  setDoc
-} from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
+  ListRenderItemInfo,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -26,8 +26,30 @@ export default function ProfileScreen() {
   const [gallery, setGallery] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // הפונקציה לתפיסת הגלריה מהשרת - מחוץ לכל פונקציה אחרת
-  const fetchGallery = async (uid: string) => {
+  const navigation = useNavigation();
+
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const fadeOutAndLogout = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(async () => {
+      try {
+        await auth.signOut();
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+      } catch (error) {
+        Alert.alert('שגיאה', 'לא הצלחנו להתנתק');
+        fadeAnim.setValue(1);
+      }
+    });
+  };
+
+  const fetchGallery = async (uid: string): Promise<string[]> => {
     try {
       const res = await axios.post(`${SERVER_URL}/get-gallery`, { uid });
       return res.data.gallery;
@@ -47,7 +69,6 @@ export default function ProfileScreen() {
           return;
         }
 
-        // שולח את פרטי המשתמש לשרת (עדכון)
         const userData = {
           uid: user.uid,
           email: user.email || '',
@@ -66,7 +87,6 @@ export default function ProfileScreen() {
           console.log('המשתמש עודכן בשרת בהצלחה');
         }
 
-        // מקבל את תמונת הפרופיל מהשרת
         const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -83,7 +103,6 @@ export default function ProfileScreen() {
           console.error('שגיאה בקבלת פרופיל:', await profileRes.text());
         }
 
-        // 🟦 שליפת הגלריה מהשרת
         const galleryData = await fetchGallery(user.uid);
         setGallery(galleryData);
       } catch (error) {
@@ -108,7 +127,8 @@ export default function ProfileScreen() {
       uri,
       name: 'image.jpg',
       type: 'image/jpeg',
-    } as any);
+    } as unknown as Blob); // לעיתים צריך להקפיד על טיפוס נכון
+
     formData.append('uid', user.uid);
     formData.append('type', isProfilePic ? 'profile' : 'gallery');
 
@@ -116,7 +136,7 @@ export default function ProfileScreen() {
       const response = await fetch(`${SERVER_URL}/upload-image`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
+          // לא מוסיפים כאן 'Content-Type': 'multipart/form-data' כי fetch מגדיר את זה אוטומטית עם boundary
         },
         body: formData,
       });
@@ -149,7 +169,7 @@ export default function ProfileScreen() {
         quality: 0.8,
       });
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets.length > 0) {
         const uri = result.assets[0].uri;
         await uploadImageToServer(uri, isProfilePic);
       }
@@ -167,7 +187,6 @@ export default function ProfileScreen() {
     );
   }
 
-  // שמירת הטקסטים בפרופיל בלבד
   const saveProfile = async () => {
     try {
       const user = auth.currentUser;
@@ -176,19 +195,11 @@ export default function ProfileScreen() {
         return;
       }
 
-      // שמירה בפיירבייס
-      await setDoc(
-        doc(db, 'users', user.uid),
-        { bio },
-        { merge: true }
-      );
+      await setDoc(doc(db, 'users', user.uid), { bio }, { merge: true });
 
-      // שליחה לשרת Flask שלך
-      await fetch('https://tripping-app.onrender.com/update-user-profile', {
+      await fetch(`${SERVER_URL}/update-user-profile`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           uid: user.uid,
           bio: bio,
@@ -202,13 +213,23 @@ export default function ProfileScreen() {
     }
   };
 
- 
+  const renderGalleryItem = ({ item }: ListRenderItemInfo<string>) => (
+    <Image source={{ uri: item }} style={styles.galleryImage} />
+  );
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <TouchableOpacity
+        onPress={fadeOutAndLogout}
+        style={styles.logoutButton}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="log-out-outline" size={24} color="#FF6F00" />
+      </TouchableOpacity>
+
       <FlatList
         data={gallery}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(_, index) => index.toString()}
         numColumns={3}
         ListHeaderComponent={
           <>
@@ -230,79 +251,81 @@ export default function ProfileScreen() {
 
             <View style={styles.galleryHeader}>
               <Text style={styles.galleryTitle}>הגלריה שלך</Text>
-              <TouchableOpacity onPress={() => pickImage(false)} style={styles.plusButton}>
+              <TouchableOpacity
+                onPress={() => pickImage(false)}
+                style={styles.plusButton}
+              >
                 <Ionicons name="add" size={24} color="#007AFF" />
               </TouchableOpacity>
             </View>
           </>
         }
-        renderItem={({ item }) => (
-          <Image source={{ uri: item }} style={styles.galleryImage} />
-        )}
+        renderItem={renderGalleryItem}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
+    backgroundColor: '#fdfdfd',
+    padding: 20,
   },
   center: {
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logoutButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+  },
   profilePicContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
+    alignSelf: 'center',
+    marginBottom: 20,
     position: 'relative',
   },
   profilePic: {
     width: 120,
     height: 120,
     borderRadius: 60,
+    backgroundColor: '#eee',
   },
   placeholder: {
-    backgroundColor: '#eee',
     justifyContent: 'center',
     alignItems: 'center',
   },
   editIcon: {
     position: 'absolute',
     bottom: 0,
-    right: '35%',
-    backgroundColor: '#007AFF',
+    right: 0,
+    backgroundColor: '#FF6F00',
     borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 6,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: 'white',
   },
   galleryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginVertical: 12,
+    marginBottom: 10,
   },
   galleryTitle: {
+    flex: 1,
     fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'right',
+    fontWeight: '600',
+    color: '#333',
   },
   plusButton: {
     padding: 6,
-    borderRadius: 20,
-    backgroundColor: '#eaf4ff',
   },
   galleryImage: {
-    width: 100,
-    height: 100,
-    margin: 4,
+    width: '31%',
+    aspectRatio: 1,
+    margin: '1%',
     borderRadius: 8,
   },
 });
