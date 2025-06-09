@@ -1,100 +1,96 @@
-import * as Location from 'expo-location';
-import { getAuth } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 
-export default function HomeScreen() {
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [region, setRegion] = useState<Region | null>(null);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+interface User {
+  uid: string;
+  latitude: number;
+  longitude: number;
+  profile_image: string;
+}
 
-  const auth = getAuth();
-  const uid = auth.currentUser?.uid;
-  console.log('UID:', uid);
+export default function HomeScreen() {
+  const [region, setRegion] = useState<Region | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      console.log('Location permission status:', status);
-      if (status !== 'granted') {
-        Alert.alert('אין הרשאה למיקום');
-        return;
+    // קביעת אזור התחלתי של המפה
+    setRegion({
+      latitude: 32.0853,  // דוגמה לת"א
+      longitude: 34.7818,
+      latitudeDelta: 0.1,
+      longitudeDelta: 0.1,
+    });
+
+    // שליפת כל המשתמשים עם מיקום ותמונה
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('https://triping-6.onrender.com/get-all-users');
+        const data = await response.json();
+        setUsers(data.users); // מצפה למבנה { users: [...] }
+      } catch (err) {
+        console.error('❌ Error fetching users:', err);
+        setError('Failed to load users');
       }
+    };
 
-      const loc = await Location.getCurrentPositionAsync({});
-      console.log('Current location:', loc);
-      setLocation(loc);
-
-      const newRegion = {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      };
-      console.log('Setting region:', newRegion);
-      setRegion(newRegion);
-    })();
+    fetchUsers();
   }, []);
 
-  useEffect(() => {
-  console.log('UID in useEffect:', uid);
-  if (!uid) return;
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Text>❌ Error: {error}</Text>
+      </View>
+    );
+  }
 
-  const fetchProfileImage = async () => {
-    try {
-      console.log('Starting fetch request...');
-      const res = await fetch('https://triping-6.onrender.com/get-user-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid }),
-      });
-      console.log('Fetch response status:', res.status);
-
-      const data = await res.json();
-      console.log('profile_image URL:', data.profile_image);
-      
-      let imageUrl = data.profile_image;
-      if (imageUrl && !imageUrl.startsWith('http')) {
-        imageUrl = `data:image/jpeg;base64,${imageUrl}`;
-      }
-      setProfileImage(imageUrl || null);
-    } catch (err) {
-      console.error('Error fetching profile image:', err);
-    }
-  };
-
-  fetchProfileImage();
-}, [uid]);
-
+  if (!region) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="blue" />
+        <Text>📡 Loading map...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>
-      {region && location ? (
-        <MapView style={{ flex: 1 }} region={region} showsUserLocation={true}>
-          {profileImage && (
-            <Marker
-              coordinate={{
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-              }}
-            >
+      <MapView style={{ flex: 1 }} region={region}>
+        {users.map((user) => (
+          <Marker
+            key={user.uid}
+            coordinate={{ latitude: user.latitude, longitude: user.longitude }}
+          >
+            <View style={styles.markerContainer}>
               <Image
-                source={{ uri: profileImage }}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  borderWidth: 2,
-                  borderColor: 'white',
-                }}
+                source={{ uri: user.profile_image }}
+                style={styles.profileMarker}
               />
-            </Marker>
-          )}
-        </MapView>
-      ) : (
-        <View />
-      )}
+            </View>
+          </Marker>
+        ))}
+      </MapView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  profileMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  markerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
