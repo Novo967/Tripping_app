@@ -247,7 +247,7 @@ def get_other_user_profile():
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
-    gallery_urls = [image.url for image in user.gallery_images]
+    gallery_urls = [image.image_url for image in user.gallery_images]
 
     return jsonify({
         'username': user.username,
