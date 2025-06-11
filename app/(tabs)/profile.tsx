@@ -8,17 +8,21 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   FlatList,
   Image,
   ListRenderItemInfo,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 
 const SERVER_URL = 'https://tripping-app.onrender.com';
+const { width } = Dimensions.get('window');
+const GALLERY_IMAGE_SIZE = (width - 60) / 3; // 3 columns with padding
 
 export default function ProfileScreen() {
   const [bio, setBio] = useState('');
@@ -26,6 +30,7 @@ export default function ProfileScreen() {
   const [gallery, setGallery] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
+  const [isEditingBio, setIsEditingBio] = useState(false);
   const navigation = useNavigation();
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -97,6 +102,9 @@ export default function ProfileScreen() {
           if (data.profile_image) {
             setProfilePic(data.profile_image);
           }
+          if (data.bio) {
+            setBio(data.bio);
+          }
           console.log("profile image: " + data.profile_image);
         } else {
           console.error('שגיאה בקבלת פרופיל:', await profileRes.text());
@@ -110,16 +118,18 @@ export default function ProfileScreen() {
         setLoading(false);
       }
     };
+
     const fetchUsername = async () => {
-    const user = auth.currentUser;
-    if (user) {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setUsername(data.username || '');
+      const user = auth.currentUser;
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUsername(data.username || '');
+        }
       }
-    }
-  };
+    };
+    
     syncUserToBackend();
     fetchUsername();
   }, []);
@@ -136,7 +146,7 @@ export default function ProfileScreen() {
       uri,
       name: 'image.jpg',
       type: 'image/jpeg',
-    } as unknown as Blob); // לעיתים צריך להקפיד על טיפוס נכון
+    } as unknown as Blob);
 
     formData.append('uid', user.uid);
     formData.append('type', isProfilePic ? 'profile' : 'gallery');
@@ -144,9 +154,6 @@ export default function ProfileScreen() {
     try {
       const response = await fetch(`${SERVER_URL}/upload-image`, {
         method: 'POST',
-        headers: {
-          // לא מוסיפים כאן 'Content-Type': 'multipart/form-data' כי fetch מגדיר את זה אוטומטית עם boundary
-        },
         body: formData,
       });
 
@@ -188,15 +195,7 @@ export default function ProfileScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  const saveProfile = async () => {
+  const saveBio = async () => {
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -215,15 +214,127 @@ export default function ProfileScreen() {
         }),
       });
 
-      Alert.alert('הפרופיל נשמר בהצלחה!');
+      setIsEditingBio(false);
+      Alert.alert('הביוגרפיה נשמרה בהצלחה!');
     } catch (error) {
-      Alert.alert('שגיאה', 'לא הצלחנו לשמור את הפרופיל.');
+      Alert.alert('שגיאה', 'לא הצלחנו לשמור את הביוגרפיה.');
       console.log(error);
     }
   };
 
-  const renderGalleryItem = ({ item }: ListRenderItemInfo<string>) => (
-    <Image source={{ uri: item }} style={styles.galleryImage} />
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#FF6F00" />
+      </View>
+    );
+  }
+
+  const renderGalleryItem = ({ item, index }: ListRenderItemInfo<string>) => (
+    <TouchableOpacity style={styles.galleryItemContainer}>
+      <Image source={{ uri: item }} style={styles.galleryImage} />
+      <View style={styles.imageOverlay}>
+        <Ionicons name="heart" size={16} color="white" />
+        <Ionicons name="chatbubble" size={16} color="white" style={{ marginLeft: 8 }} />
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      {/* Profile Picture Section */}
+      <View style={styles.profileSection}>
+        <View style={styles.profilePicContainer}>
+          {profilePic ? (
+            <Image source={{ uri: profilePic }} style={styles.profilePic} />
+          ) : (
+            <View style={[styles.profilePic, styles.placeholder]}>
+              <Ionicons name="person" size={40} color="#999" />
+            </View>
+          )}
+          <TouchableOpacity
+            onPress={() => pickImage(true)}
+            style={styles.editIcon}
+          >
+            <Ionicons name="camera" size={18} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{gallery.length}</Text>
+            <Text style={styles.statLabel}>פוסטים</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>2.1K</Text>
+            <Text style={styles.statLabel}>עוקבים</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>180</Text>
+            <Text style={styles.statLabel}>עוקב</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Username as Title */}
+      <View style={styles.usernameContainer}>
+        <Text style={styles.username}>{username || 'Solo Traveler'}</Text>
+        <Ionicons name="checkmark-circle" size={20} color="#FF6F00" style={{ marginLeft: 8 }} />
+      </View>
+
+      {/* Bio Section */}
+      <View style={styles.bioContainer}>
+        {isEditingBio ? (
+          <View>
+            <TextInput
+              style={styles.bioInput}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="ספר על עצמך, על החוויות שלך ועל היעדים הבאים..."
+              multiline
+              maxLength={150}
+              textAlignVertical="top"
+            />
+            <View style={styles.bioActions}>
+              <TouchableOpacity onPress={saveBio} style={styles.saveButton}>
+                <Text style={styles.saveButtonText}>שמור</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => setIsEditingBio(false)} 
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>ביטול</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={() => setIsEditingBio(true)} style={styles.bioDisplay}>
+            <Text style={styles.bioText}>
+              {bio || 'לחץ כאן כדי להוסיף תיאור עליך...'}
+            </Text>
+            <Ionicons name="pencil" size={16} color="#666" style={styles.bioEditIcon} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Gallery Header */}
+      <View style={styles.galleryHeader}>
+        <View style={styles.galleryTabs}>
+          <TouchableOpacity style={[styles.galleryTab, styles.activeTab]}>
+            <Ionicons name="grid" size={24} color="#FF6F00" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.galleryTab}>
+            <Ionicons name="bookmark" size={24} color="#999" />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={() => pickImage(false)}
+          style={styles.addPhotoButton}
+        >
+          <Ionicons name="add" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   return (
@@ -240,40 +351,10 @@ export default function ProfileScreen() {
         data={gallery}
         keyExtractor={(_, index) => index.toString()}
         numColumns={3}
-        ListHeaderComponent={
-          <>
-            <View style={styles.profilePicContainer}>
-              {profilePic ? (
-                <Image source={{ uri: profilePic }} style={styles.profilePic} />
-              ) : (
-                <View style={[styles.profilePic, styles.placeholder]}>
-                  <Text style={{ color: '#999' }}>אין תמונת פרופיל</Text>
-                </View>
-              )}
-              <TouchableOpacity
-                onPress={() => pickImage(true)}
-                style={styles.editIcon}
-              >
-                <Ionicons name="pencil" size={20} color="white" />
-              </TouchableOpacity>
-            </View>
-            <View style={{ alignItems: 'center', marginBottom: 10 }}>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#444' }}>{username}</Text>
-            </View>
-
-            <View style={styles.galleryHeader}>
-              <Text style={styles.galleryTitle}>הגלריה שלך</Text>
-              <TouchableOpacity
-                onPress={() => pickImage(false)}
-                style={styles.plusButton}
-              >
-                <Ionicons name="add" size={24} color="#007AFF" />
-              </TouchableOpacity>
-            </View>
-          </>
-        }
+        ListHeaderComponent={renderHeader}
         renderItem={renderGalleryItem}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={styles.flatListContent}
+        showsVerticalScrollIndicator={false}
       />
     </Animated.View>
   );
@@ -282,8 +363,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fdfdfd',
-    padding: 20,
+    backgroundColor: '#fafafa',
   },
   center: {
     justifyContent: 'center',
@@ -291,53 +371,186 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     position: 'absolute',
-    top: 20,
+    top: 50,
     right: 20,
     zIndex: 10,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  flatListContent: {
+    paddingTop: 60,
+  },
+  headerContainer: {
+    backgroundColor: 'white',
+    marginBottom: 1,
+  },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   profilePicContainer: {
-    alignSelf: 'center',
-    marginBottom: 20,
     position: 'relative',
+    marginRight: 30,
   },
   profilePic: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#eee',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#f0f0f0',
   },
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
   },
   editIcon: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: 2,
+    right: 2,
     backgroundColor: '#FF6F00',
-    borderRadius: 20,
-    padding: 6,
+    borderRadius: 12,
+    padding: 4,
     borderWidth: 2,
     borderColor: 'white',
+  },
+  statsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#262626',
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#8e8e8e',
+    marginTop: 2,
+  },
+  usernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  username: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#262626',
+  },
+  bioContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  bioDisplay: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    minHeight: 40,
+  },
+  bioText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  bioTextFilled: {
+    color: '#262626',
+  },
+  bioTextPlaceholder: {
+    color: '#8e8e8e',
+  },
+  bioEditIcon: {
+    marginLeft: 10,
+    marginTop: 2,
+  },
+  bioInput: {
+    borderWidth: 1,
+    borderColor: '#dbdbdb',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#262626',
+    minHeight: 80,
+    backgroundColor: '#fafafa',
+  },
+  bioActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  saveButton: {
+    backgroundColor: '#FF6F00',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  cancelButtonText: {
+    color: '#8e8e8e',
+    fontSize: 14,
   },
   galleryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#efefef',
   },
-  galleryTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+  galleryTabs: {
+    flexDirection: 'row',
   },
-  plusButton: {
-    padding: 6,
+  galleryTab: {
+    padding: 8,
+    marginRight: 20,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#FF6F00',
+  },
+  addPhotoButton: {
+    backgroundColor: '#FF6F00',
+    borderRadius: 20,
+    padding: 8,
+  },
+  galleryItemContainer: {
+    width: GALLERY_IMAGE_SIZE,
+    height: GALLERY_IMAGE_SIZE,
+    margin: 0.5,
+    position: 'relative',
   },
   galleryImage: {
-    width: '31%',
-    aspectRatio: 1,
-    margin: '1%',
-    borderRadius: 8,
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    opacity: 0.8,
   },
 });
