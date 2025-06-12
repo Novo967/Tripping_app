@@ -19,7 +19,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import MapView, { Callout, Marker, Region } from 'react-native-maps';
+import MapView, { Marker, Region } from 'react-native-maps';
 import { auth } from '../../../firebaseConfig';
 const { width, height } = Dimensions.get('window');
 
@@ -80,7 +80,8 @@ export default function HomeScreen() {
   // Location autocomplete states
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
-  
+  const [selectedUser, setSelectedUser] = useState(null);
+
   const router = useRouter();
   const currentUser = auth.currentUser;
   const uid = currentUser?.uid;
@@ -280,44 +281,44 @@ export default function HomeScreen() {
       <View style={styles.container}>
         <MapView style={styles.map} region={region}>
           {getVisibleUsers().map((user) => (
-            <Marker
+             <Marker
               key={user.uid}
               coordinate={{ latitude: user.latitude, longitude: user.longitude }}
+              onPress={() => setSelectedUser(user)}
             >
               <View style={styles.markerContainer}>
                 <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
-                <Text>{user.username || "משתמש"}</Text>
-              </View> 
-              <Callout onPress={() => router.push(`/OtherUserProfile?uid=${user.uid}`)}>
-                <View style={styles.callout}>
-                  <Text style={styles.calloutText}>{user.username || "משתמש"}</Text>
-                  
-                </View>
-              </Callout>
+                <Text style={styles.usernameLabel}>{user.username || 'משתמש'}</Text>
+              </View>
             </Marker>
 
           ))}
           
           {getVisibleEvents().map((event) => (
-            <Marker
-              key={event.id}
-              coordinate={{ latitude: event.latitude, longitude: event.longitude }}
+             <Marker
+              key={user.uid}
+              coordinate={{ latitude: user.latitude, longitude: user.longitude }}
+              onPress={() => setSelectedUser(user)}
             >
-              <View style={styles.eventMarker}>
-                <Ionicons name={getEventTypeIcon(event.type) as any} size={20} color="white" />
-              </View>
-              <Callout>
-                <View style={styles.eventCallout}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                  <Text style={styles.eventType}>{eventTypes.find(t => t.id === event.type)?.label}</Text>
-                  <Text style={styles.eventDate}>{event.date.toLocaleDateString('he-IL')}</Text>
-                  <Text style={styles.eventLocation}>{event.location}</Text>
-                  {event.description ? <Text style={styles.eventDescription}>{event.description}</Text> : null}
-                </View>
-              </Callout>
+              
+                <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
+                <Text style={styles.usernameLabel}>{user.username || 'משתמש'}</Text>
+             
             </Marker>
+
           ))}
         </MapView>
+        {selectedUser && (
+          <View style={styles.customCallout}>
+            <Text style={styles.calloutText}>{selectedUser.username || 'משתמש'}</Text>
+            <TouchableOpacity onPress={() => router.push(`/OtherUserProfile?uid=${selectedUser.uid}`)}>
+              <Text style={styles.calloutLink}>🔎 לחץ לצפייה בפרופיל</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setSelectedUser(null)}>
+              <Text style={{ color: 'gray', marginTop: 5 }}>❌ סגור</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Floating Buttons */}
         <View style={styles.floatingButtons}>
@@ -563,17 +564,21 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 10,
   },
-  profileMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: '#FFF',
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+ profileMarker: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  borderWidth: 2,
+  borderColor: '#fff',
+  backgroundColor: '#ccc',
+},
+
+ markerContainer: {
+  alignItems: 'center',
+  justifyContent: 'center',
+ 
+},
+
   eventMarker: {
     backgroundColor: '#FF6F00',
     width: 40,
@@ -754,21 +759,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 10,
     borderRadius: 10,
-    maxWidth: 1500,
+    maxWidth: 250,
     borderColor: '#FF6F00',
     borderWidth: 1,
   },
-  calloutText: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 4,
-    color: '#333',
-  },
-  calloutLink: {
-    color: '#FF6F00',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  
   eventCallout: {
     backgroundColor: 'white',
     padding: 12,
@@ -868,5 +863,33 @@ const styles = StyleSheet.create({
     maxWidth: 60,
     alignSelf: 'center',
   },
+  customCallout: {
+  position: 'absolute',
+  bottom: 100,
+  left: 20,
+  right: 20,
+  backgroundColor: 'white',
+  padding: 15,
+  borderRadius: 12,
+  borderColor: '#FF6F00',
+  borderWidth: 1,
+  shadowColor: '#000',
+  shadowOpacity: 0.3,
+  shadowOffset: { width: 0, height: 2 },
+  shadowRadius: 5,
+  elevation: 5,
+  alignItems: 'center',
+},
+calloutText: {
+  fontWeight: 'bold',
+  fontSize: 16,
+  color: '#000',
+},
+calloutLink: {
+  color: '#FF6F00',
+  fontSize: 14,
+  fontWeight: '600',
+  marginTop: 5,
+},
 
 });
