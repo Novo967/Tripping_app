@@ -21,7 +21,6 @@ import {
 } from 'react-native';
 import MapView, { Callout, Marker, Region } from 'react-native-maps';
 import { auth } from '../../../firebaseConfig';
-
 const { width, height } = Dimensions.get('window');
 
 interface User {
@@ -29,6 +28,7 @@ interface User {
   latitude: number;
   longitude: number;
   profile_image: string;
+   username: string;
 }
 
 interface Event {
@@ -110,7 +110,7 @@ export default function HomeScreen() {
       console.error('Error searching locations:', error);
     }
   };
-
+  
   // Handle location input change
   const handleLocationChange = (text: string) => {
     setEventLocation(text);
@@ -205,7 +205,7 @@ export default function HomeScreen() {
         setError('Failed to load data');
       }
     };
-
+    
     getLocationAndFetchUsers();
   }, []);
 
@@ -286,14 +286,16 @@ export default function HomeScreen() {
             >
               <View style={styles.markerContainer}>
                 <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
-              </View>
+                <Text>{user.username || "משתמש"}</Text>
+              </View> 
               <Callout onPress={() => router.push(`/OtherUserProfile?uid=${user.uid}`)}>
                 <View style={styles.callout}>
-                  <Text style={styles.calloutText}>{user.uid}</Text>
-                  <Text style={styles.calloutLink}>🔎 לחץ לצפייה בפרופיל</Text>
+                  <Text style={styles.calloutText}>{user.username || "משתמש"}</Text>
+                  
                 </View>
               </Callout>
             </Marker>
+
           ))}
           
           {getVisibleEvents().map((event) => (
@@ -566,7 +568,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 3,
-    borderColor: '#FF6F00',
+    borderColor: '#FFF',
   },
   markerContainer: {
     alignItems: 'center',
@@ -752,7 +754,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 10,
     borderRadius: 10,
-    maxWidth: 150,
+    maxWidth: 1500,
     borderColor: '#FF6F00',
     borderWidth: 1,
   },
@@ -855,4 +857,16 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'right',
   },
+  usernameLabel: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#333',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    paddingHorizontal: 4,
+    borderRadius: 4,
+    textAlign: 'center',
+    maxWidth: 60,
+    alignSelf: 'center',
+  },
+
 });

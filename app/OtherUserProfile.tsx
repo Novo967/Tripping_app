@@ -1,9 +1,11 @@
 // screens/OtherUserProfile.tsx
 
+import { Feather } from '@expo/vector-icons'; // אייקונים
 import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
 import { RootStackParamList } from './types';
 
@@ -17,40 +19,43 @@ const OtherUserProfile = () => {
   const [profileImage, setProfileImage] = useState('');
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
 
+  const router = useRouter();
+
   useEffect(() => {
-  const fetchUserData = async () => {
-    try {
-      // קריאה מ-Flask לגלריה ותמונת פרופיל
-      const res = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${uid}`);
-      const data = await res.json();
+    const fetchUserData = async () => {
+      try {
+        const res = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${uid}`);
+        const data = await res.json();
 
-      setProfileImage(data.profile_image);
-      setGalleryImages(data.gallery_images || []);
+        setProfileImage(data.profile_image);
+        setGalleryImages(data.gallery_images || []);
 
-      // קריאה ל-Firestore בשביל username
-      const userDocRef = doc(db, 'users', uid);
-      const userSnap = await getDoc(userDocRef);
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        setUsername(userData.username || '');
-      } else {
-        console.warn('No such user in Firestore!');
+        const userDocRef = doc(db, 'users', uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          setUsername(userData.username || '');
+        } else {
+          console.warn('No such user in Firestore!');
+        }
+      } catch (error) {
+        console.error('Error loading user profile:', error);
       }
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-    }
-  };
+    };
 
-  fetchUserData();
-}, [uid]);
-
+    fetchUserData();
+  }, [uid]);
 
   return (
     <View style={styles.container}>
+      {/* כפתור חזור לעמוד index */}
+      <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(tabs)/home')}>
+        <Feather name="arrow-right" size={28} color="#FFA500" />
+      </TouchableOpacity>
+
       <Image source={{ uri: profileImage }} style={styles.profileImage} />
       <Text style={styles.username}>{username}</Text>
 
-      
       <FlatList
         data={galleryImages}
         keyExtractor={(item, index) => index.toString()}
@@ -71,6 +76,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 32,
   },
+  backButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'transparent',
+    padding: 8,
+  },
   profileImage: {
     width: 120,
     height: 120,
@@ -80,10 +93,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginVertical: 12,
-  },
-  galleryTitle: {
-    fontSize: 18,
-    marginVertical: 8,
   },
   galleryImage: {
     width: 100,

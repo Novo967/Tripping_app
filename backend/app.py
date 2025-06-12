@@ -33,6 +33,7 @@ class User(Base):
     id = Column(String, primary_key=True)
     uid = Column(String(128), unique=True, nullable=False)
     profile_image = Column(String)
+    username = Column(String)
     latitude = Column(Float)  # ✅ נכון!
     longitude = Column(Float)  # אותו דבר
     gallery_images = relationship(
@@ -208,7 +209,8 @@ def get_all_users():
                 'uid': user.uid,
                 'latitude': user.latitude,
                 'longitude': user.longitude,
-                'profile_image': user.profile_image or ''
+                'profile_image': user.profile_image or '',
+                'username': user.username or ''
             }
             for user in users if user.latitude and user.longitude
         ]
@@ -220,13 +222,14 @@ def update_user_location():
     uid = data.get('uid')
     lat = data.get('latitude')
     lng = data.get('longitude')
-
+    username = data.get("username")
     session = Session()
     try:
         user = session.query(User).filter_by(uid=uid).first()
         if user:
             user.latitude = lat
             user.longitude = lng
+            user.username = username
             session.commit()
             return jsonify({'status': 'ok'})
         else:
