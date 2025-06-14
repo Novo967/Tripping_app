@@ -37,7 +37,7 @@ export default function DistanceFilterButton({ displayDistance, setDisplayDistan
           right: 0
         }}>
           <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>בחר מרחק להצגה</Text>
-          <Text style={{ fontSize: 24, color: '#FF6F00', marginBottom: 20 }}>{displayDistance} ק\"מ</Text>
+          <Text style={{ fontSize: 24, color: '#FF6F00', marginBottom: 20 }}>{displayDistance} קמ</Text>
           <Slider
             minimumValue={1}
             maximumValue={150}
@@ -49,8 +49,8 @@ export default function DistanceFilterButton({ displayDistance, setDisplayDistan
             style={{ width: '100%' }}
           />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 10 }}>
-            <Text>1 ק\"מ</Text>
-            <Text>150 ק\"מ</Text>
+            <Text>1 קמ</Text>
+            <Text>150 קמ</Text>
           </View>
           <TouchableOpacity
             onPress={() => setVisible(false)}
