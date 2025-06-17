@@ -139,6 +139,9 @@ def upload_image():
     # שמירת הקובץ בשם קבוע לפי המשתמש והסוג
     import time
     filename = secure_filename(f"{uid}_{image_type}_{int(time.time())}_{file.filename}")
+    if file.filename.lower().endswith('.heic'):
+        filename = filename.replace('.heic', '.jpg')
+
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
 
