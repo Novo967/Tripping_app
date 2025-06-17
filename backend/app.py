@@ -74,6 +74,31 @@ def get_user_profile():
     print("Response JSON:", response)
     return jsonify(response)
 
+@app.route('/register-user', methods=['POST'])
+def register_user():
+    data = request.get_json()
+    uid = data.get('uid')
+    email = data.get('email')
+    username = data.get('username')
+
+    if not uid or not email or not username:
+        return jsonify({'error': 'Missing data'}), 400
+
+    session = Session()
+    try:
+        existing_user = session.query(User).filter_by(uid=uid).first()
+        if existing_user:
+            return jsonify({'message': 'User already exists'}), 200
+
+        new_user = User(uid=uid, username=username)
+        session.add(new_user)
+        session.commit()
+        return jsonify({'message': 'User registered successfully'}), 200
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
 
 # ----------------------------
 # 🟡 UPDATE USER PROFILE
