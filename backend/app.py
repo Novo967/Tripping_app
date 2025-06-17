@@ -90,7 +90,11 @@ def register_user():
         if existing_user:
             return jsonify({'message': 'User already exists'}), 200
 
-        new_user = User(uid=uid, username=username)
+        new_user = User(
+            id=str(uuid.uuid4()),  # או id=uid אם זה מספיק לך
+            uid=uid,
+            username=username
+        )
         session.add(new_user)
         session.commit()
         return jsonify({'message': 'User registered successfully'}), 200

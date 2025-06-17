@@ -54,7 +54,7 @@ export default function RegisterScreen() {
     });
 
 
-      router.push('/(tabs)/home');
+    router.push('/(tabs)/home');
     } catch (error: any) {
       Alert.alert('נכשל ברישום', error.message);
     }
