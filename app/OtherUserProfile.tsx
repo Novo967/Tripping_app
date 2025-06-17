@@ -24,7 +24,7 @@ const OtherUserProfile = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const res = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${uid}`);
+        const res = await fetch(`https://tripping-new-app.onrender.com/get-other-user-profile?uid=${uid}`);
         const data = await res.json();
 
         setProfileImage(data.profile_image);

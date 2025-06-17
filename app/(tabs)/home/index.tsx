@@ -3,10 +3,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Image,
   Modal,
@@ -14,7 +14,7 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import AddEventButton from '../../MapButtons/AddEventButton';
@@ -43,7 +43,7 @@ export default function HomeScreen() {
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
   const fetchUsers = async () => {
-    const response = await fetch('https://tripping-app.onrender.com/get-all-users');
+    const response = await fetch('https://tripping-new-app.onrender.com/get-all-users');
     const data = await response.json();
     setUsers(data.users);
   };
@@ -139,32 +139,28 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <MapView style={styles.map} region={region}>
-        {getVisibleUsers().map((user) => (
-          <Marker
-            key={`user-${user.uid}`}
-            coordinate={{ latitude: user.latitude, longitude: user.longitude }}
-            onPress={() => setSelectedUser(user)}
-          >
-            <View style={styles.markerContainer}>
-              <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
-              <Text style={styles.usernameLabel}>{user.username || 'משתמש'}</Text>
-            </View>
-          </Marker>
-        ))}
-
-        {getVisibleEvents().map((event) => (
-          <Marker
-            key={`event-${event.id}`}
-            coordinate={{ latitude: event.latitude, longitude: event.longitude }}
-            onPress={() => Alert.alert('אירוע', `${event.title}\n${event.location}`)}
-          >
-            <View style={styles.eventMarker}>
-              <Ionicons name="calendar" size={20} color="white" />
-            </View>
-          </Marker>
-        ))}
+       {getVisibleUsers().map((user) => (
+             <Marker
+              key={user.uid}
+              coordinate={{ latitude: user.latitude, longitude: user.longitude }}
+              onPress={() => setSelectedUser(user)}
+            >
+                <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
+                <Text style={styles.usernameLabel}>{user.username || 'משתמש'}</Text>
+            </Marker>
+          ))}          
       </MapView>
-
+       {selectedUser && (
+          <View style={styles.customCallout}>
+            <Text style={styles.calloutText}>{selectedUser.username || 'משתמש'}</Text>
+            <TouchableOpacity onPress={() => router.push(`/OtherUserProfile?uid=${selectedUser.uid}`)}>
+              <Text style={styles.calloutLink}>🔎 לחץ לצפייה בפרופיל</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setSelectedUser(null)}>
+              <Text style={{ color: 'gray', marginTop: 5 }}>❌ סגור</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       <View style={styles.floatingButtons}>
         <TouchableOpacity
           style={styles.actionButton}
@@ -346,5 +342,32 @@ const styles = StyleSheet.create({
   shadowOpacity: 0.25,
   shadowRadius: 4,
 },
-
+customCallout: {
+  position: 'absolute',
+  bottom: 100,
+  left: 20,
+  right: 20,
+  backgroundColor: 'white',
+  padding: 15,
+  borderRadius: 12,
+  borderColor: '#FF6F00',
+  borderWidth: 1,
+  shadowColor: '#000',
+  shadowOpacity: 0.3,
+  shadowOffset: { width: 0, height: 2 },
+  shadowRadius: 5,
+  elevation: 5,
+  alignItems: 'center',
+},
+calloutText: {
+  fontWeight: 'bold',
+  fontSize: 16,
+  color: '#000',
+},
+calloutLink: {
+  color: '#FF6F00',
+  fontSize: 14,
+  fontWeight: '600',
+  marginTop: 5,
+},
 });
