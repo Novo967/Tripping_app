@@ -43,7 +43,7 @@ export default function HomeScreen() {
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
   const fetchUsers = async () => {
-    const response = await fetch('https://tripping-new-app.onrender.com/get-all-users');
+    const response = await fetch('https://tripping-app.onrender.com/get-all-users');
     const data = await response.json();
     setUsers(data.users);
   };
