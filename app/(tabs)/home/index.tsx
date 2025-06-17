@@ -46,6 +46,8 @@ export default function HomeScreen() {
     const response = await fetch('https://tripping-app.onrender.com/get-all-users');
     const data = await response.json();
     setUsers(data.users);
+    
+
   };
 
   const fetchLocation = async () => {

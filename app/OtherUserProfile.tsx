@@ -1,11 +1,18 @@
 // screens/OtherUserProfile.tsx
 
-import { Feather } from '@expo/vector-icons'; // אייקונים
+import { Feather } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { db } from '../firebaseConfig';
 import { RootStackParamList } from './types';
 
@@ -46,9 +53,15 @@ const OtherUserProfile = () => {
     fetchUserData();
   }, [uid]);
 
+  const handleSendMessage = () => {
+    router.push({
+      pathname: '/chatModal',
+      params: { otherUserId: uid, otherUsername: username, otherUserImage: profileImage },
+    });
+  };
+
   return (
     <View style={styles.container}>
-      {/* כפתור חזור לעמוד index */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(tabs)/home')}>
         <Feather name="arrow-right" size={28} color="#FFA500" />
       </TouchableOpacity>
@@ -60,10 +73,16 @@ const OtherUserProfile = () => {
         data={galleryImages}
         keyExtractor={(item, index) => index.toString()}
         numColumns={3}
+        contentContainerStyle={{ paddingBottom: 100 }}
         renderItem={({ item }) => (
           <Image source={{ uri: item }} style={styles.galleryImage} />
         )}
       />
+
+      {/* כפתור שלח הודעה */}
+      <TouchableOpacity style={styles.messageButton} onPress={handleSendMessage}>
+        <Text style={styles.messageButtonText}>שלח הודעה</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -99,5 +118,23 @@ const styles = StyleSheet.create({
     height: 100,
     margin: 4,
     borderRadius: 8,
+  },
+  messageButton: {
+    position: 'absolute',
+    bottom: 30,
+    backgroundColor: '#FFA500',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  messageButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
