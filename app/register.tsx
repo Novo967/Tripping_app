@@ -18,7 +18,7 @@ export default function RegisterScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-
+  
   const handleRegister = async () => {
     if (!email || !username || !password || !confirmPassword) {
       Alert.alert('שגיאה', 'נא למלא את כל השדות');
@@ -40,6 +40,19 @@ export default function RegisterScreen() {
         username: username,
         createdAt: new Date(),
       });
+
+      await fetch('https://tripping-app.onrender.com/register-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        username: username,
+      }),
+    });
+
 
       router.push('/(tabs)/home');
     } catch (error: any) {
