@@ -19,9 +19,11 @@ const ProfileImage: React.FC<Props> = ({
 }) => {
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+        base64: false,
+        exif: false,
     });
 
     if (!result.canceled && result.assets.length > 0) {
