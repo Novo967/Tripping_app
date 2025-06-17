@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 
-const SERVER_URL = 'https://tripping-new-app.onrender.com';
+const SERVER_URL = 'https://tripping-app.onrender.com';
 const { width } = Dimensions.get('window');
 const GALLERY_IMAGE_SIZE = (width - 60) / 3; // 3 columns with padding
 
