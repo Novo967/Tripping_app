@@ -251,14 +251,12 @@ def update_user_location():
     uid = data.get('uid')
     lat = data.get('latitude')
     lng = data.get('longitude')
-    username = data.get("username")
     session = Session()
     try:
         user = session.query(User).filter_by(uid=uid).first()
         if user:
             user.latitude = lat
             user.longitude = lng
-            user.username = username
             session.commit()
             return jsonify({'status': 'ok'})
         else:
