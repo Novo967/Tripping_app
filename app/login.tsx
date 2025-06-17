@@ -1,3 +1,4 @@
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
@@ -10,14 +11,38 @@ import {
   View,
 } from 'react-native';
 import { auth } from '../firebaseConfig';
-
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // בקשת הרשאה למיקום
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('שגיאה', 'אין הרשאה לגשת למיקום');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      // שליחת מיקום לשרת
+      await fetch('https://tripping-app.onrender.com/update-user-location', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: user.uid,
+          latitude,
+          longitude,
+        }),
+      });
+
       router.push('/(tabs)/home');
     } catch (error: any) {
       Alert.alert('Login Failed', error.message);

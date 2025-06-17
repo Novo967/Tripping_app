@@ -1,3 +1,4 @@
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -12,7 +13,6 @@ import {
   View,
 } from 'react-native';
 import { auth, db } from '../firebaseConfig';
-
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -52,7 +52,21 @@ export default function RegisterScreen() {
         username: username,
       }),
     });
+    const location = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = location.coords;
 
+     await fetch('https://tripping-app.onrender.com/update-user-location', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        uid: user.uid,
+        latitude: latitude, // או ערכים אמיתיים אם זמינים
+        longitude: longitude,
+        username: username,
+      }),
+    });
 
     router.push('/(tabs)/home');
     } catch (error: any) {
