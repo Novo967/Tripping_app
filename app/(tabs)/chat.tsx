@@ -2,12 +2,10 @@ import { router } from 'expo-router';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
   collection,
-  doc,
-  getDoc,
   getDocs,
   limit,
   orderBy,
-  query,
+  query
 } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
@@ -50,51 +48,55 @@ const ChatsList = () => {
     if (!user?.uid) return;
 
     const loadChats = async () => {
-      try {
-        const chatsSnapshot = await getDocs(collection(db, 'chats'));
-        const chatList: ChatItem[] = [];
+  try {
+    const chatsSnapshot = await getDocs(collection(db, 'chats'));
+    const chatList: ChatItem[] = [];
 
-        for (const chatDoc of chatsSnapshot.docs) {
-          const chatId = chatDoc.id;
-          const messagesRef = collection(db, 'chats', chatId, 'messages');
-          const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
-          const lastMsgSnapshot = await getDocs(lastMsgQuery);
+    for (const chatDoc of chatsSnapshot.docs) {
+      const chatId = chatDoc.id;
+      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
+      const lastMsgSnapshot = await getDocs(lastMsgQuery);
 
-          if (lastMsgSnapshot.empty) continue;
+      if (lastMsgSnapshot.empty) continue;
 
-          const msg = lastMsgSnapshot.docs[0].data();
-          const { senderId, receiverId, text } = msg;
+      const msg = lastMsgSnapshot.docs[0].data();
+      const { senderId, receiverId, text } = msg;
 
-          const otherUserId = senderId === user.uid ? receiverId : senderId;
+      // ✅ סינון: נמשיך רק אם המשתמש המחובר מעורב בצ'אט
+      if (senderId !== user.uid && receiverId !== user.uid) continue;
 
-          const userDoc = await getDoc(doc(db, 'users', otherUserId));
-          const userData = userDoc.data();
+      const otherUserId = senderId === user.uid ? receiverId : senderId;
 
-          if (!userData) continue;
+      const response = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${otherUserId}`);
+      if (!response.ok) continue;
 
-          chatList.push({
-            chatId,
-            otherUserId,
-            otherUsername: userData.username || 'Unknown',
-            otherUserImage: userData.profileImage || '',
-            lastMessage: text || '',
-          });
-        }
+      const userData = await response.json();
 
-        setChats(chatList);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading chats:', error);
-        setLoading(false);
-      }
-    };
+      chatList.push({
+        chatId,
+        otherUserId,
+        otherUsername: userData.username || 'משתמש',
+        otherUserImage: userData.profile_image || '',
+        lastMessage: text || '',
+      });
+    }
+
+    setChats(chatList);
+    setLoading(false);
+  } catch (error) {
+    console.error('Error loading chats:', error);
+    setLoading(false);
+  }
+};
+
 
     loadChats();
   }, [user]);
 
   const openChat = (chat: ChatItem) => {
     router.push({
-      pathname: '/chatModal',
+      pathname: '/Chats/chatModal',
       params: {
         otherUserId: chat.otherUserId,
         otherUsername: chat.otherUsername,
