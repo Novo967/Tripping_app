@@ -1,6 +1,16 @@
 import { useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import {
+    addDoc,
+    collection,
+    doc,
+    getDoc,
+    onSnapshot,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc,
+} from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     FlatList,
@@ -50,10 +60,22 @@ const ChatModal = () => {
   }, [chatId]);
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !currentUid) return;
 
+    // שלב 1: בדוק אם מסמך הצ'אט קיים
+    const chatDocRef = doc(db, 'chats', chatId);
+    const chatDocSnap = await getDoc(chatDocRef);
+
+    if (!chatDocSnap.exists()) {
+      // צור את הצ'אט אם לא קיים
+      await setDoc(chatDocRef, {
+        participants: [currentUid, otherUserId],
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    // שלב 2: שליחת ההודעה
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-
     await addDoc(messagesRef, {
       text: input.trim(),
       senderId: currentUid,
@@ -118,6 +140,7 @@ const ChatModal = () => {
 };
 
 export default ChatModal;
+
 
 const styles = StyleSheet.create({
   container: {
