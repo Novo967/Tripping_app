@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { auth, db } from '../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -120,7 +120,7 @@ export default function RegisterScreen() {
         <Text style={styles.buttonText}>הירשם</Text>
       </Pressable>
 
-      <TouchableOpacity onPress={() => router.push('/login')}>
+      <TouchableOpacity onPress={() => router.push('/Authentication/login')}>
         <Text style={styles.link}>כבר יש לך חשבון? התחבר כאן</Text>
       </TouchableOpacity>
     </View>

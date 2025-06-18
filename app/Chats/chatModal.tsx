@@ -1,31 +1,31 @@
 import { useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
-    addDoc,
-    collection,
-    doc,
-    getDoc,
-    onSnapshot,
-    orderBy,
-    query,
-    serverTimestamp,
-    setDoc,
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    FlatList,
-    Image,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
-import { db } from '../firebaseConfig';
+import { db } from '../../firebaseConfig';
 
 const ChatModal = () => {
   const { otherUserId, otherUsername, otherUserImage } = useLocalSearchParams<{

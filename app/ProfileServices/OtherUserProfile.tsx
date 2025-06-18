@@ -13,8 +13,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { db } from '../firebaseConfig';
-import { RootStackParamList } from './types';
+import { db } from '../../firebaseConfig';
+import { RootStackParamList } from '../types';
 
 type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile'>;
 
@@ -55,7 +55,7 @@ const OtherUserProfile = () => {
 
   const handleSendMessage = () => {
     router.push({
-      pathname: '/chatModal',
+      pathname: '/Chats/chatModal',
       params: { otherUserId: uid, otherUsername: username, otherUserImage: profileImage },
     });
   };
