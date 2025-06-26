@@ -5,6 +5,7 @@ export default function Layout() {
   return (
     <Tabs
       screenOptions={({ route }) => ({
+        unmountOnBlur: false,
         tabBarActiveTintColor: '#FF6F00',
         tabBarInactiveTintColor: '#black',
         tabBarStyle: {

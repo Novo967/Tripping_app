@@ -2,6 +2,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -63,6 +64,13 @@ export default function HomeScreen() {
     fetchLocation();
     fetchUsers();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchLocation();
+      fetchUsers(); // או גם fetchLocation(); אם תרצה
+    }, [])
+  );
 
   const getVisibleUsers = () => {
     if (!currentLocation) return users;
@@ -155,7 +163,7 @@ export default function HomeScreen() {
        {selectedUser && (
           <View style={styles.customCallout}>
             <Text style={styles.calloutText}>{selectedUser.username || 'משתמש'}</Text>
-            <TouchableOpacity onPress={() => router.push(`/OtherUserProfile?uid=${selectedUser.uid}`)}>
+            <TouchableOpacity onPress={() => router.push(`/ProfileServices/OtherUserProfile?uid=${selectedUser.uid}`)}>
               <Text style={styles.calloutLink}>🔎 לחץ לצפייה בפרופיל</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setSelectedUser(null)}>

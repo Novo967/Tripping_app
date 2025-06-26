@@ -10,7 +10,7 @@ export default function AppEntry() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) router.replace('/(tabs)/home');
-      else router.replace('/login');
+      else router.replace('/Authentication/login');
     });
     return unsubscribe;
   }, []);
