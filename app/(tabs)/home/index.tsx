@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,11 +14,15 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View
+  View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import AddEventButton from '../../MapButtons/AddEventButton';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
+
+
+
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -30,8 +33,9 @@ export default function HomeScreen() {
   const [displayDistance, setDisplayDistance] = useState(10);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isChoosingLocation, setIsChoosingLocation] = useState(false);
 
-  // Event states
   const [eventTitle, setEventTitle] = useState('');
   const [eventType, setEventType] = useState('');
   const [eventDate, setEventDate] = useState(new Date());
@@ -47,8 +51,6 @@ export default function HomeScreen() {
     const response = await fetch('https://tripping-app.onrender.com/get-all-users');
     const data = await response.json();
     setUsers(data.users);
-    
-
   };
 
   const fetchLocation = async () => {
@@ -68,7 +70,7 @@ export default function HomeScreen() {
   useFocusEffect(
     React.useCallback(() => {
       fetchLocation();
-      fetchUsers(); // או גם fetchLocation(); אם תרצה
+      fetchUsers();
     }, [])
   );
 
@@ -88,6 +90,8 @@ export default function HomeScreen() {
     });
   };
 
+  
+
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -101,7 +105,6 @@ export default function HomeScreen() {
 
   const handleLocationChange = (text: string) => {
     setEventLocation(text);
-    // searchLocations(text) — פונקציה שאחראית להביא הצעות ממקומות
   };
 
   const selectLocation = (suggestion: any) => {
@@ -111,7 +114,7 @@ export default function HomeScreen() {
   };
 
   const handleAddEvent = () => {
-    if (!region || !eventTitle.trim() || !eventType || !eventLocation.trim()) return;
+    if (!eventTitle.trim() || !eventType || !eventLocation.trim() || !selectedLocation) return;
     const newEvent = {
       id: Date.now().toString(),
       title: eventTitle,
@@ -119,12 +122,13 @@ export default function HomeScreen() {
       date: eventDate,
       location: eventLocation,
       description: eventDescription,
-      latitude: region.latitude,
-      longitude: region.longitude,
+      latitude: selectedLocation.latitude,
+      longitude: selectedLocation.longitude,
     };
-    setEvents([...events, newEvent]);
+    setEvents(prev => [...prev, newEvent]);
     resetEventForm();
     setEventModalVisible(false);
+    setSelectedLocation(null);
   };
 
   const resetEventForm = () => {
@@ -145,46 +149,60 @@ export default function HomeScreen() {
       </View>
     );
   }
-
+  
   return (
     <View style={styles.container}>
-      <MapView style={styles.map} region={region}>
-       {getVisibleUsers().map((user) => (
-             <Marker
-              key={user.uid}
-              coordinate={{ latitude: user.latitude, longitude: user.longitude }}
-              onPress={() => setSelectedUser(user)}
-            >
-                <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
-                <Text style={styles.usernameLabel}>{user.username || 'משתמש'}</Text>
-            </Marker>
-          ))}          
+      <MapView
+        style={styles.map}
+        region={region}
+        onPress={(e) => {
+          if (isChoosingLocation) {
+            const { latitude, longitude } = e.nativeEvent.coordinate;
+            setSelectedLocation({ latitude, longitude });
+            setEventLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+            setEventModalVisible(true);
+            setIsChoosingLocation(false);
+          }
+        }}
+      >
+        {getVisibleUsers().map((user) => (
+          <Marker
+            key={user.uid}
+            coordinate={{ latitude: user.latitude, longitude: user.longitude }}
+            onPress={() => setSelectedUser(user)}
+          >
+            <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
+            <Text style={styles.usernameLabel}>{user.username || 'משתמש'}</Text>
+          </Marker>
+        ))}
+
+        {getVisibleEvents().map(event => (
+          <Marker
+            key={event.id}
+            coordinate={{ latitude: event.latitude, longitude: event.longitude }}
+            title={event.title}
+            description={event.description}
+          >
+            <Ionicons name="location" size={30} color="#FF6F00" />
+          </Marker>
+        ))}
       </MapView>
-       {selectedUser && (
-          <View style={styles.customCallout}>
-            <Text style={styles.calloutText}>{selectedUser.username || 'משתמש'}</Text>
-            <TouchableOpacity onPress={() => router.push(`/ProfileServices/OtherUserProfile?uid=${selectedUser.uid}`)}>
-              <Text style={styles.calloutLink}>🔎 לחץ לצפייה בפרופיל</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSelectedUser(null)}>
-              <Text style={{ color: 'gray', marginTop: 5 }}>❌ סגור</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+
       <View style={styles.floatingButtons}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => setDistanceModalVisible(true)}
-        >
+        <TouchableOpacity style={styles.actionButton} onPress={() => setDistanceModalVisible(true)}>
           <Ionicons name="resize" size={24} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => setEventModalVisible(true)}
+          style={[
+            styles.actionButton,
+            isChoosingLocation && styles.activeButton
+          ]}
+          onPress={() => setIsChoosingLocation(prev => !prev)}
         >
           <Ionicons name="add" size={28} color="white" />
         </TouchableOpacity>
+
       </View>
 
       <DistanceFilterButton
@@ -216,7 +234,6 @@ export default function HomeScreen() {
         showCalendarPicker={showCalendarPicker}
         setShowCalendarPicker={setShowCalendarPicker}
       />
-
 
       {showCalendarPicker && (
         <Modal visible animationType="slide" transparent>
@@ -260,6 +277,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
+  },
+  activeButton: {
+    backgroundColor: '#FFB74D', // גוון בהיר יותר של כתום
+    opacity: 0.8, // גם נראה טיפה "לחוץ"
   },
   loadingText: {
     fontSize: 16,
@@ -339,45 +360,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionButton: {
-  backgroundColor: '#FF6F00',
-  width: 60,
-  height: 60,
-  borderRadius: 30,
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginBottom: 15,
-  elevation: 5,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.25,
-  shadowRadius: 4,
-},
-customCallout: {
-  position: 'absolute',
-  bottom: 100,
-  left: 20,
-  right: 20,
-  backgroundColor: 'white',
-  padding: 15,
-  borderRadius: 12,
-  borderColor: '#FF6F00',
-  borderWidth: 1,
-  shadowColor: '#000',
-  shadowOpacity: 0.3,
-  shadowOffset: { width: 0, height: 2 },
-  shadowRadius: 5,
-  elevation: 5,
-  alignItems: 'center',
-},
-calloutText: {
-  fontWeight: 'bold',
-  fontSize: 16,
-  color: '#000',
-},
-calloutLink: {
-  color: '#FF6F00',
-  fontSize: 14,
-  fontWeight: '600',
-  marginTop: 5,
-},
+    backgroundColor: '#FF6F00',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  customCallout: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 12,
+    borderColor: '#FF6F00',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 5,
+    alignItems: 'center',
+  },
+  calloutText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#000',
+  },
+  calloutLink: {
+    color: '#FF6F00',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 5,
+  },
 });
