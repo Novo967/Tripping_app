@@ -1,104 +1,267 @@
-// Bio.tsx
+// app/ProfileServices/bio.tsx - Enhanced Version
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useRef, useState } from 'react';
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useTheme } from '../ProfileServices/ThemeContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Props = {
   bio: string;
   isEditing: boolean;
-  setBio: (bio: string) => void;
+  onChange: (bio: string) => void;
   onSave: () => void;
   onEditToggle: () => void;
 };
-export default function Bio({ bio, isEditing, setBio, onSave, onEditToggle }: Props) {
+
+export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: Props) {
+  const { theme } = useTheme();
+  const [characterCount, setCharacterCount] = useState(bio.length);
+  const [tempBio, setTempBio] = useState(bio);
+  const animatedHeight = useRef(new Animated.Value(isEditing ? 120 : 60)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    Animated.timing(animatedHeight, {
+      toValue: isEditing ? 120 : 60,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [isEditing]);
+
+  const handleBioChange = (text: string) => {
+    setTempBio(text);
+    setCharacterCount(text.length);
+    onChange(text);
+  };
+
+  const handleSave = () => {
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 0.5,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    onSave();
+  };
+
+  const handleCancel = () => {
+    setTempBio(bio);
+    setCharacterCount(bio.length);
+    onChange(bio);
+    onEditToggle();
+  };
+
+  const maxLength = 150;
+  const isNearLimit = characterCount > maxLength * 0.8;
+  const isOverLimit = characterCount > maxLength;
+
   return (
-    <View style={styles.bioContainer}>
+    <Animated.View 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: theme.colors.surface,
+          opacity: fadeAnim,
+        }
+      ]}
+    >
+      <LinearGradient
+        colors={[theme.colors.primary + '10', 'transparent']}
+        style={styles.gradientBackground}
+      />
+      
       {isEditing ? (
-        <View>
-          <TextInput
-            style={styles.bioInput}
-            value={bio}
-            onChangeText={setBio}
-            placeholder="ספר על עצמך..."
-            multiline
-            maxLength={150}
-            textAlignVertical="top"
-          />
-          <View style={styles.bioActions}>
-            <TouchableOpacity onPress={onSave} style={styles.saveButton}>
-              <Text style={styles.saveButtonText}>שמור</Text>
+        <View style={styles.editingContainer}>
+          <View style={styles.inputHeader}>
+            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>
+              ביוגרפיה
+            </Text>
+            <View style={styles.characterCounter}>
+              <Text 
+                style={[
+                  styles.counterText,
+                  { 
+                    color: isOverLimit 
+                      ? theme.colors.error 
+                      : isNearLimit 
+                        ? theme.colors.warning 
+                        : theme.colors.textSecondary 
+                  }
+                ]}
+              >
+                {characterCount}/{maxLength}
+              </Text>
+            </View>
+          </View>
+          
+          <Animated.View style={{ height: animatedHeight }}>
+            <TextInput
+              style={[
+                styles.bioInput,
+                {
+                  backgroundColor: theme.colors.background,
+                  color: theme.colors.text,
+                  borderColor: isOverLimit 
+                    ? theme.colors.error 
+                    : theme.colors.border,
+                }
+              ]}
+              value={tempBio}
+              onChangeText={handleBioChange}
+              placeholder="ספר לנו קצת על עצמך... מה אתה אוהב? איפה אתה גר? מה המקצוע שלך?"
+              placeholderTextColor={theme.colors.textSecondary}
+              multiline
+              maxLength={maxLength}
+              textAlignVertical="top"
+              textAlign="right"
+              autoFocus
+            />
+          </Animated.View>
+          
+          <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              onPress={handleCancel} 
+              style={[styles.cancelButton, { borderColor: theme.colors.border }]}
+            >
+              <Ionicons name="close" size={16} color={theme.colors.textSecondary} />
+              <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>
+                ביטול
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={onEditToggle} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>ביטול</Text>
+            
+            <TouchableOpacity 
+              onPress={handleSave} 
+              style={[
+                styles.saveButton, 
+                { 
+                  backgroundColor: isOverLimit 
+                    ? theme.colors.textSecondary 
+                    : theme.colors.primary 
+                }
+              ]}
+              disabled={isOverLimit}
+            >
+              <Ionicons name="checkmark" size={16} color="white" />
+              <Text style={styles.saveButtonText}>שמור</Text>
             </TouchableOpacity>
           </View>
         </View>
       ) : (
-        <TouchableOpacity onPress={onEditToggle} style={styles.bioDisplay}>
-          <Text
-            style={[styles.bioText, bio ? styles.bioTextFilled : styles.bioTextPlaceholder]}
-          >
-            {bio || 'לחץ כאן כדי להוסיף תיאור עליך...'}
-          </Text>
-          <Ionicons name="pencil" size={16} color="#666" style={styles.bioEditIcon} />
+        <TouchableOpacity onPress={onEditToggle} style={styles.displayContainer}>
+          <View style={styles.bioContent}>
+            {bio ? (
+              <>
+                <Text style={[styles.bioText, { color: theme.colors.text }]}>
+                  {bio}
+                </Text>
+                <View style={styles.bioMeta}>
+                  <Text style={[styles.bioLength, { color: theme.colors.textSecondary }]}>
+                    {bio.length} תווים
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptyBio}>
+                <Ionicons name="create-outline" size={20} color={theme.colors.textSecondary} />
+                <Text style={[styles.emptyBioText, { color: theme.colors.textSecondary }]}>
+                  הוסף תיאור אישי...
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={[styles.editIndicator, { backgroundColor: theme.colors.primary }]}>
+            <Ionicons name="pencil" size={14} color="white" />
+          </View>
         </TouchableOpacity>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  bioContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  container: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  bioDisplay: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    minHeight: 40,
+  gradientBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  bioText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 18,
+  editingContainer: {
+    padding: 16,
   },
-  bioTextFilled: {
-    color: '#262626',
+  inputHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  bioTextPlaceholder: {
-    color: '#8e8e8e',
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
   },
-  bioEditIcon: {
-    marginLeft: 10,
-    marginTop: 2,
+  characterCounter: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  counterText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   bioInput: {
-    borderWidth: 1,
-    borderColor: '#dbdbdb',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    color: '#262626',
-    minHeight: 80,
-    backgroundColor: '#fafafa',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    lineHeight: 22,
+    flex: 1,
+    fontFamily: Platform.OS === 'ios' ? 'system' : 'Roboto',
   },
-  bioActions: {
-    flexDirection: 'row',
+  actionButtons: {
+    flexDirection: 'row-reverse',
     justifyContent: 'flex-end',
-    marginTop: 8,
+    marginTop: 12,
+    gap: 8,
   },
   saveButton: {
-    backgroundColor: '#FF6F00',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginLeft: 8,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
   },
   saveButtonText: {
     color: 'white',
@@ -106,11 +269,53 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cancelButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
   },
   cancelButtonText: {
-    color: '#8e8e8e',
     fontSize: 14,
+    fontWeight: '500',
+  },
+  displayContainer: {
+    padding: 16,
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
+  },
+  bioContent: {
+    flex: 1,
+  },
+  bioText: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'right',
+    marginBottom: 8,
+  },
+  bioMeta: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  bioLength: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  emptyBio: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+  },
+  emptyBioText: {
+    fontSize: 16,
+    fontStyle: 'italic',
+  },
+  editIndicator: {
+    padding: 8,
+    borderRadius: 16,
+    marginLeft: 12,
   },
 });
