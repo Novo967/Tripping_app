@@ -252,7 +252,6 @@ export default function HomeScreen() {
                     setShowCalendarPicker(false);
                   }}
                   minimumDate={new Date()}
-                  locale="he-IL"
                 />
                 <TouchableOpacity
                   style={styles.calendarCloseButton}

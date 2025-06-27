@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { ThemeProvider } from '../ProfileServices/ThemeContext';
 
 export default function Layout() {
   return (
+    <ThemeProvider>
     <Tabs
       screenOptions={({ route }) => ({
         unmountOnBlur: false,
@@ -41,5 +43,6 @@ export default function Layout() {
       <Tabs.Screen name="home/index" options={{ title: 'בית', headerShown: false }} />
       <Tabs.Screen name="profile" options={{ title: 'פרופיל', headerShown: false }} />
     </Tabs>
+    </ThemeProvider>
   );
 }
