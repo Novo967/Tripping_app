@@ -315,6 +315,7 @@ def add_pin():
             event_date=datetime.fromisoformat(data['event_date']),
             username=data['username']
         )
+        session = Session()
         session.add(new_pin)
         session.commit()
         return jsonify({"success": True, "pin": new_pin.to_dict()}), 201
