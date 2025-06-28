@@ -324,7 +324,8 @@ def add_pin():
 
 @app.route('/get-pins', methods=['GET'])
 def get_pins():
-    pins = Pin.query.all()
+    session = Session()
+    pins = session.query(Pin).all()
     result = [{
         'id': pin.id,
         'latitude': pin.latitude,
