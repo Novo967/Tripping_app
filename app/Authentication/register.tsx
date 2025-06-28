@@ -134,7 +134,7 @@ export default function RegisterScreen() {
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>שם משתמש</Text>
             <TextInput
-              placeholder="בחרו שם משתמש יצירתי"
+              placeholder="בחרו שם משתמש"
               placeholderTextColor="#A0A0A0"
               value={username}
               onChangeText={setUsername}
