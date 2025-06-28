@@ -52,6 +52,23 @@ class GalleryImage(Base):
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="gallery_images")
+class Pin(Base):
+    __tablename__ = 'pins'
+
+    id = Column(Integer, primary_key=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    event_date = Column(DateTime, nullable=False)
+    username = Column(String(80), nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "event_date": self.event_date.isoformat(),
+            "username": self.username
+        }
 
 Base.metadata.create_all(engine)
 
@@ -287,6 +304,28 @@ def get_other_user_profile():
         'profile_image': user.profile_image,
         'gallery_images': gallery_urls
     })
+@app.route('/add-pin', methods=['POST'])
+def add_pin():
+    data = request.json
+
+    try:
+        new_pin = Pin(
+            latitude=data['latitude'],
+            longitude=data['longitude'],
+            event_date=datetime.fromisoformat(data['event_date']),
+            username=data['username']
+        )
+        db.session.add(new_pin)
+        db.session.commit()
+        return jsonify({"success": True, "pin": new_pin.to_dict()}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/get-pins', methods=['GET'])
+def get_pins():
+    pins = Pin.query.all()
+    return jsonify([pin.to_dict() for pin in pins])
 
 # ----------------------------
 # 🚀 Run locally

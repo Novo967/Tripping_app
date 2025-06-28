@@ -64,7 +64,7 @@ export default function AddEventButton(props: Props) {
   } = props;
 
   const router = useRouter();
-
+  
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <TouchableWithoutFeedback>
