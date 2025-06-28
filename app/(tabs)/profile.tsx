@@ -1,33 +1,23 @@
-// app/(tabs)/profile.tsx - Enhanced Version
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  FlatList,
-  ListRenderItemInfo,
+  ActivityIndicator, Alert, Animated,
   Platform,
-  SafeAreaView,
-  StatusBar,
+  SafeAreaView, StatusBar,
   StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+  Text, TouchableOpacity, View
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
+import Bio from '../ProfileServices/bio';
+import ProfileGallery from '../ProfileServices/Gallery';
+import ProfileImage from '../ProfileServices/ProfileImage';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
-import Bio from '../ProfileServices/bio';
-import ProfileImage from '../ProfileServices/ProfileImage';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 const SERVER_URL = 'https://tripping-app.onrender.com';
 
 export default function ProfileScreen() {
@@ -39,7 +29,7 @@ export default function ProfileScreen() {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [showSettings, setShowSettings] = useState(false);
-  
+
   const navigation = useNavigation();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
@@ -47,101 +37,20 @@ export default function ProfileScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const settingsAnim = useRef(new Animated.Value(0)).current;
 
-  // Animation for logout
-  const fadeOutAndLogout = () => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(async () => {
-      try {
-        await auth.signOut();
-        router.replace('/Authentication/login');
-      } catch (error) {
-        Alert.alert('שגיאה', 'לא הצלחנו להתנתק');
-        fadeAnim.setValue(1);
-      }
-    });
-  };
-
-  // Settings animation
-  const toggleSettings = () => {
-    const toValue = showSettings ? 0 : 1;
-    Animated.spring(settingsAnim, {
-      toValue,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 8,
-    }).start();
-    setShowSettings(!showSettings);
-  };
-
   const fetchGallery = async (uid: string): Promise<string[]> => {
     try {
-      const res = await axios.post(`${SERVER_URL}/get-gallery`, { uid });
-      return res.data.gallery;
+      const res = await fetch(`${SERVER_URL}/get-gallery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid }),
+      });
+      const data = await res.json();
+      return data.gallery || [];
     } catch (error) {
       console.error('Error fetching gallery:', error);
       return [];
     }
   };
-
-  useEffect(() => {
-    const syncUserToBackend = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-
-        const userData = {
-          uid: user.uid,
-          email: user.email || '',
-          displayName: user.displayName || '',
-        };
-
-        await fetch(`${SERVER_URL}/update-user-profile`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(userData),
-        });
-
-        const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: user.uid }),
-        });
-
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          setProfilePic(data.profile_image || null);
-          setBio(data.bio || '');
-        }
-
-        const galleryData = await fetchGallery(user.uid);
-        setGallery(galleryData);
-      } catch (error) {
-        console.error('שגיאה בשליחת או קבלת נתוני המשתמש:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const fetchUsername = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUsername(data.username || '');
-        }
-      }
-    };
-
-    syncUserToBackend();
-    fetchUsername();
-  }, []);
 
   const uploadImageToServer = async (uri: string, isProfilePic = false) => {
     const user = auth.currentUser;
@@ -198,17 +107,68 @@ export default function ProfileScreen() {
     }
   };
 
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
+  useEffect(() => {
+    const init = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
 
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 80],
-    extrapolate: 'clamp',
-  });
+      try {
+        const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: user.uid }),
+        });
+
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          setProfilePic(data.profile_image || null);
+          setBio(data.bio || '');
+        }
+
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUsername(data.username || '');
+        }
+
+        const galleryData = await fetchGallery(user.uid);
+        setGallery(galleryData);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, []);
+
+  const fadeOutAndLogout = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(async () => {
+      try {
+        await auth.signOut();
+        router.replace('/Authentication/login');
+      } catch (error) {
+        Alert.alert('שגיאה', 'לא הצלחנו להתנתק');
+        fadeAnim.setValue(1);
+      }
+    });
+  };
+
+  const toggleSettings = () => {
+    const toValue = showSettings ? 0 : 1;
+    Animated.spring(settingsAnim, {
+      toValue,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+    setShowSettings(!showSettings);
+  };
 
   if (loading) {
     return (
@@ -223,239 +183,59 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar 
-        barStyle={theme.isDark ? 'light-content' : 'dark-content'} 
-        backgroundColor={theme.colors.background}
-      />
-      
-      {/* Animated Header */}
-      <Animated.View 
-        style={[
-          styles.animatedHeader,
-          { 
-            backgroundColor: theme.colors.surface,
-            opacity: headerOpacity,
-            height: headerHeight,
-          }
-        ]}
-      >
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{username}</Text>
-      </Animated.View>
-
+      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        {/* Top Navigation */}
         <View style={styles.topNav}>
           <TouchableOpacity onPress={toggleSettings} style={styles.navButton}>
             <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>
-          
           <TouchableOpacity onPress={fadeOutAndLogout} style={styles.navButton}>
             <Ionicons name="log-out-outline" size={24} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
 
-        {/* Settings Panel */}
-        <Animated.View 
-          style={[
-            styles.settingsPanel,
-            { 
-              backgroundColor: theme.colors.surface,
-              transform: [
-                {
-                  translateY: settingsAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-200, 0],
-                  }),
-                },
-              ],
-              opacity: settingsAnim,
-            }
-          ]}
-        >
-          <TouchableOpacity 
-            style={styles.settingsItem} 
-            onPress={() => {
-              toggleTheme();
-              toggleSettings();
-            }}
-          >
-            <Ionicons 
-              name={theme.isDark ? 'sunny' : 'moon'} 
-              size={20} 
-              color={theme.colors.text} 
-            />
+        <Animated.View style={[styles.settingsPanel, {
+          backgroundColor: theme.colors.surface,
+          transform: [{
+            translateY: settingsAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-200, 0],
+            }),
+          }],
+          opacity: settingsAnim,
+        }]}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => {
+            toggleTheme();
+            toggleSettings();
+          }}>
+            <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
             <Text style={[styles.settingsText, { color: theme.colors.text }]}>
               {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.settingsItem}>
-            <Ionicons name="notifications-outline" size={20} color={theme.colors.text} />
-            <Text style={[styles.settingsText, { color: theme.colors.text }]}>התראות</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.settingsItem}>
-            <Ionicons name="help-circle-outline" size={20} color={theme.colors.text} />
-            <Text style={[styles.settingsText, { color: theme.colors.text }]}>עזרה</Text>
-          </TouchableOpacity>
         </Animated.View>
 
-        <Animated.ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false }
-          )}
-          scrollEventThrottle={16}
-        >
-          {/* Profile Header */}
-          <View style={[styles.profileHeader, { backgroundColor: theme.colors.surface }]}>
-            <LinearGradient
-              colors={[theme.colors.primary + '20', 'transparent']}
-              style={styles.gradientBackground}
-            />
-            
-            <ProfileImage 
-              profilePic={profilePic}
-              username={username}
-              galleryLength={gallery.length}
-              onChangeImage={(uri: string) => {
-                uploadImageToServer(uri, true).catch(console.error);
-              }} 
-            />
-            
-            {/* Stats */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: theme.colors.text }]}>
-                  {gallery.length}
-                </Text>
-                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-                  פוסטים
-                </Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: theme.colors.text }]}>847</Text>
-                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-                  עוקבים
-                </Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: theme.colors.text }]}>312</Text>
-                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-                  עוקב אחרי
-                </Text>
-              </View>
-            </View>
-          </View>
+        <ProfileImage
+          profilePic={profilePic}
+          username={username}
+          galleryLength={gallery.length}
+          onChangeImage={(uri: string) => uploadImageToServer(uri, true)}
+        />
 
-          {/* Bio Section */}
-          <View style={[styles.bioSection, { backgroundColor: theme.colors.surface }]}>
-            <Bio
-              bio={bio}
-              isEditing={isEditingBio}
-              onChange={setBio}
-              onSave={saveBio}
-              onEditToggle={() => setIsEditingBio(prev => !prev)}
-            />
-          </View>
+        <Bio
+          bio={bio}
+          isEditing={isEditingBio}
+          onChange={setBio}
+          onSave={saveBio}
+          onEditToggle={() => setIsEditingBio(prev => !prev)}
+        />
 
-          {/* Tab Navigation */}
-          <View style={[styles.tabContainer, { backgroundColor: theme.colors.surface }]}>
-            <TouchableOpacity
-              style={[
-                styles.tabButton,
-                activeTab === 'posts' && { borderBottomColor: theme.colors.primary }
-              ]}
-              onPress={() => setActiveTab('posts')}
-            >
-              <Ionicons 
-                name="grid-outline" 
-                size={20} 
-                color={activeTab === 'posts' ? theme.colors.primary : theme.colors.textSecondary} 
-              />
-              <Text style={[
-                styles.tabText,
-                { color: activeTab === 'posts' ? theme.colors.primary : theme.colors.textSecondary }
-              ]}>
-                פוסטים
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.tabButton,
-                activeTab === 'saved' && { borderBottomColor: theme.colors.primary }
-              ]}
-              onPress={() => setActiveTab('saved')}
-            >
-              <Ionicons 
-                name="bookmark-outline" 
-                size={20} 
-                color={activeTab === 'saved' ? theme.colors.primary : theme.colors.textSecondary} 
-              />
-              <Text style={[
-                styles.tabText,
-                { color: activeTab === 'saved' ? theme.colors.primary : theme.colors.textSecondary }
-              ]}>
-                שמורים
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Gallery */}
-          <View style={[styles.galleryContainer, { backgroundColor: theme.colors.background }]}>
-            {activeTab === 'posts' ? (
-              <FlatList
-                data={gallery}
-                keyExtractor={(_, index) => index.toString()}
-                numColumns={3}
-                scrollEnabled={false}
-                renderItem={({ item, index }: ListRenderItemInfo<string>) => (
-                  <TouchableOpacity 
-                    style={[
-                      styles.galleryItem,
-                      { backgroundColor: theme.colors.surface }
-                    ]}
-                    activeOpacity={0.8}
-                  >
-                    <Animated.Image 
-                      source={{ uri: item }} 
-                      style={styles.galleryImage}
-                      key={`gallery-${index}`}
-                    />
-                    <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.3)']}
-                      style={styles.galleryOverlay}
-                    />
-                  </TouchableOpacity>
-                )}
-                ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
-                ListFooterComponent={() => (
-                  <TouchableOpacity 
-                    style={[styles.addPhotoButton, { backgroundColor: theme.colors.primary }]}
-                    onPress={() => {
-                      // Handle add photo
-                    }}
-                  >
-                    <Ionicons name="add" size={24} color="white" />
-                    <Text style={styles.addPhotoText}>הוסף תמונה</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="bookmark-outline" size={48} color={theme.colors.textSecondary} />
-                <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
-                  אין פוסטים שמורים
-                </Text>
-              </View>
-            )}
-          </View>
-        </Animated.ScrollView>
+        <ProfileGallery
+          gallery={gallery}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onAddImage={(uri: string) => uploadImageToServer(uri, false)}
+        />
       </Animated.View>
     </SafeAreaView>
   );
@@ -647,4 +427,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
+  floatingAddButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 30,
+    backgroundColor: '#FF6F00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    textAlign: 'center',
+  },
+
 });

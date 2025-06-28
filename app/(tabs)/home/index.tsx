@@ -204,7 +204,11 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={styles.calloutButton}
                 onPress={() => {
-                  router.push(`/ProfileServices/OtherUserProfile`);
+                  router.push({
+                    pathname: '/ProfileServices/OtherUserProfile',
+                    params: { uid: selectedUser.uid },
+                  });
+
                   setSelectedUser(null);
                 }}
               >
