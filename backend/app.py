@@ -25,7 +25,6 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://trippingappdb_user:m
 engine = create_engine(DATABASE_URL)
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
-
 # מודל משתמש
 class User(Base):
     __tablename__ = 'users'
@@ -326,7 +325,14 @@ def add_pin():
 @app.route('/get-pins', methods=['GET'])
 def get_pins():
     pins = Pin.query.all()
-    return jsonify([pin.to_dict() for pin in pins])
+    result = [{
+        'id': pin.id,
+        'latitude': pin.latitude,
+        'longitude': pin.longitude,
+        'event_date': pin.event_date.isoformat(),
+        'username': pin.username,
+    } for pin in pins]
+    return jsonify({'pins': result})
 
 # ----------------------------
 # 🚀 Run locally

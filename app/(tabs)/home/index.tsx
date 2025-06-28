@@ -92,7 +92,29 @@ export default function HomeScreen() {
         console.error('שגיאה בבקשה:', error);
       }
     };
-  
+  const fetchPinsFromServer = async () => {
+    try {
+      const response = await fetch('https://tripping-app.onrender.com/get-pins');
+      const data = await response.json();
+
+      if (data.pins) {
+        const normalizedPins = data.pins.map((pin: any) => ({
+          id: pin.id,
+          latitude: pin.latitude,
+          longitude: pin.longitude,
+          title: pin.username,
+          description: new Date(pin.event_date).toLocaleDateString('he-IL'),
+        }));
+
+        setEvents(normalizedPins);
+      } else {
+        console.warn('לא הוחזרו סיכות מהשרת');
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת סיכות מהשרת:', error);
+    }
+  };
+
   const fetchLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') return;
@@ -105,12 +127,14 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchLocation();
     fetchUsers();
+    fetchPinsFromServer(); 
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       fetchLocation();
       fetchUsers();
+      fetchPinsFromServer(); 
     }, [])
   );
 
