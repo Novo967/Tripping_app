@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,7 +20,6 @@ import {
 import MapView, { Marker, Region } from 'react-native-maps';
 import AddEventButton from '../../MapButtons/AddEventButton';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
-
 
 
 
@@ -151,121 +151,149 @@ export default function HomeScreen() {
   }
   
   return (
-    <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        region={region}
-        onPress={(e) => {
-          if (isChoosingLocation) {
-            const { latitude, longitude } = e.nativeEvent.coordinate;
-            setSelectedLocation({ latitude, longitude });
-            setEventLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-            setEventModalVisible(true);
-            setIsChoosingLocation(false);
-          }
-        }}
-      >
-        {getVisibleUsers().map((user) => (
-          <Marker
-            key={user.uid}
-            coordinate={{ latitude: user.latitude, longitude: user.longitude }}
-            onPress={() => setSelectedUser(user)}
-          >
-            <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
-            <Text style={styles.usernameLabel}>{user.username || 'משתמש'}</Text>
-          </Marker>
-        ))}
-
-        {getVisibleEvents().map(event => (
-          <Marker
-            key={event.id}
-            coordinate={{ latitude: event.latitude, longitude: event.longitude }}
-            title={event.title}
-            description={event.description}
-          >
-            <Ionicons name="location" size={30} color="#FF6F00" />
-          </Marker>
-        ))}
-      </MapView>
-
-      <View style={styles.floatingButtons}>
-        <TouchableOpacity style={styles.actionButton} onPress={() => setDistanceModalVisible(true)}>
-          <Ionicons name="resize" size={24} color="white" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isChoosingLocation && styles.activeButton
-          ]}
-          onPress={() => setIsChoosingLocation(prev => !prev)}
+  <View style={styles.container}>
+    <MapView
+      style={styles.map}
+      region={region}
+      onPress={(e) => {
+        if (isChoosingLocation) {
+          const { latitude, longitude } = e.nativeEvent.coordinate;
+          setSelectedLocation({ latitude, longitude });
+          setEventLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+          setEventModalVisible(true);
+          setIsChoosingLocation(false);
+        }
+      }}
+    >
+      {getVisibleUsers().map((user) => (
+        <Marker
+          key={user.uid}
+          coordinate={{ latitude: user.latitude, longitude: user.longitude }}
+          onPress={() => setSelectedUser(user)}
         >
-          <Ionicons name="add" size={28} color="white" />
-        </TouchableOpacity>
+          <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
+        </Marker>
+      ))}
 
-      </View>
+      {getVisibleEvents().map(event => (
+        <Marker
+          key={event.id}
+          coordinate={{ latitude: event.latitude, longitude: event.longitude }}
+          title={event.title}
+          description={event.description}
+        >
+          <Ionicons name="location" size={30} color="#FF6F00" />
+        </Marker>
+      ))}
+    </MapView>
 
-      <DistanceFilterButton
-        displayDistance={displayDistance}
-        setDisplayDistance={setDisplayDistance}
-        visible={distanceModalVisible}
-        setVisible={setDistanceModalVisible}
-      />
-
-      <AddEventButton
-        visible={eventModalVisible}
-        setVisible={setEventModalVisible}
-        eventTitle={eventTitle}
-        setEventTitle={setEventTitle}
-        eventType={eventType}
-        setEventType={setEventType}
-        eventDate={eventDate}
-        setEventDate={setEventDate}
-        eventLocation={eventLocation}
-        setEventLocation={setEventLocation}
-        handleLocationChange={handleLocationChange}
-        locationSuggestions={locationSuggestions}
-        showLocationSuggestions={showLocationSuggestions}
-        selectLocation={selectLocation}
-        eventDescription={eventDescription}
-        setEventDescription={setEventDescription}
-        handleAddEvent={handleAddEvent}
-        resetEventForm={resetEventForm}
-        showCalendarPicker={showCalendarPicker}
-        setShowCalendarPicker={setShowCalendarPicker}
-      />
-
-      {showCalendarPicker && (
-        <Modal visible animationType="slide" transparent>
-          <TouchableWithoutFeedback onPress={() => setShowCalendarPicker(false)}>
-            <View style={styles.calendarModalOverlay}>
-              <View style={styles.calendarModalContent}>
-                <Text style={styles.calendarModalTitle}>בחר תאריך</Text>
-                <DateTimePicker
-                  value={eventDate}
-                  mode="date"
-                  display="calendar"
-                  onChange={(event, selectedDate) => {
-                    if (selectedDate) {
-                      setEventDate(selectedDate);
-                    }
-                    setShowCalendarPicker(false);
-                  }}
-                  minimumDate={new Date()}
-                />
-                <TouchableOpacity
-                  style={styles.calendarCloseButton}
-                  onPress={() => setShowCalendarPicker(false)}
-                >
-                  <Text style={styles.buttonText}>סגור</Text>
-                </TouchableOpacity>
-              </View>
+    {/* ✅ Modal הוזז מחוץ ל־MapView */}
+    {selectedUser && (
+      <Modal
+        visible
+        animationType="fade"
+        transparent
+        onRequestClose={() => setSelectedUser(null)}
+      >
+        <TouchableWithoutFeedback onPress={() => setSelectedUser(null)}>
+          <View style={styles.customCalloutOverlay}>
+            <View style={styles.customCalloutBox}>
+              <Text style={styles.calloutUsername}>
+                {selectedUser.username || 'משתמש'}
+              </Text>
+              <TouchableOpacity
+                style={styles.calloutButton}
+                onPress={() => {
+                  router.push(`/ProfileServices/OtherUserProfile`);
+                  setSelectedUser(null);
+                }}
+              >
+                <Text style={styles.calloutButtonText}>לצפייה בפרופיל</Text>
+              </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-      )}
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    )}
+
+    <View style={styles.floatingButtons}>
+      <TouchableOpacity style={styles.actionButton} onPress={() => setDistanceModalVisible(true)}>
+        <Ionicons name="resize" size={24} color="white" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.actionButton,
+          isChoosingLocation && styles.activeButton
+        ]}
+        onPress={() => setIsChoosingLocation(prev => !prev)}
+      >
+        <Ionicons name="add" size={28} color="white" />
+      </TouchableOpacity>
     </View>
-  );
+
+    <DistanceFilterButton
+      displayDistance={displayDistance}
+      setDisplayDistance={setDisplayDistance}
+      visible={distanceModalVisible}
+      setVisible={setDistanceModalVisible}
+    />
+
+    <AddEventButton
+      visible={eventModalVisible}
+      setVisible={setEventModalVisible}
+      eventTitle={eventTitle}
+      setEventTitle={setEventTitle}
+      eventType={eventType}
+      setEventType={setEventType}
+      eventDate={eventDate}
+      setEventDate={setEventDate}
+      eventLocation={eventLocation}
+      setEventLocation={setEventLocation}
+      handleLocationChange={handleLocationChange}
+      locationSuggestions={locationSuggestions}
+      showLocationSuggestions={showLocationSuggestions}
+      selectLocation={selectLocation}
+      eventDescription={eventDescription}
+      setEventDescription={setEventDescription}
+      handleAddEvent={handleAddEvent}
+      resetEventForm={resetEventForm}
+      showCalendarPicker={showCalendarPicker}
+      setShowCalendarPicker={setShowCalendarPicker}
+    />
+
+    {showCalendarPicker && (
+      <Modal visible animationType="slide" transparent>
+        <TouchableWithoutFeedback onPress={() => setShowCalendarPicker(false)}>
+          <View style={styles.calendarModalOverlay}>
+            <View style={styles.calendarModalContent}>
+              <Text style={styles.calendarModalTitle}>בחר תאריך</Text>
+              <DateTimePicker
+                value={eventDate}
+                mode="date"
+                display="calendar"
+                onChange={(event, selectedDate) => {
+                  if (selectedDate) {
+                    setEventDate(selectedDate);
+                  }
+                  setShowCalendarPicker(false);
+                }}
+                minimumDate={new Date()}
+              />
+              <TouchableOpacity
+                style={styles.calendarCloseButton}
+                onPress={() => setShowCalendarPicker(false)}
+              >
+                <Text style={styles.buttonText}>סגור</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    )}
+  </View>
+);
+
 }
 
 const styles = StyleSheet.create({
@@ -400,4 +428,47 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 5,
   },
+  calloutContainer: {
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    width: 150,
+    elevation: 5,
+  },
+  calloutUsername: {
+    fontWeight: 'bold',
+    marginBottom: 5,
+    fontSize: 16,
+  },
+  calloutButton: {
+    backgroundColor: '#FF6F00',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  calloutButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+
+  customCalloutOverlay: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.3)',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+customCalloutBox: {
+  backgroundColor: 'white',
+  padding: 16,
+  borderRadius: 12,
+  width: 250,
+  alignItems: 'center',
+  elevation: 5,
+},
+
+
+
 });
