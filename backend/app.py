@@ -315,11 +315,11 @@ def add_pin():
             event_date=datetime.fromisoformat(data['event_date']),
             username=data['username']
         )
-        db.session.add(new_pin)
-        db.session.commit()
+        session.add(new_pin)
+        session.commit()
         return jsonify({"success": True, "pin": new_pin.to_dict()}), 201
     except Exception as e:
-        db.session.rollback()
+        session.rollback()
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/get-pins', methods=['GET'])
