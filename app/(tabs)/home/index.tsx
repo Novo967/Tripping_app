@@ -5,6 +5,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
+import { getAuth } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -47,12 +48,51 @@ export default function HomeScreen() {
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
+  const auth = getAuth();
+  const user = auth.currentUser;
+
   const fetchUsers = async () => {
     const response = await fetch('https://tripping-app.onrender.com/get-all-users');
     const data = await response.json();
     setUsers(data.users);
   };
-
+  const submitPinToServer = async ({
+      latitude,
+      longitude,
+      eventDate,
+      username
+    }: {
+      latitude: number;
+      longitude: number;
+      eventDate: Date;
+      username: string;
+    }) => {
+      try {
+        const response = await fetch(`https://tripping-app.onrender.com/add-pin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            latitude,
+            longitude,
+            event_date: eventDate.toISOString(),
+            username,
+          }),
+        });
+  
+        const data = await response.json();
+  
+        if (!response.ok) {
+          console.warn('שגיאה מהשרת:', data?.error);
+        } else {
+          console.log('הוספת סיכה הצליחה:', data);
+        }
+      } catch (error) {
+        console.error('שגיאה בבקשה:', error);
+      }
+    };
+  
   const fetchLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') return;
@@ -113,8 +153,14 @@ export default function HomeScreen() {
     setLocationSuggestions([]);
   };
 
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
     if (!eventTitle.trim() || !eventType || !eventLocation.trim() || !selectedLocation) return;
+    await submitPinToServer({
+      latitude: selectedLocation.latitude,
+      longitude: selectedLocation.longitude,
+      eventDate,
+      username: user?.email || 'unknown',
+    });
     const newEvent = {
       id: Date.now().toString(),
       title: eventTitle,
