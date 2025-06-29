@@ -47,6 +47,7 @@ export default function HomeScreen() {
   const [eventModalVisible, setEventModalVisible] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   const auth = getAuth();
   const user = auth.currentUser;
@@ -183,7 +184,7 @@ export default function HomeScreen() {
       latitude: selectedLocation.latitude,
       longitude: selectedLocation.longitude,
       eventDate,
-      username: user?.email || 'unknown',
+      username: user?.displayName || 'unknown',
     });
     const newEvent = {
       id: Date.now().toString(),
@@ -249,13 +250,45 @@ export default function HomeScreen() {
         <Marker
           key={event.id}
           coordinate={{ latitude: event.latitude, longitude: event.longitude }}
-          title={event.title}
-          description={event.description}
+          onPress={() => setSelectedEvent(event)}
+          
         >
           <Ionicons name="location" size={30} color="#FF6F00" />
         </Marker>
       ))}
     </MapView>
+    {selectedEvent && (
+      <Modal
+        visible
+        animationType="fade"
+        transparent
+        onRequestClose={() => setSelectedEvent(null)}
+      >
+        <TouchableWithoutFeedback onPress={() => setSelectedEvent(null)}>
+          <View style={styles.customCalloutOverlay}>
+            <View style={styles.customCalloutBox}>
+              <Text style={styles.calloutUsername}>{selectedEvent.title}</Text>
+              <Text>סוג: {selectedEvent.type}</Text>
+              <Text>מאת: {selectedEvent.title}</Text>
+              <Text>תאריך: {new Date(selectedEvent.date).toLocaleDateString('he-IL')}</Text>
+
+              <TouchableOpacity
+                style={styles.calloutButton}
+                onPress={() => {
+                  router.push({
+                    pathname: '/Chats/chatModal',
+                    params: { eventId: selectedEvent.id },
+                  });
+                  setSelectedEvent(null);
+                }}
+              >
+                <Text style={styles.calloutButtonText}>היכנס לצאט האירוע</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    )}
 
     {/* ✅ Modal הוזז מחוץ ל־MapView */}
     {selectedUser && (

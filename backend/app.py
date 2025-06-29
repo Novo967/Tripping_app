@@ -59,7 +59,8 @@ class Pin(Base):
     longitude = Column(Float, nullable=False)
     event_date = Column(DateTime, nullable=False)
     username = Column(String(80), nullable=False)
-
+    event_title = Column(String, nullable=True)
+    event_type = Column(String, nullable=True)
     def to_dict(self):
         return {
             "id": self.id,
@@ -332,8 +333,11 @@ def get_pins():
         'longitude': pin.longitude,
         'event_date': pin.event_date.isoformat(),
         'username': pin.username,
+        'event_title': pin.event_title,
+        'event_type': pin.event_type,
     } for pin in pins]
     return jsonify({'pins': result})
+
 
 # ----------------------------
 # 🚀 Run locally
