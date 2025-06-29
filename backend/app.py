@@ -54,22 +54,16 @@ class GalleryImage(Base):
 class Pin(Base):
     __tablename__ = 'pins'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     event_date = Column(DateTime, nullable=False)
-    username = Column(String(80), nullable=False)
-    event_title = Column(String, nullable=True)
-    event_type = Column(String, nullable=True)
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "latitude": self.latitude,
-            "longitude": self.longitude,
-            "event_date": self.event_date.isoformat(),
-            "username": self.username
-        }
-
+    username = Column(String, nullable=False)
+    event_title = Column(String, nullable=False)
+    event_type = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    
 Base.metadata.create_all(engine)
 
 # ----------------------------
@@ -306,21 +300,25 @@ def get_other_user_profile():
     })
 @app.route('/add-pin', methods=['POST'])
 def add_pin():
-    data = request.json
+    data = request.get_json()
 
     try:
         new_pin = Pin(
             latitude=data['latitude'],
             longitude=data['longitude'],
             event_date=datetime.fromisoformat(data['event_date']),
-            username=data['username']
+            username=data['username'],
+            event_title=data.get('title', ''),       # או data['event_title'] בהתאם לשם השדה
+            event_type=data.get('type', ''),
+            description=data.get('description', ''),
+            location=data.get('location', '')
         )
-        session = Session()
-        session.add(new_pin)
-        session.commit()
+        db.session.add(new_pin)
+        db.session.commit()
+
         return jsonify({"success": True, "pin": new_pin.to_dict()}), 201
     except Exception as e:
-        session.rollback()
+        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/get-pins', methods=['GET'])
@@ -337,6 +335,33 @@ def get_pins():
         'event_type': pin.event_type,
     } for pin in pins]
     return jsonify({'pins': result})
+
+@app.route('/get-pin', methods=['GET'])
+def get_pin():
+    pin_id = request.args.get('id')
+    if not pin_id:
+        return jsonify({'error': 'Missing pin ID'}), 400
+
+    session = Session()
+    pin = session.query(Pin).filter_by(id=pin_id).first()
+    session.close()
+
+    if pin:
+        return jsonify({
+            'pin': {
+                'id': pin.id,
+                'latitude': pin.latitude,
+                'longitude': pin.longitude,
+                'event_date': pin.event_date.isoformat(),
+                'username': pin.username,
+                'event_title': pin.event_title,
+                'event_type': pin.event_type,
+                'description': pin.description,
+                'location': pin.location,
+            }
+        })
+    else:
+        return jsonify({'error': 'Pin not found'}), 404
 
 
 # ----------------------------
