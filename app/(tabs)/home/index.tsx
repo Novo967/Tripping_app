@@ -87,11 +87,12 @@ export default function HomeScreen() {
           longitude,
           event_date: eventDate.toISOString(),
           username,
-          title,
-          type,
+          event_title: title,
+          event_type: type,
           description,
           location,
         }),
+
       });
 
       const data = await response.json();
