@@ -340,7 +340,6 @@ export default function HomeScreen() {
       </Modal>
     )}
 
-
     {/* ✅ Modal הוזז מחוץ ל־MapView */}
     {selectedUser && (
       <Modal
@@ -507,8 +506,8 @@ const styles = StyleSheet.create({
   },
   floatingButtons: {
     position: 'absolute',
-    bottom: 30,
-    right: 20,
+    bottom: 0,
+    right: 15,
     alignItems: 'center',
   },
   calendarModalOverlay: {
@@ -546,12 +545,12 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: '#FF6F00',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 10,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
