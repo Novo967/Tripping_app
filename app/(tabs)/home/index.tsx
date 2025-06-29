@@ -115,10 +115,12 @@ export default function HomeScreen() {
             id: pin.id,
             latitude: pin.latitude,
             longitude: pin.longitude,
+            date: pin.event_date,
+            username: pin.username,
             title: pin.event_title,   // ✅ שם נכון מה-API
             type: pin.event_type,
-            username: pin.username,
-            date: pin.event_date,
+            
+            
         }));
 
         setEvents(normalizedPins);
