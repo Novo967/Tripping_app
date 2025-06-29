@@ -308,8 +308,8 @@ def add_pin():
             longitude=data['longitude'],
             event_date=datetime.fromisoformat(data['event_date']),
             username=data['username'],
-            event_title=data.get('title', ''),       # או data['event_title'] בהתאם לשם השדה
-            event_type=data.get('type', ''),
+            event_title=data.get('event_title', ''),  # ✅ נוספו השדות
+            event_type=data.get('event_type', ''),
             description=data.get('description', ''),
             location=data.get('location', '')
         )

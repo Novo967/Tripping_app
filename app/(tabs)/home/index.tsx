@@ -62,8 +62,8 @@ export default function HomeScreen() {
     longitude,
     eventDate,
     username,
-    title,
-    type,
+    event_title,
+    event_type,
     description,
     location,
   }: {
@@ -71,8 +71,8 @@ export default function HomeScreen() {
     longitude: number;
     eventDate: Date;
     username: string;
-    title: string;
-    type: string;
+    event_title: string;
+    event_type: string;
     description: string;
     location: string;
   }) => {
@@ -87,8 +87,8 @@ export default function HomeScreen() {
           longitude,
           event_date: eventDate.toISOString(),
           username,
-          event_title: title,
-          event_type: type,
+          event_title: event_title,
+          event_type: event_type,
           description,
           location,
         }),
@@ -201,11 +201,12 @@ export default function HomeScreen() {
       latitude: selectedLocation.latitude,
       longitude: selectedLocation.longitude,
       eventDate,
-      username: user?.displayName || 'unknown',
-      title: eventTitle,
-      type: eventType,
+      username: user?.displayName || user?.email || 'unknow',
+      event_title: eventTitle,        
+      event_type: eventType, 
       description: eventDescription,
       location: eventLocation,
+      
     });
     const newEvent = {
       id: Date.now().toString(),
