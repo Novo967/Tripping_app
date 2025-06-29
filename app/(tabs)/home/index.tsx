@@ -324,7 +324,10 @@ export default function HomeScreen() {
                 onPress={() => {
                   router.push({
                     pathname: '/Chats/chatModal',
-                    params: { eventId: selectedEvent.id },
+                    params: { 
+                      otherUserId: selectedEvent.username,   // או השם האמיתי של השדה שמתאר את ה־uid
+                      otherUsername: selectedEvent.title,
+                      otherUserImage: '', },
                   });
                   setSelectedEvent(null);
                 }}
