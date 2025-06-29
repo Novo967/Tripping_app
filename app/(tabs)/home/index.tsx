@@ -58,41 +58,53 @@ export default function HomeScreen() {
     setUsers(data.users);
   };
   const submitPinToServer = async ({
-      latitude,
-      longitude,
-      eventDate,
-      username
-    }: {
-      latitude: number;
-      longitude: number;
-      eventDate: Date;
-      username: string;
-    }) => {
-      try {
-        const response = await fetch(`https://tripping-app.onrender.com/add-pin`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            latitude,
-            longitude,
-            event_date: eventDate.toISOString(),
-            username,
-          }),
-        });
-  
-        const data = await response.json();
-  
-        if (!response.ok) {
-          console.warn('שגיאה מהשרת:', data?.error);
-        } else {
-          console.log('הוספת סיכה הצליחה:', data);
-        }
-      } catch (error) {
-        console.error('שגיאה בבקשה:', error);
+    latitude,
+    longitude,
+    eventDate,
+    username,
+    title,
+    type,
+    description,
+    location,
+  }: {
+    latitude: number;
+    longitude: number;
+    eventDate: Date;
+    username: string;
+    title: string;
+    type: string;
+    description: string;
+    location: string;
+  }) => {
+    try {
+      const response = await fetch(`https://tripping-app.onrender.com/add-pin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          latitude,
+          longitude,
+          event_date: eventDate.toISOString(),
+          username,
+          title,
+          type,
+          description,
+          location,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        console.warn('שגיאה מהשרת:', data?.error);
+      } else {
+        console.log('הוספת סיכה הצליחה:', data);
       }
-    };
+    } catch (error) {
+      console.error('שגיאה בבקשה:', error);
+    }
+  };
+
   const fetchPinsFromServer = async () => {
     try {
       const response = await fetch('https://tripping-app.onrender.com/get-pins');
@@ -100,11 +112,13 @@ export default function HomeScreen() {
 
       if (data.pins) {
         const normalizedPins = data.pins.map((pin: any) => ({
-          id: pin.id,
-          latitude: pin.latitude,
-          longitude: pin.longitude,
-          title: pin.username,
-          description: new Date(pin.event_date).toLocaleDateString('he-IL'),
+            id: pin.id,
+            latitude: pin.latitude,
+            longitude: pin.longitude,
+            title: pin.event_title,   // ✅ שם נכון מה-API
+            type: pin.event_type,
+            username: pin.username,
+            date: pin.event_date,
         }));
 
         setEvents(normalizedPins);
@@ -185,6 +199,10 @@ export default function HomeScreen() {
       longitude: selectedLocation.longitude,
       eventDate,
       username: user?.displayName || 'unknown',
+      title: eventTitle,
+      type: eventType,
+      description: eventDescription,
+      location: eventLocation,
     });
     const newEvent = {
       id: Date.now().toString(),
@@ -220,7 +238,31 @@ export default function HomeScreen() {
       </View>
     );
   }
-  
+
+  const handleMarkerPress = async (eventId: string) => {
+  try {
+    const response = await fetch(`https://tripping-app.onrender.com/get-pin?id=${eventId}`);
+    const data = await response.json();
+    if (data.pin) {
+      setSelectedEvent({
+        id: data.pin.id,
+        latitude: data.pin.latitude,
+        longitude: data.pin.longitude,
+        title: data.pin.event_title,
+        type: data.pin.event_type,
+        username: data.pin.username,
+        date: data.pin.event_date,
+        description: data.pin.description,
+        location: data.pin.location,
+      });
+    } else {
+      console.warn('הסיכה לא נמצאה בשרת');
+    }
+  } catch (error) {
+    console.error('שגיאה בטעינת פרטי הסיכה:', error);
+  }
+};
+
   return (
   <View style={styles.container}>
     <MapView
@@ -250,7 +292,8 @@ export default function HomeScreen() {
         <Marker
           key={event.id}
           coordinate={{ latitude: event.latitude, longitude: event.longitude }}
-          onPress={() => setSelectedEvent(event)}
+          onPress={() => handleMarkerPress(event.id)}
+
           
         >
           <Ionicons name="location" size={30} color="#FF6F00" />
@@ -269,7 +312,7 @@ export default function HomeScreen() {
             <View style={styles.customCalloutBox}>
               <Text style={styles.calloutUsername}>{selectedEvent.title}</Text>
               <Text>סוג: {selectedEvent.type}</Text>
-              <Text>מאת: {selectedEvent.title}</Text>
+              <Text>מאת: {selectedEvent.username}</Text>
               <Text>תאריך: {new Date(selectedEvent.date).toLocaleDateString('he-IL')}</Text>
 
               <TouchableOpacity
@@ -289,6 +332,7 @@ export default function HomeScreen() {
         </TouchableWithoutFeedback>
       </Modal>
     )}
+
 
     {/* ✅ Modal הוזז מחוץ ל־MapView */}
     {selectedUser && (
