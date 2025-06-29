@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import {
@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -63,7 +64,9 @@ export default function RegisterScreen() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
-
+      await updateProfile(user, {
+        displayName: username.trim(),
+      });
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email,
         uid: user.uid,
