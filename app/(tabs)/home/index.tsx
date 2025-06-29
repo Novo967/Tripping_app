@@ -31,7 +31,7 @@ export default function HomeScreen() {
   const [region, setRegion] = useState<Region | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
-  const [displayDistance, setDisplayDistance] = useState(10);
+  const [displayDistance, setDisplayDistance] = useState(40);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -322,12 +322,11 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={styles.calloutButton}
                 onPress={() => {
+                  console.log('eventTitle:', selectedEvent.title);
                   router.push({
-                    pathname: '/Chats/chatModal',
+                    pathname: '/Chats/GroupChatModal',
                     params: { 
-                      otherUserId: selectedEvent.username,   // או השם האמיתי של השדה שמתאר את ה־uid
-                      otherUsername: selectedEvent.title,
-                      otherUserImage: '', },
+                      eventTitle: selectedEvent.title },
                   });
                   setSelectedEvent(null);
                 }}
