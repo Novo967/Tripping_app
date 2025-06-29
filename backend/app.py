@@ -125,16 +125,18 @@ def update_user_profile():
     print("Received data:", data)
     uid = data.get('uid')
     session = Session()
-    user = session.query(User).filter_by(uid=uid).first()
-    if not user:
-        user = User(uid=uid)
-    if profile_image is not None:
-        user.profile_image = profile_image
-    session.add(user)
+    try:
+        user = session.query(User).filter_by(uid=uid).first()
+        if not user:
+            user = User(uid=uid)
+        if profile_image is not None:
+            user.profile_image = profile_image
+        session.add(user)
 
-    session.commit()
-    return jsonify({'status': 'success'})
-
+        session.commit()
+        return jsonify({'status': 'success'})
+    finally:
+      session.close()
 # ----------------------------
 # 🔴 UPLOAD IMAGE (PROFILE / GALLERY)
 # ----------------------------
@@ -245,20 +247,23 @@ def get_gallery():
 @app.route('/get-all-users', methods=['GET'])
 def get_all_users():
     session = Session()
-    users = session.query(User).all()
-    response = {
-        'users': [
-            {
-                'uid': user.uid,
-                'latitude': user.latitude,
-                'longitude': user.longitude,
-                'profile_image': user.profile_image or '',
-                'username': user.username or ''
-            }
-            for user in users if user.latitude and user.longitude
-        ]
-    }
-    return jsonify(response)
+    try:
+        users = session.query(User).all()
+        response = {
+            'users': [
+                {
+                    'uid': user.uid,
+                    'latitude': user.latitude,
+                    'longitude': user.longitude,
+                    'profile_image': user.profile_image or '',
+                    'username': user.username or ''
+                }
+                for user in users if user.latitude and user.longitude
+            ]
+        }
+        return jsonify(response)
+    finally:
+        session.close()
 @app.route('/update-user-location', methods=['POST'])
 def update_user_location():
     data = request.get_json()
@@ -287,17 +292,20 @@ def get_other_user_profile():
     if not uid:
         return jsonify({'error': 'uid is required'}), 400
     session = Session()
-    user = session.query(User).filter_by(uid=uid).first()
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
+    try:
+        user = session.query(User).filter_by(uid=uid).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        gallery_urls = [image.image_url for image in user.gallery_images]
 
-    gallery_urls = [image.image_url for image in user.gallery_images]
-
-    return jsonify({
-        'username': user.username,
-        'profile_image': user.profile_image,
-        'gallery_images': gallery_urls
-    })
+        return jsonify({
+            'username': user.username,
+            'profile_image': user.profile_image,
+            'gallery_images': gallery_urls
+        })
+    finally:
+        session.close()
 @app.route('/add-pin', methods=['POST'])
 def add_pin():
     data = request.get_json()
@@ -321,22 +329,25 @@ def add_pin():
     except Exception as e:
         session.rollback()
         return jsonify({"success": False, "error": str(e)}), 400
-
+    finally:
+        session.close()
 @app.route('/get-pins', methods=['GET'])
 def get_pins():
     session = Session()
-    pins = session.query(Pin).all()
-    result = [{
-        'id': pin.id,
-        'latitude': pin.latitude,
-        'longitude': pin.longitude,
-        'event_date': pin.event_date.isoformat(),
-        'username': pin.username,
-        'event_title': pin.event_title,
-        'event_type': pin.event_type,
-    } for pin in pins]
-    return jsonify({'pins': result})
-
+    try:
+        pins = session.query(Pin).all()
+        result = [{
+            'id': pin.id,
+            'latitude': pin.latitude,
+            'longitude': pin.longitude,
+            'event_date': pin.event_date.isoformat(),
+            'username': pin.username,
+            'event_title': pin.event_title,
+            'event_type': pin.event_type,
+        } for pin in pins]
+        return jsonify({'pins': result})
+    finally:
+        session.close()
 @app.route('/get-pin', methods=['GET'])
 def get_pin():
     pin_id = request.args.get('id')
