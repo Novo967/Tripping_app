@@ -1,3 +1,4 @@
+// ChatsList.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
@@ -28,10 +29,11 @@ const { width, height } = Dimensions.get('window');
 
 interface ChatItem {
   chatId: string;
-  otherUserId: string;
+  otherUserId?: string;
   otherUsername: string;
   otherUserImage: string;
   lastMessage: string;
+  isGroup?: boolean;
 }
 
 const ChatsList = () => {
@@ -43,12 +45,9 @@ const ChatsList = () => {
 
   useEffect(() => {
     const auth = getAuth();
-    console.log('Current UID:', user?.uid);
-
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -57,9 +56,10 @@ const ChatsList = () => {
 
     const loadChats = async () => {
       try {
-        const chatsSnapshot = await getDocs(collection(db, 'chats'));
         const chatList: ChatItem[] = [];
 
+        // Load private chats
+        const chatsSnapshot = await getDocs(collection(db, 'chats'));
         for (const chatDoc of chatsSnapshot.docs) {
           const chatId = chatDoc.id;
           const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -89,6 +89,27 @@ const ChatsList = () => {
           });
         }
 
+        // Load group chats
+        const groupSnapshot = await getDocs(collection(db, 'group_chats'));
+        for (const groupDoc of groupSnapshot.docs) {
+          const groupId = groupDoc.id;
+          const messagesRef = collection(db, 'group_chats', groupId, 'messages');
+          const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
+          const lastMsgSnapshot = await getDocs(lastMsgQuery);
+
+          if (lastMsgSnapshot.empty) continue;
+
+          const msg = lastMsgSnapshot.docs[0].data();
+
+          chatList.push({
+            chatId: groupId,
+            otherUsername: groupId,
+            otherUserImage: 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
+            lastMessage: msg.text || '',
+            isGroup: true,
+          });
+        }
+
         setChats(chatList);
         setFilteredChats(chatList);
         setLoading(false);
@@ -113,14 +134,18 @@ const ChatsList = () => {
   }, [searchQuery, chats]);
 
   const openChat = (chat: ChatItem) => {
-    router.push({
-      pathname: '/Chats/chatModal',
-      params: {
-        otherUserId: chat.otherUserId,
-        otherUsername: chat.otherUsername,
-        otherUserImage: chat.otherUserImage,
-      },
-    });
+    if (chat.isGroup) {
+      router.push({ pathname: '/Chats/GroupChatModal', params: { eventTitle: chat.chatId } });
+    } else {
+      router.push({
+        pathname: '/Chats/chatModal',
+        params: {
+          otherUserId: chat.otherUserId!,
+          otherUsername: chat.otherUsername,
+          otherUserImage: chat.otherUserImage,
+        },
+      });
+    }
   };
 
   const renderChatItem = ({ item }: { item: ChatItem }) => (
@@ -131,7 +156,11 @@ const ChatsList = () => {
     >
       <View style={styles.avatarContainer}>
         <Image 
-          source={{ uri: item.otherUserImage || 'https://via.placeholder.com/60' }} 
+          source={{
+            uri: item.isGroup
+              ? 'https://img.icons8.com/ios-filled/500/group-foreground-selected.png'
+              : item.otherUserImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png'
+          }} 
           style={styles.avatar} 
         />
         <View style={styles.onlineIndicator} />
@@ -155,7 +184,7 @@ const ChatsList = () => {
         <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
         <View style={styles.loadingContent}>
           <ActivityIndicator size="large" color="#FF6F00" />
-          <Text style={styles.loadingText}>טוען צ'אטים...</Text>
+          <Text style={styles.loadingText}>טוען צאטים...</Text>
         </View>
       </SafeAreaView>
     );
@@ -164,14 +193,10 @@ const ChatsList = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
-      
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>הצ'אטים שלך</Text>
+        <Text style={styles.headerTitle}>הצאטים שלך</Text>
         <Text style={styles.headerSubtitle}>התחבר עם חברים למסע</Text>
       </View>
-
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
@@ -185,13 +210,11 @@ const ChatsList = () => {
           />
         </View>
       </View>
-
-      {/* Chat List */}
       <View style={styles.listContainer}>
         {filteredChats.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="chatbubbles-outline" size={80} color="#E0E0E0" />
-            <Text style={styles.emptyStateTitle}>אין צ'אטים עדיין</Text>
+            <Text style={styles.emptyStateTitle}>אין צאטים עדיין</Text>
             <Text style={styles.emptyStateSubtitle}>
               {searchQuery ? 'לא נמצאו תוצאות חיפוש' : 'התחל שיחה חדשה עם חברים'}
             </Text>
@@ -211,6 +234,8 @@ const ChatsList = () => {
 };
 
 export default ChatsList;
+
+// שאר הקובץ (styles) לא שונה ויכול להישאר כפי שהוא.
 
 const styles = StyleSheet.create({
   container: {
