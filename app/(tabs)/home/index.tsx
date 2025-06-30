@@ -3,8 +3,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { getAuth } from 'firebase/auth'; // Ensure getAuth is imported
-import React, { useEffect, useState } from 'react';
+import { getAuth } from 'firebase/auth';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -13,12 +13,12 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
-import MapView, { Region } from 'react-native-maps'; // Removed Marker as it's now in EventMarker
+import MapView, { Region } from 'react-native-maps';
 import AddEventButton from '../../MapButtons/AddEventButton';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
-import EventMarker from '../../components/EventMarker'; // Import the new EventMarker component
+import EventMarker from '../../components/EventMarker';
 import UserMarker from '../../components/UserMarker';
 
 const { width, height } = Dimensions.get('window');
@@ -45,16 +45,34 @@ export default function HomeScreen() {
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+
   const auth = getAuth();
   const user = auth.currentUser;
+
+  // --- פונקציות עזר (שחייבות להיות בתוך קומפוננטה או מיובאות) ---
+
+  // פונקציית חישוב מרחק - ממוקמת כאן כדי שתהיה נגישה ל-getVisibleUsers ו-visibleEvents
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // רדיוס כדור הארץ בקילומטרים
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // המרחק בקילומטרים
+  };
 
   const fetchUsers = async () => {
     try {
       const response = await fetch('https://tripping-app.onrender.com/get-all-users');
       const data = await response.json();
       setUsers(data.users);
+      return true;
     } catch (error) {
       console.error('שגיאה בטעינת משתמשים:', error);
+      return false;
     }
   };
 
@@ -100,7 +118,7 @@ export default function HomeScreen() {
         console.warn('שגיאה מהשרת:', data?.error);
       } else {
         console.log('הוספת סיכה הצליחה:', data);
-        fetchPinsFromServer(); // Re-fetch pins after adding a new one
+        fetchPinsFromServer();
       }
     } catch (error) {
       console.error('שגיאה בבקשה:', error);
@@ -123,27 +141,46 @@ export default function HomeScreen() {
           type: pin.event_type,
         }));
         setEvents(normalizedPins);
+        return true;
       } else {
         console.warn('לא הוחזרו סיכות מהשרת');
+        return false;
       }
     } catch (error) {
       console.error('שגיאה בטעינת סיכות מהשרת:', error);
+      return false;
     }
   };
 
   const fetchLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return;
-    const location = await Location.getCurrentPositionAsync({});
-    const { latitude, longitude } = location.coords;
-    setCurrentLocation({ latitude, longitude });
-    setRegion({ latitude, longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 });
+    if (status !== 'granted') {
+      console.warn('הרשאת מיקום נדחתה');
+      return false;
+    }
+    try {
+      const location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+      setCurrentLocation({ latitude, longitude });
+      setRegion({ latitude, longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 });
+      return true;
+    } catch (error) {
+      console.error('שגיאה בקבלת מיקום:', error);
+      return false;
+    }
   };
 
   useEffect(() => {
-    fetchLocation();
-    fetchUsers();
-    fetchPinsFromServer();
+    const loadInitialData = async () => {
+      const locationLoaded = await fetchLocation();
+      const usersLoaded = await fetchUsers();
+      const pinsLoaded = await fetchPinsFromServer();
+
+      if (locationLoaded && usersLoaded && pinsLoaded) {
+        setInitialDataLoaded(true);
+      }
+    };
+    loadInitialData();
   }, []);
 
   useFocusEffect(
@@ -156,29 +193,21 @@ export default function HomeScreen() {
   const getVisibleUsers = () => {
     if (!currentLocation) return users;
     return users.filter(user => {
+      // קריאה ל-calculateDistance
       const dist = calculateDistance(currentLocation.latitude, currentLocation.longitude, user.latitude, user.longitude);
       return dist <= displayDistance;
     });
   };
 
-  const getVisibleEvents = () => {
+  const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;
     return events.filter(event => {
+      // קריאה ל-calculateDistance
       const dist = calculateDistance(currentLocation.latitude, currentLocation.longitude, event.latitude, event.longitude);
       return dist <= displayDistance;
     });
-  };
+  }, [events, currentLocation, displayDistance]);
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
 
   const handleLocationChange = (text: string) => {
     setEventLocation(text);
@@ -202,7 +231,6 @@ export default function HomeScreen() {
       description: eventDescription,
       location: eventLocation,
     });
-    // Removed direct state update for events, as fetchPinsFromServer() will now handle it.
     resetEventForm();
     setEventModalVisible(false);
     setSelectedLocation(null);
@@ -218,16 +246,7 @@ export default function HomeScreen() {
     setShowLocationSuggestions(false);
   };
 
-  if (!region) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6F00" />
-        <Text style={styles.loadingText}>📡 טוען מפה...</Text>
-      </View>
-    );
-  }
-
-  const handleMarkerPress = async (eventId: string) => {
+  const handleMarkerPress = useCallback(async (eventId: string) => {
     try {
       const response = await fetch(`https://tripping-app.onrender.com/get-pin?id=${eventId}`);
       const data = await response.json();
@@ -249,11 +268,21 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('שגיאה בטעינת פרטי הסיכה:', error);
     }
-  };
+  }, []);
+
+  if (!initialDataLoaded || !region) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#FF6F00" />
+        <Text style={styles.loadingText}>📡 טוען מפה...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <MapView
+        key={initialDataLoaded ? "map-loaded" : "map-loading"}
         style={styles.map}
         region={region}
         onPress={(e) => {
@@ -274,8 +303,8 @@ export default function HomeScreen() {
           />
         ))}
 
-        {getVisibleEvents().map(event => (
-          <EventMarker // Using the new EventMarker component
+        {visibleEvents.map(event => (
+          <EventMarker
             key={event.id}
             event={event}
             onPress={handleMarkerPress}
@@ -440,8 +469,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   activeButton: {
-    backgroundColor: '#FFB74D', // גוון בהיר יותר של כתום
-    opacity: 0.8, // גם נראה טיפה "לחוץ"
+    backgroundColor: '#FFB74D',
+    opacity: 0.8,
   },
   loadingText: {
     fontSize: 16,
@@ -452,7 +481,6 @@ const styles = StyleSheet.create({
     padding: 2,
     backgroundColor: 'transparent',
   },
-
   profileMarker: {
     width: 36,
     height: 36,
@@ -460,9 +488,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
     backgroundColor: '#ccc',
-    overflow: 'hidden', // חשוב לחיתוך נקי
+    overflow: 'hidden',
   },
-
   defaultMarkerIcon: {
     width: 35,
     height: 35,
@@ -472,8 +499,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
   },
-
-
   markerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -604,23 +629,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-
   customCalloutOverlay: {
-  flex: 1,
-  backgroundColor: 'rgba(0,0,0,0.3)',
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-
-customCalloutBox: {
-  backgroundColor: 'white',
-  padding: 16,
-  borderRadius: 12,
-  width: 250,
-  alignItems: 'center',
-  elevation: 5,
-},
-
-
-
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customCalloutBox: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    width: 250,
+    alignItems: 'center',
+    elevation: 5,
+  },
 });
