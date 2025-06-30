@@ -66,7 +66,8 @@ const OtherUserProfile = () => {
         
         if (userSnap.exists()) {
           const firestoreData = userSnap.data();
-          
+          const profileImageUrl = apiData.profile_image || ''; // קבלת ה-URI
+          console.log('Profile Image URI:', profileImageUrl);
           setUserData({
             username: firestoreData.username || '',
             profileImage: apiData.profile_image || '',

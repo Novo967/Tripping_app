@@ -1,17 +1,20 @@
+import os
+import time
+from datetime import datetime
+import uuid
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-import os
-from sqlalchemy import create_engine, Column, Integer, String, Text, ARRAY
+from sqlalchemy import create_engine, Column, Integer, String, Text, ARRAY, Float, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-import time
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy import Column, String, ForeignKey, DateTime
-from datetime import datetime
-import uuid
-from sqlalchemy import Float 
+from sqlalchemy.orm import sessionmaker, relationship
+
+# Import Pillow and pillow_heif for image processing
+from PIL import Image
+import pillow_heif
+
+# Register HEIF opener with Pillow
+pillow_heif.register_heif_opener()
 # הגדרות בסיסיות
 app = Flask(__name__)
 CORS(app)
@@ -149,45 +152,56 @@ def upload_image():
     if not file or not uid:
         return jsonify({'error': 'Missing data'}), 400
 
-    # שמירת הקובץ בשם קבוע לפי המשתמש והסוג
-    import time
-    filename = secure_filename(f"{uid}_{image_type}_{int(time.time())}_{file.filename}")
-    if file.filename.lower().endswith('.heic'):
-        filename = filename.replace('.heic', '.jpg')
+    # Create a unique filename for the processed image (always .jpg)
+    base_filename = os.path.splitext(secure_filename(file.filename))[0]
+    output_filename = f"{uid}_{image_type}_{int(time.time())}_{base_filename}.jpg"
+    output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
 
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-
-    # הוספת timestamp ל-URL למניעת caching
-    timestamp = int(time.time())
-    image_url = f"https://tripping-app.onrender.com/uploads/{filename}?v={timestamp}"
-
-    # עדכון במסד הנתונים
-    session = Session()
-    user = session.query(User).filter_by(uid=uid).first()
-    if not user:
-        user = User(id=uid, uid=uid, profile_image="")
-        session.add(user)
-        session.commit()
-    if image_type =='profile':
-        user.profile_image = image_url
-        session.add(user)
-    else:
-        gallery_image = GalleryImage(uid=uid, image_url=image_url, uploaded_at=datetime.utcnow())
-        session.add(gallery_image)
-    
-
-    
     try:
+        # Load the image using Pillow. Pillow can handle various formats including HEIC if pillow_heif is registered.
+        # file.stream is a file-like object
+        img = Image.open(file.stream)
+
+        # Convert to RGB if needed (some images might be in RGBA, P, etc. which JPG doesn't handle well)
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+
+        # Save the image as JPEG
+        # Use 'quality' for compression (85 is a good balance)
+        # Use 'optimize=True' for better file size
+        img.save(output_filepath, "jpeg", optimize=True, quality=85)
+
+        # Construct the URL for the saved image
+        timestamp = int(time.time()) # Re-use timestamp for cache-busting
+        image_url = f"https://tripping-app.onrender.com/uploads/{output_filename}?v={timestamp}"
+
+        # Update database
+        session = Session()
+        user = session.query(User).filter_by(uid=uid).first()
+        if not user:
+            # If user doesn't exist, create it (assuming id and uid are the same here)
+            user = User(id=uid, uid=uid, username=f"User_{uid[:8]}", profile_image="")
+            session.add(user)
+            session.commit() # Commit new user first if it's new
+
+        if image_type == 'profile':
+            user.profile_image = image_url
+        else: # gallery image
+            gallery_image = GalleryImage(uid=uid, image_url=image_url, uploaded_at=datetime.utcnow())
+            session.add(gallery_image)
+
         session.commit()
+        return jsonify({'url': image_url})
+
     except Exception as e:
         session.rollback()
-        print(f"Commit failed: {e}")
+        print(f"🔥 Error processing or saving image: {e}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
     finally:
         session.close()
 
-    return jsonify({'url': image_url})
 # ----------------------------
 # 🟢 Static file serving
 # ----------------------------
