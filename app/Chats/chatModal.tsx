@@ -104,6 +104,13 @@ const ChatModal = () => {
     router.back();
   };
 
+  const handleUserProfilePress = () => {
+    router.push({
+      pathname: '/ProfileServices/OtherUserProfile',
+      params: { uid: otherUserId },
+    });
+  };
+
   const formatTime = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -156,7 +163,11 @@ const ChatModal = () => {
           <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         
-        <View style={styles.userInfo}>
+        <TouchableOpacity 
+          style={styles.userInfo}
+          onPress={handleUserProfilePress}
+          activeOpacity={0.7}
+        >
           <View style={styles.avatarContainer}>
             <Image 
               source={{ uri: otherUserImage || 'https://via.placeholder.com/50' }} 
@@ -168,7 +179,7 @@ const ChatModal = () => {
             <Text style={styles.username}>{otherUsername}</Text>
             <Text style={styles.userStatus}>פעיל עכשיו</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.moreButton} activeOpacity={0.7}>
           <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
