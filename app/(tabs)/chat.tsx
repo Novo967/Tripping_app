@@ -155,16 +155,21 @@ const ChatsList = () => {
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        <Image 
-          source={{
-            uri: item.isGroup
-              ? 'https://img.icons8.com/ios-filled/500/group-foreground-selected.png'
-              : item.otherUserImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png'
-          }} 
-          style={styles.avatar} 
-        />
+        {item.isGroup ? (
+          <View style={styles.groupIcon}>
+            <Ionicons name="people" size={24} color="#FF6F00" />
+          </View>
+        ) : (
+          <Image 
+            source={{
+              uri: item.otherUserImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png'
+            }} 
+            style={styles.avatar} 
+          />
+        )}
         <View style={styles.onlineIndicator} />
       </View>
+
       <View style={styles.textContainer}>
         <View style={styles.headerRow}>
           <Text style={styles.username}>{item.otherUsername}</Text>
@@ -409,5 +414,23 @@ const styles = StyleSheet.create({
     color: '#95A5A6',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  groupIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FF6F00',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

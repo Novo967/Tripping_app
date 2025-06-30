@@ -2,31 +2,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc
+    addDoc,
+    collection,
+    doc,
+    getDoc,
+    onSnapshot,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
-  FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Dimensions,
+    FlatList,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 import { db } from '../../firebaseConfig';
 
@@ -144,7 +144,7 @@ const GroupChatModal = () => {
             <Ionicons name="alert-circle-outline" size={60} color="#E0E0E0" />
           </View>
           <Text style={styles.errorTitle}>אירוע לא זוהה</Text>
-          <Text style={styles.errorSubtitle}>לא ניתן לטעון את הצ'ט הקבוצתי</Text>
+          <Text style={styles.errorSubtitle}>לא ניתן לטעון את הצט הקבוצתי</Text>
         </View>
       </SafeAreaView>
     );
@@ -175,7 +175,7 @@ const GroupChatModal = () => {
               {eventTitle}
             </Text>
             <Text style={styles.groupStatus}>
-              צ'ט קבוצתי • {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
+              צט קבוצתי • {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
             </Text>
           </View>
         </View>
@@ -199,7 +199,7 @@ const GroupChatModal = () => {
                 </View>
                 <Text style={styles.emptyStateTitle}>התחל שיחה קבוצתית</Text>
                 <Text style={styles.emptyStateSubtitle}>
-                  שלח הודעה ראשונה לקבוצת "{eventTitle}"
+                  שלח הודעה ראשונה לקבוצת {eventTitle}
                 </Text>
               </View>
             ) : (

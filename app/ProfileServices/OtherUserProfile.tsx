@@ -1,6 +1,6 @@
 // screens/OtherUserProfile.tsx
 
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { db } from '../../firebaseConfig';
 import { RootStackParamList } from '../types';
+
 
 type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile'>;
 
@@ -148,9 +149,19 @@ const OtherUserProfile = () => {
       {/* Profile Section */}
       <View style={styles.profileSection}>
         <View style={styles.profileImageContainer}>
-          <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
+          {userData.profileImage ? (
+            <Image
+              source={{ uri: userData.profileImage }}
+              style={styles.profileImage}
+            />
+          ) : (
+            <View style={styles.defaultProfileIcon}>
+              <Ionicons name="person" size={50} color="#FF6F00" />
+            </View>
+          )}
           {userData.isOnline && <View style={styles.onlineBadge} />}
-        </View>
+      </View>
+
         
         <Text style={styles.username}>{userData.username}</Text>
         
@@ -474,4 +485,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  defaultProfileIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: '#FF6F00',
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
+
 });
