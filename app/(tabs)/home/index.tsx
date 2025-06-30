@@ -1,16 +1,13 @@
-// HomeScreen.tsx
-
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { getAuth } from 'firebase/auth';
+import { getAuth } from 'firebase/auth'; // Ensure getAuth is imported
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  Image,
   Modal,
   StyleSheet,
   Text,
@@ -18,12 +15,11 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Region } from 'react-native-maps'; // Removed Marker as it's now in EventMarker
 import AddEventButton from '../../MapButtons/AddEventButton';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
-
-
-
+import EventMarker from '../../components/EventMarker'; // Import the new EventMarker component
+import UserMarker from '../../components/UserMarker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,10 +49,15 @@ export default function HomeScreen() {
   const user = auth.currentUser;
 
   const fetchUsers = async () => {
-    const response = await fetch('https://tripping-app.onrender.com/get-all-users');
-    const data = await response.json();
-    setUsers(data.users);
+    try {
+      const response = await fetch('https://tripping-app.onrender.com/get-all-users');
+      const data = await response.json();
+      setUsers(data.users);
+    } catch (error) {
+      console.error('שגיאה בטעינת משתמשים:', error);
+    }
   };
+
   const submitPinToServer = async ({
     latitude,
     longitude,
@@ -92,7 +93,6 @@ export default function HomeScreen() {
           description,
           location,
         }),
-
       });
 
       const data = await response.json();
@@ -100,6 +100,7 @@ export default function HomeScreen() {
         console.warn('שגיאה מהשרת:', data?.error);
       } else {
         console.log('הוספת סיכה הצליחה:', data);
+        fetchPinsFromServer(); // Re-fetch pins after adding a new one
       }
     } catch (error) {
       console.error('שגיאה בבקשה:', error);
@@ -113,17 +114,14 @@ export default function HomeScreen() {
 
       if (data.pins) {
         const normalizedPins = data.pins.map((pin: any) => ({
-            id: pin.id,
-            latitude: pin.latitude,
-            longitude: pin.longitude,
-            date: pin.event_date,
-            username: pin.username,
-            title: pin.event_title,   // ✅ שם נכון מה-API
-            type: pin.event_type,
-            
-            
+          id: pin.id,
+          latitude: pin.latitude,
+          longitude: pin.longitude,
+          date: pin.event_date,
+          username: pin.username,
+          title: pin.event_title,
+          type: pin.event_type,
         }));
-
         setEvents(normalizedPins);
       } else {
         console.warn('לא הוחזרו סיכות מהשרת');
@@ -145,14 +143,13 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchLocation();
     fetchUsers();
-    fetchPinsFromServer(); 
+    fetchPinsFromServer();
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
-      fetchLocation();
       fetchUsers();
-      fetchPinsFromServer(); 
+      fetchPinsFromServer();
     }, [])
   );
 
@@ -171,8 +168,6 @@ export default function HomeScreen() {
       return dist <= displayDistance;
     });
   };
-
-  
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371;
@@ -202,23 +197,12 @@ export default function HomeScreen() {
       longitude: selectedLocation.longitude,
       eventDate,
       username: user?.displayName || user?.email || 'unknow',
-      event_title: eventTitle,        
-      event_type: eventType, 
+      event_title: eventTitle,
+      event_type: eventType,
       description: eventDescription,
       location: eventLocation,
-      
     });
-    const newEvent = {
-      id: Date.now().toString(),
-      title: eventTitle,
-      type: eventType,
-      date: eventDate,
-      location: eventLocation,
-      description: eventDescription,
-      latitude: selectedLocation.latitude,
-      longitude: selectedLocation.longitude,
-    };
-    setEvents(prev => [...prev, newEvent]);
+    // Removed direct state update for events, as fetchPinsFromServer() will now handle it.
     resetEventForm();
     setEventModalVisible(false);
     setSelectedLocation(null);
@@ -244,212 +228,206 @@ export default function HomeScreen() {
   }
 
   const handleMarkerPress = async (eventId: string) => {
-  try {
-    const response = await fetch(`https://tripping-app.onrender.com/get-pin?id=${eventId}`);
-    const data = await response.json();
-    if (data.pin) {
-      setSelectedEvent({
-        id: data.pin.id,
-        latitude: data.pin.latitude,
-        longitude: data.pin.longitude,
-        title: data.pin.event_title,
-        type: data.pin.event_type,
-        username: data.pin.username,
-        date: data.pin.event_date,
-        description: data.pin.description,
-        location: data.pin.location,
-      });
-    } else {
-      console.warn('הסיכה לא נמצאה בשרת');
+    try {
+      const response = await fetch(`https://tripping-app.onrender.com/get-pin?id=${eventId}`);
+      const data = await response.json();
+      if (data.pin) {
+        setSelectedEvent({
+          id: data.pin.id,
+          latitude: data.pin.latitude,
+          longitude: data.pin.longitude,
+          title: data.pin.event_title,
+          type: data.pin.event_type,
+          username: data.pin.username,
+          date: data.pin.event_date,
+          description: data.pin.description,
+          location: data.pin.location,
+        });
+      } else {
+        console.warn('הסיכה לא נמצאה בשרת');
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת פרטי הסיכה:', error);
     }
-  } catch (error) {
-    console.error('שגיאה בטעינת פרטי הסיכה:', error);
-  }
-};
+  };
 
   return (
-  <View style={styles.container}>
-    <MapView
-      style={styles.map}
-      region={region}
-      onPress={(e) => {
-        if (isChoosingLocation) {
-          const { latitude, longitude } = e.nativeEvent.coordinate;
-          setSelectedLocation({ latitude, longitude });
-          setEventLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-          setEventModalVisible(true);
-          setIsChoosingLocation(false);
-        }
-      }}
-    >
-      {getVisibleUsers().map((user) => (
-        <Marker
-          key={user.uid}
-          coordinate={{ latitude: user.latitude, longitude: user.longitude }}
-          onPress={() => setSelectedUser(user)}
+    <View style={styles.container}>
+      <MapView
+        style={styles.map}
+        region={region}
+        onPress={(e) => {
+          if (isChoosingLocation) {
+            const { latitude, longitude } = e.nativeEvent.coordinate;
+            setSelectedLocation({ latitude, longitude });
+            setEventLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+            setEventModalVisible(true);
+            setIsChoosingLocation(false);
+          }
+        }}
+      >
+        {getVisibleUsers().map((user) => (
+          <UserMarker
+            key={user.uid}
+            user={user}
+            onPress={setSelectedUser}
+          />
+        ))}
+
+        {getVisibleEvents().map(event => (
+          <EventMarker // Using the new EventMarker component
+            key={event.id}
+            event={event}
+            onPress={handleMarkerPress}
+          />
+        ))}
+      </MapView>
+
+      {selectedEvent && (
+        <Modal
+          visible
+          animationType="fade"
+          transparent
+          onRequestClose={() => setSelectedEvent(null)}
         >
-          <Image source={{ uri: user.profile_image }} style={styles.profileMarker} />
-        </Marker>
-      ))}
+          <TouchableWithoutFeedback onPress={() => setSelectedEvent(null)}>
+            <View style={styles.customCalloutOverlay}>
+              <View style={styles.customCalloutBox}>
+                <Text style={styles.calloutUsername}>{selectedEvent.title}</Text>
+                <Text>סוג: {selectedEvent.type}</Text>
+                <Text>מאת: {selectedEvent.username}</Text>
+                <Text>תאריך: {new Date(selectedEvent.date).toLocaleDateString('he-IL')}</Text>
 
-      {getVisibleEvents().map(event => (
-        <Marker
-          key={event.id}
-          coordinate={{ latitude: event.latitude, longitude: event.longitude }}
-          onPress={() => handleMarkerPress(event.id)}
+                <TouchableOpacity
+                  style={styles.calloutButton}
+                  onPress={() => {
+                    console.log('eventTitle:', selectedEvent.title);
+                    router.push({
+                      pathname: '/Chats/GroupChatModal',
+                      params: {
+                        eventTitle: selectedEvent.title
+                      },
+                    });
+                    setSelectedEvent(null);
+                  }}
+                >
+                  <Text style={styles.calloutButtonText}>היכנס לצאט האירוע</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
 
-          
+      {selectedUser && (
+        <Modal
+          visible
+          animationType="fade"
+          transparent
+          onRequestClose={() => setSelectedUser(null)}
         >
-          <Ionicons name="location" size={30} color="#FF6F00" />
-        </Marker>
-      ))}
-    </MapView>
-    {selectedEvent && (
-      <Modal
-        visible
-        animationType="fade"
-        transparent
-        onRequestClose={() => setSelectedEvent(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setSelectedEvent(null)}>
-          <View style={styles.customCalloutOverlay}>
-            <View style={styles.customCalloutBox}>
-              <Text style={styles.calloutUsername}>{selectedEvent.title}</Text>
-              <Text>סוג: {selectedEvent.type}</Text>
-              <Text>מאת: {selectedEvent.username}</Text>
-              <Text>תאריך: {new Date(selectedEvent.date).toLocaleDateString('he-IL')}</Text>
+          <TouchableWithoutFeedback onPress={() => setSelectedUser(null)}>
+            <View style={styles.customCalloutOverlay}>
+              <View style={styles.customCalloutBox}>
+                <Text style={styles.calloutUsername}>
+                  {selectedUser.username || 'משתמש'}
+                </Text>
+                <TouchableOpacity
+                  style={styles.calloutButton}
+                  onPress={() => {
+                    router.push({
+                      pathname: '/ProfileServices/OtherUserProfile',
+                      params: { uid: selectedUser.uid },
+                    });
 
-              <TouchableOpacity
-                style={styles.calloutButton}
-                onPress={() => {
-                  console.log('eventTitle:', selectedEvent.title);
-                  router.push({
-                    pathname: '/Chats/GroupChatModal',
-                    params: { 
-                      eventTitle: selectedEvent.title },
-                  });
-                  setSelectedEvent(null);
-                }}
-              >
-                <Text style={styles.calloutButtonText}>היכנס לצאט האירוע</Text>
-              </TouchableOpacity>
+                    setSelectedUser(null);
+                  }}
+                >
+                  <Text style={styles.calloutButtonText}>לצפייה בפרופיל</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    )}
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
 
-    {/* ✅ Modal הוזז מחוץ ל־MapView */}
-    {selectedUser && (
-      <Modal
-        visible
-        animationType="fade"
-        transparent
-        onRequestClose={() => setSelectedUser(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setSelectedUser(null)}>
-          <View style={styles.customCalloutOverlay}>
-            <View style={styles.customCalloutBox}>
-              <Text style={styles.calloutUsername}>
-                {selectedUser.username || 'משתמש'}
-              </Text>
-              <TouchableOpacity
-                style={styles.calloutButton}
-                onPress={() => {
-                  router.push({
-                    pathname: '/ProfileServices/OtherUserProfile',
-                    params: { uid: selectedUser.uid },
-                  });
+      <View style={styles.floatingButtons}>
+        <TouchableOpacity style={styles.actionButton} onPress={() => setDistanceModalVisible(true)}>
+          <Ionicons name="resize" size={24} color="white" />
+        </TouchableOpacity>
 
-                  setSelectedUser(null);
-                }}
-              >
-                <Text style={styles.calloutButtonText}>לצפייה בפרופיל</Text>
-              </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            isChoosingLocation && styles.activeButton
+          ]}
+          onPress={() => setIsChoosingLocation(prev => !prev)}
+        >
+          <Ionicons name="add" size={28} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      <DistanceFilterButton
+        displayDistance={displayDistance}
+        setDisplayDistance={setDisplayDistance}
+        visible={distanceModalVisible}
+        setVisible={setDistanceModalVisible}
+      />
+
+      <AddEventButton
+        visible={eventModalVisible}
+        setVisible={setEventModalVisible}
+        eventTitle={eventTitle}
+        setEventTitle={setEventTitle}
+        eventType={eventType}
+        setEventType={setEventType}
+        eventDate={eventDate}
+        setEventDate={setEventDate}
+        eventLocation={eventLocation}
+        setEventLocation={setEventLocation}
+        handleLocationChange={handleLocationChange}
+        locationSuggestions={locationSuggestions}
+        showLocationSuggestions={showLocationSuggestions}
+        selectLocation={selectLocation}
+        eventDescription={eventDescription}
+        setEventDescription={setEventDescription}
+        handleAddEvent={handleAddEvent}
+        resetEventForm={resetEventForm}
+        showCalendarPicker={showCalendarPicker}
+        setShowCalendarPicker={setShowCalendarPicker}
+      />
+
+      {showCalendarPicker && (
+        <Modal visible animationType="slide" transparent>
+          <TouchableWithoutFeedback onPress={() => setShowCalendarPicker(false)}>
+            <View style={styles.calendarModalOverlay}>
+              <View style={styles.calendarModalContent}>
+                <Text style={styles.calendarModalTitle}>בחר תאריך</Text>
+                <DateTimePicker
+                  value={eventDate}
+                  mode="date"
+                  display="calendar"
+                  onChange={(event, selectedDate) => {
+                    if (selectedDate) {
+                      setEventDate(selectedDate);
+                    }
+                    setShowCalendarPicker(false);
+                  }}
+                  minimumDate={new Date()}
+                />
+                <TouchableOpacity
+                  style={styles.calendarCloseButton}
+                  onPress={() => setShowCalendarPicker(false)}
+                >
+                  <Text style={styles.buttonText}>סגור</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    )}
-
-    <View style={styles.floatingButtons}>
-      <TouchableOpacity style={styles.actionButton} onPress={() => setDistanceModalVisible(true)}>
-        <Ionicons name="resize" size={24} color="white" />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.actionButton,
-          isChoosingLocation && styles.activeButton
-        ]}
-        onPress={() => setIsChoosingLocation(prev => !prev)}
-      >
-        <Ionicons name="add" size={28} color="white" />
-      </TouchableOpacity>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </View>
-
-    <DistanceFilterButton
-      displayDistance={displayDistance}
-      setDisplayDistance={setDisplayDistance}
-      visible={distanceModalVisible}
-      setVisible={setDistanceModalVisible}
-    />
-
-    <AddEventButton
-      visible={eventModalVisible}
-      setVisible={setEventModalVisible}
-      eventTitle={eventTitle}
-      setEventTitle={setEventTitle}
-      eventType={eventType}
-      setEventType={setEventType}
-      eventDate={eventDate}
-      setEventDate={setEventDate}
-      eventLocation={eventLocation}
-      setEventLocation={setEventLocation}
-      handleLocationChange={handleLocationChange}
-      locationSuggestions={locationSuggestions}
-      showLocationSuggestions={showLocationSuggestions}
-      selectLocation={selectLocation}
-      eventDescription={eventDescription}
-      setEventDescription={setEventDescription}
-      handleAddEvent={handleAddEvent}
-      resetEventForm={resetEventForm}
-      showCalendarPicker={showCalendarPicker}
-      setShowCalendarPicker={setShowCalendarPicker}
-    />
-
-    {showCalendarPicker && (
-      <Modal visible animationType="slide" transparent>
-        <TouchableWithoutFeedback onPress={() => setShowCalendarPicker(false)}>
-          <View style={styles.calendarModalOverlay}>
-            <View style={styles.calendarModalContent}>
-              <Text style={styles.calendarModalTitle}>בחר תאריך</Text>
-              <DateTimePicker
-                value={eventDate}
-                mode="date"
-                display="calendar"
-                onChange={(event, selectedDate) => {
-                  if (selectedDate) {
-                    setEventDate(selectedDate);
-                  }
-                  setShowCalendarPicker(false);
-                }}
-                minimumDate={new Date()}
-              />
-              <TouchableOpacity
-                style={styles.calendarCloseButton}
-                onPress={() => setShowCalendarPicker(false)}
-              >
-                <Text style={styles.buttonText}>סגור</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    )}
-  </View>
-);
-
+  );
 }
 
 const styles = StyleSheet.create({
@@ -470,14 +448,32 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 10,
   },
+  markerWrapper: {
+    padding: 2,
+    backgroundColor: 'transparent',
+  },
+
   profileMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 25,
     borderWidth: 2,
     borderColor: '#fff',
     backgroundColor: '#ccc',
+    overflow: 'hidden', // חשוב לחיתוך נקי
   },
+
+  defaultMarkerIcon: {
+    width: 35,
+    height: 35,
+    borderRadius: 25,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+
+
   markerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
