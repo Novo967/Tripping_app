@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react'; // Added useEffect back
-import { Image, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native'; // Added ActivityIndicator
 import { Marker } from 'react-native-maps';
 
 interface UserMarkerProps {
@@ -15,36 +15,38 @@ interface UserMarkerProps {
 }
 
 const UserMarker: React.FC<UserMarkerProps> = ({ user, onPress }) => {
+  // shouldTrackViewChanges מתחיל ב-true כדי לאפשר למפה לצייר את המרקר עם התמונה ברגע שהיא זמינה.
   const [shouldTrackViewChanges, setShouldTrackViewChanges] = useState(true);
+  const [isImageLoading, setIsImageLoading] = useState(false); // מצב חדש לניהול טעינת תמונה
 
-  // Use useEffect to handle cases where there's no profile image
   useEffect(() => {
-    if (!user.profile_image) {
-      // If no profile image, set tracksViewChanges to false after a short delay.
-      // This allows the initial rendering of the default icon, then stops tracking.
+    if (user.profile_image) {
+      // אם יש תמונת פרופיל, נתחיל לעקוב ונסמן שהתמונה בטעינה
+      setIsImageLoading(true);
+      setShouldTrackViewChanges(true); // ודא שמתחילים לעקוב
+
+      // לא צריך setTimeout כאן, כי onLoadEnd/onError יטפלו בזה.
+      // אם התמונה נטענת מהר מהקאש, onLoadEnd יקרה כמעט מיידית.
+    } else {
+      // אם אין תמונת פרופיל, התוכן סטטי, אז נפסיק לעקוב אחרי עיכוב קצר
+      // זה מבטיח שהאייקון יופיע בלי ריצוד.
       const timer = setTimeout(() => {
         setShouldTrackViewChanges(false);
-      }, 100); // A very short delay should suffice for static icons
-
-      return () => clearTimeout(timer); // Cleanup the timer
+      }, 100); // עיכוב קצרצר (100ms) מספיק לרינדור אייקון סטטי
+      return () => clearTimeout(timer); // ניקוי הטיימר
     }
-    // If there IS a profile image, this useEffect does nothing,
-    // and the Image's onLoadEnd/onError will manage shouldTrackViewChanges.
-  }, [user.profile_image]); // Dependency on profile_image ensures this runs when relevant
+  }, [user.profile_image]); // תלוי רק בשינוי תמונת הפרופיל
 
   const handleImageLoadEnd = () => {
-    // Only set to false if we are currently tracking changes
-    if (shouldTrackViewChanges) {
-      setShouldTrackViewChanges(false);
-    }
+    // התמונה נטענה בהצלחה, אפשר להפסיק לעקוב.
+    setIsImageLoading(false); // סימון שהתמונה סיימה להיטען
   };
 
-  const handleImageError = () => {
-    console.warn(`Error loading image for user ${user.uid}`);
-    // Even if there's an error, stop tracking changes to prevent flickering
-    if (shouldTrackViewChanges) {
-      setShouldTrackViewChanges(false);
-    }
+  const handleImageError = (e: any) => {
+    console.warn(`Error loading image for user ${user.uid}:`, e.nativeEvent.error);
+    // גם אם יש שגיאה, נפסיק לעקוב כדי למנוע ריצוד מיותר.
+    // אפשר להגדיר כאן גם fall-back לאייקון ברירת המחדל אם רוצים.
+    setIsImageLoading(false); // סימון שהטעינה הסתיימה בשגיאה
   };
 
   return (
@@ -56,13 +58,20 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, onPress }) => {
       tracksViewChanges={shouldTrackViewChanges}
     >
       {user.profile_image ? (
-        <Image
-          source={{ uri: user.profile_image }}
-          style={styles.profileMarker}
-          resizeMode="cover"
-          onLoadEnd={handleImageLoadEnd}
-          onError={handleImageError}
-        />
+        <View style={styles.imageContainer}>
+          {/* מציגים אינדיקטור טעינה אם התמונה עדיין בטעינה */}
+          {isImageLoading && (
+            <ActivityIndicator size="small" color="#FF6F00" style={StyleSheet.absoluteFillObject} />
+          )}
+          <Image
+            source={{ uri: user.profile_image }}
+            style={styles.profileMarker}
+            resizeMode="cover"
+            onLoadEnd={handleImageLoadEnd}
+            onError={handleImageError}
+            // opacity: isImageLoading ? 0 : 1 יאפשר טעינה חלקה יותר (התמונה "תופיע" ברגע שהיא מוכנה)
+          />
+        </View>
       ) : (
         <View style={styles.defaultMarkerIcon}>
           <Ionicons name="person" size={24} color="#FF6F00" />
@@ -89,6 +98,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#fff',
+  },
+   imageContainer: {
+    width: '100%', // התמונה תתפוס את כל הקונטיינר
+    height: '100%',
   },
 });
 
