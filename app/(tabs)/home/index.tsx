@@ -1,3 +1,4 @@
+// app/index.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -5,14 +6,8 @@ import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+  ActivityIndicator, Animated, Modal, StyleSheet, Text,
+  TouchableOpacity, TouchableWithoutFeedback, View
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
@@ -30,7 +25,6 @@ export default function HomeScreen() {
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
 
-  // מסנן מפה
   const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
   const [filterAnimation] = useState(new Animated.Value(0));
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -38,458 +32,237 @@ export default function HomeScreen() {
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // פונקציית חישוב מרחק
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   };
 
-  // פונקציות API
   const fetchUsers = async () => {
     try {
-      const response = await fetch('https://tripping-app.onrender.com/get-all-users');
-      const data = await response.json();
-      setUsers(data.users);
-      return true;
-    } catch (error) {
-      console.error('שגיאה בטעינת משתמשים:', error);
-      return false;
-    }
+      const res = await fetch('https://tripping-app.onrender.com/get-all-users');
+      const data = await res.json();
+      setUsers(data.users || []);
+    } catch {}
   };
 
-  const fetchPinsFromServer = async () => {
+  const fetchPins = async () => {
     try {
-      const response = await fetch('https://tripping-app.onrender.com/get-pins');
-      const data = await response.json();
-      if (data.pins) {
-        const normalizedPins = data.pins.map((pin: any) => ({
-          id: pin.id,
-          latitude: pin.latitude,
-          longitude: pin.longitude,
-          date: pin.event_date,
-          username: pin.username,
-          title: pin.event_title,
-          type: pin.event_type,
-        }));
-        setEvents(normalizedPins);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('שגיאה בטעינת סיכות:', error);
-      return false;
-    }
+      const res = await fetch('https://tripping-app.onrender.com/get-pins');
+      const data = await res.json();
+      setEvents((data.pins || []).map((pin:any) => ({
+        id: pin.id, latitude: pin.latitude, longitude: pin.longitude,
+        date: pin.event_date, username: pin.username,
+        title: pin.event_title, type: pin.event_type
+      })));
+    } catch {}
   };
 
   const fetchLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return false;
-    
-    try {
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = location.coords;
-      setCurrentLocation({ latitude, longitude });
-      setRegion({ latitude, longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 });
-      return true;
-    } catch (error) {
-      console.error('שגיאה בקבלת מיקום:', error);
-      return false;
-    }
+    if (status !== 'granted') return;
+    const loc = await Location.getCurrentPositionAsync({});
+    setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+    setRegion({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 });
   };
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      const [locationLoaded, usersLoaded, pinsLoaded] = await Promise.all([
-        fetchLocation(),
-        fetchUsers(),
-        fetchPinsFromServer()
-      ]);
-      
-      if (locationLoaded && usersLoaded && pinsLoaded) {
-        setInitialDataLoaded(true);
-      }
-    };
-    loadInitialData();
+    (async () => {
+      await Promise.all([fetchLocation(), fetchUsers(), fetchPins()]);
+      setInitialDataLoaded(true);
+    })();
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchUsers();
-      fetchPinsFromServer();
-    }, [])
-  );
-
-  const getVisibleUsers = () => {
-    if (!currentLocation) return users;
-    return users.filter(user => {
-      const dist = calculateDistance(currentLocation.latitude, currentLocation.longitude, user.latitude, user.longitude);
-      return dist <= displayDistance;
-    });
-  };
+  useFocusEffect(useCallback(() => { fetchUsers(); fetchPins(); }, []));
 
   const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;
-    return events.filter(event => {
-      const dist = calculateDistance(currentLocation.latitude, currentLocation.longitude, event.latitude, event.longitude);
-      return dist <= displayDistance;
-    });
+    return events.filter(ev => calculateDistance(currentLocation.latitude, currentLocation.longitude, ev.latitude, ev.longitude) <= displayDistance);
   }, [events, currentLocation, displayDistance]);
-
-  const handleMarkerPress = useCallback(async (eventId: string) => {
-    try {
-      const response = await fetch(`https://tripping-app.onrender.com/get-pin?id=${eventId}`);
-      const data = await response.json();
-      if (data.pin) {
-        setSelectedEvent({
-          id: data.pin.id,
-          latitude: data.pin.latitude,
-          longitude: data.pin.longitude,
-          title: data.pin.event_title,
-          type: data.pin.event_type,
-          username: data.pin.username,
-          date: data.pin.event_date,
-          description: data.pin.description,
-          location: data.pin.location,
-        });
-      }
-    } catch (error) {
-      console.error('שגיאה בטעינת פרטי הסיכה:', error);
-    }
-  }, []);
 
   const toggleFilterMenu = () => {
     const toValue = isFilterMenuVisible ? 0 : 1;
     setIsFilterMenuVisible(!isFilterMenuVisible);
-    
-    Animated.spring(filterAnimation, {
-      toValue,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 8,
-    }).start();
+    Animated.spring(filterAnimation, { toValue, useNativeDriver: true }).start();
   };
 
   const handleAddEventPress = () => {
     setIsFilterMenuVisible(false);
     setIsChoosingLocation(true);
-    Animated.spring(filterAnimation, {
-      toValue: 0,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handleDistanceFilterPress = () => {
-    setIsFilterMenuVisible(false);
-    setDistanceModalVisible(true);
-    Animated.spring(filterAnimation, {
-      toValue: 0,
-      useNativeDriver: true,
-    }).start();
+    Animated.spring(filterAnimation, { toValue: 0, useNativeDriver: true }).start();
   };
 
   if (!initialDataLoaded || !region) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6F00" />
-        <Text style={styles.loadingText}>📡 טוען מפה...</Text>
-      </View>
-    );
+    return <View style={styles.centered}><ActivityIndicator size="large" color="#FF6F00" /><Text>📡 טוען מפה...</Text></View>;
   }
 
   const filterMenuStyle = {
-    transform: [
-      {
-        translateY: filterAnimation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [-100, 0],
-        }),
-      },
-      {
-        scale: filterAnimation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0.8, 1],
-        }),
-      },
-    ],
-    opacity: filterAnimation,
+    transform: [{
+      translateY: filterAnimation.interpolate({ inputRange: [0,1], outputRange: [-100,0] })
+    }],
+    opacity: filterAnimation
   };
 
   return (
-    <View style={styles.container}>
+    <View style={{flex:1}}>
       <MapView
-        style={styles.map}
-        region={region}
+        style={{flex:1}} region={region}
         onPress={(e) => {
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             router.push({
               pathname: '/components/CreateEventPage',
-              params: {
-                latitude: latitude.toString(),
-                longitude: longitude.toString(),
-              }
+              params: { latitude: latitude.toString(), longitude: longitude.toString() }
             });
             setIsChoosingLocation(false);
           }
-          
-          if (isFilterMenuVisible) {
-            toggleFilterMenu();
-          }
+          if (isFilterMenuVisible) toggleFilterMenu();
         }}
       >
-        {getVisibleUsers().map((user) => (
-          <UserMarker
-            key={user.uid}
-            user={user}
-            onPress={setSelectedUser}
-          />
-        ))}
-
         {visibleEvents.map(event => (
-          <EventMarker
-            key={event.id}
-            event={event}
-            onPress={handleMarkerPress}
-          />
+          <EventMarker key={event.id} event={event} onPress={(id) => {
+            fetch(`https://tripping-app.onrender.com/get-pin?id=${id}`)
+              .then(res => res.json())
+              .then(data => setSelectedEvent(data.pin ? { ...data.pin, id: data.pin.id } : null))
+              .catch(console.error);
+          }} />
+        ))}
+        {users.filter(u =>
+          currentLocation && calculateDistance(currentLocation.latitude, currentLocation.longitude, u.latitude, u.longitude) <= displayDistance
+        ).map(user => (
+          <UserMarker key={user.uid} user={user} onPress={setSelectedUser} />
         ))}
       </MapView>
 
-      {/* כפתור מסנן */}
       <View style={styles.filterContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.filterButton,
-            isChoosingLocation && styles.activeButton,
-            isFilterMenuVisible && styles.filterButtonActive
-          ]} 
-          onPress={toggleFilterMenu}
-        >
-          <Ionicons 
-            name={isFilterMenuVisible ? "close" : "options"} 
-            size={24} 
-            color="white" 
-          />
+        <TouchableOpacity style={[styles.filterButton, isChoosingLocation && {backgroundColor:'#FFB74D'}]} onPress={toggleFilterMenu}>
+          <Ionicons name={isFilterMenuVisible ? "close" : "options"} size={24} color="white" />
         </TouchableOpacity>
-
         {isFilterMenuVisible && (
           <Animated.View style={[styles.filterMenu, filterMenuStyle]}>
-            <TouchableOpacity 
-              style={styles.filterMenuItem} 
-              onPress={handleDistanceFilterPress}
-            >
-              <View style={styles.filterMenuItemContent}>
-                <Text style={styles.filterMenuSubText}>{displayDistance} ק"מ</Text>
-                <Text style={styles.filterMenuText}>מרחק תצוגה</Text>
-                <Ionicons name="resize" size={20} color="#FF6F00" />
-              </View>
+            <TouchableOpacity style={styles.menuItemContainer} onPress={() => {setDistanceModalVisible(true);toggleFilterMenu();}}>
+              <Ionicons name="resize" size={18} color="#FF6F00" style={styles.menuIcon} />
+              <Text style={styles.menuItemText}>מרחק תצוגה ({displayDistance} ק"מ)</Text>
             </TouchableOpacity>
-
-            <View style={styles.filterMenuDivider} />
-
-            <TouchableOpacity 
-              style={styles.filterMenuItem} 
-              onPress={handleAddEventPress}
-            >
-              <View style={styles.filterMenuItemContent}>
-                <Text style={styles.filterMenuSubText}>בחר מיקום במפה</Text>
-                <Text style={styles.filterMenuText}>הוסף אירוע</Text>
-                <Ionicons name="add-circle" size={20} color="#FF6F00" />
-              </View>
+            <TouchableOpacity style={styles.menuItemContainer} onPress={handleAddEventPress}>
+              <Ionicons name="add-circle-outline" size={18} color="#FF6F00" style={styles.menuIcon} />
+              <Text style={styles.menuItemText}>בחר במפה להוספת אירוע</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
       </View>
 
-      {/* אינדיקטור בחירת מיקום */}
       {isChoosingLocation && (
         <View style={styles.locationIndicator}>
           <Text style={styles.locationIndicatorText}>👆 לחץ על המפה לבחירת מיקום</Text>
         </View>
       )}
 
-      {/* מודל אירוע נבחר */}
       {selectedEvent && (
-        <Modal
-          visible
-          animationType="fade"
-          transparent
-          onRequestClose={() => setSelectedEvent(null)}
-        >
+        <Modal visible animationType="fade" transparent onRequestClose={() => setSelectedEvent(null)}>
           <TouchableWithoutFeedback onPress={() => setSelectedEvent(null)}>
             <View style={styles.modalOverlay}>
               <View style={styles.modalBox}>
-                <Text style={styles.modalTitle}>{selectedEvent.title}</Text>
-                <Text style={styles.modalDate}>
-                  {new Date(selectedEvent.date).toLocaleDateString('he-IL')}
-                </Text>
-                <Text style={styles.modalType}>סוג: {selectedEvent.type}</Text>
+                <Text style={styles.modalTitle}>{selectedEvent.event_title}</Text>
+                <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL')}</Text>
                 <Text style={styles.modalAuthor}>מאת: {selectedEvent.username}</Text>
-
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={() => {
-                    router.push({
-                      pathname: '/Chats/GroupChatModal',
-                      params: { eventTitle: selectedEvent.title },
-                    });
-                    setSelectedEvent(null);
-                  }}
-                >
-                  <Text style={styles.modalButtonText}>היכנס לצאט האירוע</Text>
-                </TouchableOpacity>
               </View>
             </View>
           </TouchableWithoutFeedback>
         </Modal>
       )}
 
-      {/* מודל משתמש נבחר */}
-      {selectedUser && (
-        <Modal
-          visible
-          animationType="fade"
-          transparent
-          onRequestClose={() => setSelectedUser(null)}
-        >
-          <TouchableWithoutFeedback onPress={() => setSelectedUser(null)}>
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalBox}>
-                <Text style={styles.modalTitle}>
-                  {selectedUser.username || 'משתמש'}
-                </Text>
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={() => {
-                    router.push({
-                      pathname: '/ProfileServices/OtherUserProfile',
-                      params: { uid: selectedUser.uid },
-                    });
-                    setSelectedUser(null);
-                  }}
-                >
-                  <Text style={styles.modalButtonText}>לצפייה בפרופיל</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-      )}
-
-      <DistanceFilterButton
-        displayDistance={displayDistance}
-        setDisplayDistance={setDisplayDistance}
-        visible={distanceModalVisible}
-        setVisible={setDistanceModalVisible}
-      />
+      <DistanceFilterButton displayDistance={displayDistance} setDisplayDistance={setDisplayDistance}
+        visible={distanceModalVisible} setVisible={setDistanceModalVisible} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 10,
-  },
-  
-  // מסנן
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   filterContainer: {
     position: 'absolute',
-    top: 60,
+    top: 20,
     right: 15,
-    alignItems: 'flex-end',
+    zIndex: 10,
   },
   filterButton: {
     backgroundColor: '#FF6F00',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
+    elevation: 8,
+    shadowColor: '#FF6F00',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
-  },
-  filterButtonActive: {
-    backgroundColor: '#E65100',
-  },
-  activeButton: {
-    backgroundColor: '#FFB74D',
   },
   filterMenu: {
     position: 'absolute',
     top: 60,
     right: 0,
     backgroundColor: 'white',
-    borderRadius: 12,
-    paddingVertical: 8,
-    minWidth: 200,
-    elevation: 8,
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 0,
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
     shadowRadius: 6,
+    minWidth: 220,
   },
-  filterMenuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  filterMenuItemContent: {
-    flexDirection: 'row',
+  menuItemContainer: {
+    flexDirection: 'row-reverse',
     alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f2f2f2',
   },
-  filterMenuText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginLeft: 12,
+  menuItemText: {
+    fontSize: 17,
+    color: '#222',
     flex: 1,
+    textAlign: 'right',
+    marginRight: 10,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
-  filterMenuSubText: {
-    fontSize: 12,
-    color: '#666',
+  menuIcon: {
+    marginLeft: 12,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 20,
+    padding: 6,
+    overflow: 'hidden',
   },
-  filterMenuDivider: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
-    marginVertical: 4,
-    marginHorizontal: 16,
-  },
-  
-  // אינדיקטור מיקום
   locationIndicator: {
     position: 'absolute',
-    top: 130,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(255, 111, 0, 0.9)',
-    padding: 12,
-    borderRadius: 8,
+    top: 120,
+    left: 24,
+    right: 24,
+    backgroundColor: '#FF6F00',
+    padding: 14,
+    borderRadius: 10,
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#FF6F00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
   },
   locationIndicatorText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
-  
-  // מודלים
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -498,43 +271,32 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    width: 280,
+    padding: 24,
+    borderRadius: 14,
+    width: 300,
     alignItems: 'center',
-    elevation: 5,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
+    marginBottom: 10,
+    color: '#FF6F00',
     textAlign: 'center',
   },
   modalDate: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  modalType: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 4,
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   modalAuthor: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#555',
-    marginBottom: 16,
-  },
-  modalButton: {
-    backgroundColor: '#FF6F00',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  modalButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
+    textAlign: 'center',
   },
 });
