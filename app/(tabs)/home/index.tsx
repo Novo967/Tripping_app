@@ -7,6 +7,7 @@ import { getAuth } from 'firebase/auth';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   Modal,
   StyleSheet,
@@ -16,7 +17,6 @@ import {
   View
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
-import AddEventButton from '../../MapButtons/AddEventButton';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
 import UserMarker from '../../components/UserMarker';
@@ -40,19 +40,20 @@ export default function HomeScreen() {
   const [eventDescription, setEventDescription] = useState('');
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
-  const [eventModalVisible, setEventModalVisible] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+
+  // מצבים חדשים למסנן משופר
+  const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
+  const [filterAnimation] = useState(new Animated.Value(0));
 
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // --- פונקציות עזר (שחייבות להיות בתוך קומפוננטה או מיובאות) ---
-
-  // פונקציית חישוב מרחק - ממוקמת כאן כדי שתהיה נגישה ל-getVisibleUsers ו-visibleEvents
+  // פונקציית חישוב מרחק
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; // רדיוס כדור הארץ בקילומטרים
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -61,9 +62,10 @@ export default function HomeScreen() {
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // המרחק בקילומטרים
+    return R * c;
   };
 
+  // פונקציות API
   const fetchUsers = async () => {
     try {
       const response = await fetch('https://tripping-app.onrender.com/get-all-users');
@@ -73,55 +75,6 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('שגיאה בטעינת משתמשים:', error);
       return false;
-    }
-  };
-
-  const submitPinToServer = async ({
-    latitude,
-    longitude,
-    eventDate,
-    username,
-    event_title,
-    event_type,
-    description,
-    location,
-  }: {
-    latitude: number;
-    longitude: number;
-    eventDate: Date;
-    username: string;
-    event_title: string;
-    event_type: string;
-    description: string;
-    location: string;
-  }) => {
-    try {
-      const response = await fetch(`https://tripping-app.onrender.com/add-pin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          latitude,
-          longitude,
-          event_date: eventDate.toISOString(),
-          username,
-          event_title: event_title,
-          event_type: event_type,
-          description,
-          location,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        console.warn('שגיאה מהשרת:', data?.error);
-      } else {
-        console.log('הוספת סיכה הצליחה:', data);
-        fetchPinsFromServer();
-      }
-    } catch (error) {
-      console.error('שגיאה בבקשה:', error);
     }
   };
 
@@ -193,7 +146,6 @@ export default function HomeScreen() {
   const getVisibleUsers = () => {
     if (!currentLocation) return users;
     return users.filter(user => {
-      // קריאה ל-calculateDistance
       const dist = calculateDistance(currentLocation.latitude, currentLocation.longitude, user.latitude, user.longitude);
       return dist <= displayDistance;
     });
@@ -202,49 +154,10 @@ export default function HomeScreen() {
   const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;
     return events.filter(event => {
-      // קריאה ל-calculateDistance
       const dist = calculateDistance(currentLocation.latitude, currentLocation.longitude, event.latitude, event.longitude);
       return dist <= displayDistance;
     });
   }, [events, currentLocation, displayDistance]);
-
-
-  const handleLocationChange = (text: string) => {
-    setEventLocation(text);
-  };
-
-  const selectLocation = (suggestion: any) => {
-    setEventLocation(suggestion.description);
-    setShowLocationSuggestions(false);
-    setLocationSuggestions([]);
-  };
-
-  const handleAddEvent = async () => {
-    if (!eventTitle.trim() || !eventType || !eventLocation.trim() || !selectedLocation) return;
-    await submitPinToServer({
-      latitude: selectedLocation.latitude,
-      longitude: selectedLocation.longitude,
-      eventDate,
-      username: user?.displayName || user?.email || 'unknow',
-      event_title: eventTitle,
-      event_type: eventType,
-      description: eventDescription,
-      location: eventLocation,
-    });
-    resetEventForm();
-    setEventModalVisible(false);
-    setSelectedLocation(null);
-  };
-
-  const resetEventForm = () => {
-    setEventTitle('');
-    setEventType('');
-    setEventDate(new Date());
-    setEventLocation('');
-    setEventDescription('');
-    setLocationSuggestions([]);
-    setShowLocationSuggestions(false);
-  };
 
   const handleMarkerPress = useCallback(async (eventId: string) => {
     try {
@@ -270,6 +183,37 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // פונקציות המסנן המשופר
+  const toggleFilterMenu = () => {
+    const toValue = isFilterMenuVisible ? 0 : 1;
+    setIsFilterMenuVisible(!isFilterMenuVisible);
+    
+    Animated.spring(filterAnimation, {
+      toValue,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
+
+  const handleAddEventPress = () => {
+    setIsFilterMenuVisible(false);
+    setIsChoosingLocation(true);
+    Animated.spring(filterAnimation, {
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleDistanceFilterPress = () => {
+    setIsFilterMenuVisible(false);
+    setDistanceModalVisible(true);
+    Animated.spring(filterAnimation, {
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
+  };
+
   if (!initialDataLoaded || !region) {
     return (
       <View style={styles.centered}>
@@ -278,6 +222,24 @@ export default function HomeScreen() {
       </View>
     );
   }
+
+  const filterMenuStyle = {
+    transform: [
+      {
+        translateY: filterAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-100, 0],
+        }),
+      },
+      {
+        scale: filterAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.8, 1],
+        }),
+      },
+    ],
+    opacity: filterAnimation,
+  };
 
   return (
     <View style={styles.container}>
@@ -290,8 +252,21 @@ export default function HomeScreen() {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             setSelectedLocation({ latitude, longitude });
             setEventLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-            setEventModalVisible(true);
+            
+            // מעבר לעמוד הוספת אירוע
+            router.push({
+              pathname: '/components/EventMarker',
+              params: {
+              latitude: latitude.toString(),
+              longitude: longitude.toString(),
+              }
+            });
             setIsChoosingLocation(false);
+          }
+          
+          // סגירת מסנן אם פתוח
+          if (isFilterMenuVisible) {
+            toggleFilterMenu();
           }
         }}
       >
@@ -312,6 +287,66 @@ export default function HomeScreen() {
         ))}
       </MapView>
 
+      {/* כפתור המסנן המשופר */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity 
+          style={[
+            styles.filterButton,
+            isChoosingLocation && styles.activeButton,
+            isFilterMenuVisible && styles.filterButtonActive
+          ]} 
+          onPress={toggleFilterMenu}
+          activeOpacity={0.8}
+        >
+          <Ionicons 
+            name={isFilterMenuVisible ? "close" : "options"} 
+            size={24} 
+            color="white" 
+          />
+        </TouchableOpacity>
+
+        {/* תפריט המסנן */}
+        {isFilterMenuVisible && (
+          <Animated.View style={[styles.filterMenu, filterMenuStyle]}>
+            <TouchableOpacity 
+              style={styles.filterMenuItem} 
+              onPress={handleDistanceFilterPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.filterMenuItemContent}>
+                <Text style={styles.filterMenuSubText}>{displayDistance} ק"מ</Text>
+                <Text style={styles.filterMenuText}>מרחק תצוגה</Text>
+                <Ionicons name="resize" size={20} color="#FF6F00" />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.filterMenuDivider} />
+
+            <TouchableOpacity 
+              style={styles.filterMenuItem} 
+              onPress={handleAddEventPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.filterMenuItemContent}>
+                <Text style={styles.filterMenuSubText}>בחר מיקום במפה</Text>
+                <Text style={styles.filterMenuText}>הוסף אירוע</Text>
+                <Ionicons name="add-circle" size={20} color="#FF6F00" />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+      </View>
+
+      {/* אינדיקטור לבחירת מיקום */}
+      {isChoosingLocation && (
+        <View style={styles.locationIndicator}>
+          <Text style={styles.locationIndicatorText}>
+            👆 לחץ על המפה לבחירת מיקום
+          </Text>
+        </View>
+      )}
+
+      {/* מודלי תצוגה */}
       {selectedEvent && (
         <Modal
           visible
@@ -323,14 +358,15 @@ export default function HomeScreen() {
             <View style={styles.customCalloutOverlay}>
               <View style={styles.customCalloutBox}>
                 <Text style={styles.calloutUsername}>{selectedEvent.title}</Text>
-                <Text>סוג: {selectedEvent.type}</Text>
-                <Text>מאת: {selectedEvent.username}</Text>
-                <Text>תאריך: {new Date(selectedEvent.date).toLocaleDateString('he-IL')}</Text>
+                <Text style={styles.calloutDate}>
+                  {new Date(selectedEvent.date).toLocaleDateString('he-IL')}
+                </Text>
+                <Text style={styles.calloutType}>סוג: {selectedEvent.type}</Text>
+                <Text style={styles.calloutAuthor}>מאת: {selectedEvent.username}</Text>
 
                 <TouchableOpacity
                   style={styles.calloutButton}
                   onPress={() => {
-                    console.log('eventTitle:', selectedEvent.title);
                     router.push({
                       pathname: '/Chats/GroupChatModal',
                       params: {
@@ -368,7 +404,6 @@ export default function HomeScreen() {
                       pathname: '/ProfileServices/OtherUserProfile',
                       params: { uid: selectedUser.uid },
                     });
-
                     setSelectedUser(null);
                   }}
                 >
@@ -380,50 +415,11 @@ export default function HomeScreen() {
         </Modal>
       )}
 
-      <View style={styles.floatingButtons}>
-        <TouchableOpacity style={styles.actionButton} onPress={() => setDistanceModalVisible(true)}>
-          <Ionicons name="resize" size={24} color="white" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isChoosingLocation && styles.activeButton
-          ]}
-          onPress={() => setIsChoosingLocation(prev => !prev)}
-        >
-          <Ionicons name="add" size={28} color="white" />
-        </TouchableOpacity>
-      </View>
-
       <DistanceFilterButton
         displayDistance={displayDistance}
         setDisplayDistance={setDisplayDistance}
         visible={distanceModalVisible}
         setVisible={setDistanceModalVisible}
-      />
-
-      <AddEventButton
-        visible={eventModalVisible}
-        setVisible={setEventModalVisible}
-        eventTitle={eventTitle}
-        setEventTitle={setEventTitle}
-        eventType={eventType}
-        setEventType={setEventType}
-        eventDate={eventDate}
-        setEventDate={setEventDate}
-        eventLocation={eventLocation}
-        setEventLocation={setEventLocation}
-        handleLocationChange={handleLocationChange}
-        locationSuggestions={locationSuggestions}
-        showLocationSuggestions={showLocationSuggestions}
-        selectLocation={selectLocation}
-        eventDescription={eventDescription}
-        setEventDescription={setEventDescription}
-        handleAddEvent={handleAddEvent}
-        resetEventForm={resetEventForm}
-        showCalendarPicker={showCalendarPicker}
-        setShowCalendarPicker={setShowCalendarPicker}
       />
 
       {showCalendarPicker && (
@@ -468,68 +464,154 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
   },
-  activeButton: {
-    backgroundColor: '#FFB74D',
-    opacity: 0.8,
-  },
   loadingText: {
     fontSize: 16,
     color: '#666',
     marginTop: 10,
   },
-  markerWrapper: {
-    padding: 2,
-    backgroundColor: 'transparent',
+  
+  // עיצוב המסנן המשופר
+  filterContainer: {
+    position: 'absolute',
+    top: 20, // was 60, moved up
+    right: 15,
+    alignItems: 'flex-end',
   },
-  profileMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: '#fff',
-    backgroundColor: '#ccc',
-    overflow: 'hidden',
-  },
-  defaultMarkerIcon: {
-    width: 35,
-    height: 35,
-    borderRadius: 25,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  usernameLabel: {
-    marginTop: 2,
-    fontSize: 12,
-    color: '#333',
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    paddingHorizontal: 4,
-    borderRadius: 4,
-    textAlign: 'center',
-    maxWidth: 60,
-    alignSelf: 'center',
-  },
-  eventMarker: {
+  filterButton: {
     backgroundColor: '#FF6F00',
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'white',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
-  floatingButtons: {
+  filterButtonActive: {
+    backgroundColor: '#E65100',
+    transform: [{ scale: 1.1 }],
+  },
+  activeButton: {
+    backgroundColor: '#FFB74D',
+  },
+  filterMenu: {
     position: 'absolute',
-    bottom: 0,
-    right: 15,
+    top: 60,
+    right: 0,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    paddingVertical: 8,
+    minWidth: 220,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  filterMenuItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  filterMenuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  filterMenuText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 12,
+    flex: 1,
+  },
+  filterMenuSubText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '400',
+  },
+  filterMenuDivider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 4,
+    marginHorizontal: 16,
+  },
+  
+  // אינדיקטור בחירת מיקום
+  locationIndicator: {
+    position: 'absolute',
+    top: 130,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 111, 0, 0.95)',
+    padding: 12,
+    borderRadius: 12,
     alignItems: 'center',
   },
+  locationIndicatorText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  // עיצוב משופר למודלים
+  customCalloutOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customCalloutBox: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 16,
+    width: 280,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  calloutUsername: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: '#333',
+    textAlign: 'center',
+  },
+  calloutDate: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  calloutType: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 4,
+  },
+  calloutAuthor: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 16,
+  },
+  calloutButton: {
+    backgroundColor: '#FF6F00',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    elevation: 2,
+  },
+  calloutButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  
+  // עיצוב לוח שנה
   calendarModalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -553,7 +635,7 @@ const styles = StyleSheet.create({
   calendarCloseButton: {
     backgroundColor: '#FF6F00',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 25,
     alignItems: 'center',
     marginTop: 20,
     minWidth: 100,
@@ -562,85 +644,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  },
-  actionButton: {
-    backgroundColor: '#FF6F00',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  customCallout: {
-    position: 'absolute',
-    bottom: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
-    borderColor: '#FF6F00',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 5,
-    alignItems: 'center',
-  },
-  calloutText: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#000',
-  },
-  calloutLink: {
-    color: '#FF6F00',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 5,
-  },
-  calloutContainer: {
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    width: 150,
-    elevation: 5,
-  },
-  calloutUsername: {
-    fontWeight: 'bold',
-    marginBottom: 5,
-    fontSize: 16,
-  },
-  calloutButton: {
-    backgroundColor: '#FF6F00',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
-  calloutButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  customCalloutOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  customCalloutBox: {
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    width: 250,
-    alignItems: 'center',
-    elevation: 5,
   },
 });

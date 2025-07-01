@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
 import React from 'react';
 import {
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -16,10 +16,10 @@ export default function TermsOfServiceScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/Authentication/register')} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← חזרה</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>תנאי שימוש ופרטיות</Text>
+        <TouchableOpacity onPress={() => router.push('/Authentication/register')} style={styles.backButton}>
+            <Text style={styles.backButtonText}>→</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
