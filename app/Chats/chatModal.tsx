@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
@@ -14,6 +15,8 @@ import {
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActionSheetIOS,
+  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -39,6 +42,7 @@ interface Message {
   senderId: string;
   receiverId: string;
   createdAt: any;
+  imageUrl?: string;
 }
 
 const ChatModal = () => {
@@ -50,6 +54,7 @@ const ChatModal = () => {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
   const auth = getAuth();
@@ -73,8 +78,22 @@ const ChatModal = () => {
     return unsubscribe;
   }, [chatId]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !currentUid) return;
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  const sendMessage = async (imageUrl?: string) => {
+    if ((!input.trim() && !imageUrl) || !currentUid) return;
 
     const chatDocRef = doc(db, 'chats', chatId);
     const chatDocSnap = await getDoc(chatDocRef);
@@ -92,12 +111,66 @@ const ChatModal = () => {
       senderId: currentUid,
       receiverId: otherUserId,
       createdAt: serverTimestamp(),
+      ...(imageUrl && { imageUrl }),
     });
 
     setInput('');
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
+  };
+
+  const handleImagePicker = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['ביטול', 'מצלמה', 'גלריה'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) openCamera();
+          if (buttonIndex === 2) openGallery();
+        }
+      );
+    } else {
+      Alert.alert('בחר תמונה', '', [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'מצלמה', onPress: openCamera },
+        { text: 'גלריה', onPress: openGallery },
+      ]);
+    }
+  };
+
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      sendMessage(result.assets[0].uri);
+    }
+  };
+
+  const openGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      sendMessage(result.assets[0].uri);
+    }
   };
 
   const goBack = () => {
@@ -132,12 +205,17 @@ const ChatModal = () => {
           styles.messageBubble,
           isMe ? styles.myMessage : styles.theirMessage
         ]}>
-          <Text style={[
-            styles.messageText,
-            isMe ? styles.myMessageText : styles.theirMessageText
-          ]}>
-            {item.text}
-          </Text>
+          {item.imageUrl && (
+            <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
+          )}
+          {item.text && (
+            <Text style={[
+              styles.messageText,
+              isMe ? styles.myMessageText : styles.theirMessageText
+            ]}>
+              {item.text}
+            </Text>
+          )}
           <Text style={[
             styles.messageTime,
             isMe ? styles.myMessageTime : styles.theirMessageTime
@@ -180,17 +258,9 @@ const ChatModal = () => {
             <Text style={styles.userStatus}>פעיל עכשיו</Text>
           </View>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.moreButton} activeOpacity={0.7}>
-          <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.chatContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
+      <View style={styles.chatContainer}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.messagesWrapper}>
             {messages.length === 0 ? (
@@ -217,11 +287,29 @@ const ChatModal = () => {
           </View>
         </TouchableWithoutFeedback>
 
-        {/* Input Container */}
-        <View style={styles.inputWrapper}>
+        {/* Input Container - Fixed Position */}
+        <KeyboardAvoidingView 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+          style={[styles.inputWrapper, { bottom: keyboardHeight }]}
+          behavior={Platform.OS === 'ios' ? 'position' : 'height'}
+        >
           <View style={styles.inputContainer}>
-            <TouchableOpacity style={styles.attachButton} activeOpacity={0.7}>
-              <Ionicons name="add" size={24} color="#FF6F00" />
+            <TouchableOpacity 
+              onPress={() => sendMessage()} 
+              style={[
+              styles.sendButton,
+              !input.trim() && styles.sendButtonDisabled,
+              { marginRight: 4, marginLeft: 0 } // move to the right side
+              ]}
+              activeOpacity={0.8}
+              disabled={!input.trim()}
+            >
+              <Ionicons 
+              name="send" 
+              size={20} 
+              color={input.trim() ? "#FFFFFF" : "#CCC"} 
+              style={{ transform: [{ scaleX: -1 }] }} // flip icon direction
+              />
             </TouchableOpacity>
             
             <TextInput
@@ -230,7 +318,7 @@ const ChatModal = () => {
               placeholderTextColor="#999"
               value={input}
               onChangeText={setInput}
-              onSubmitEditing={sendMessage}
+              onSubmitEditing={() => sendMessage()}
               returnKeyType="send"
               textAlign="right"
               multiline
@@ -238,23 +326,15 @@ const ChatModal = () => {
             />
             
             <TouchableOpacity 
-              onPress={sendMessage} 
-              style={[
-                styles.sendButton,
-                !input.trim() && styles.sendButtonDisabled
-              ]}
-              activeOpacity={0.8}
-              disabled={!input.trim()}
+              style={styles.cameraButton} 
+              onPress={handleImagePicker}
+              activeOpacity={0.7}
             >
-              <Ionicons 
-                name="send" 
-                size={20} 
-                color={input.trim() ? "#FFFFFF" : "#CCC"} 
-              />
+              <Ionicons name="camera" size={24} color="#FF6F00" />
             </TouchableOpacity>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -265,6 +345,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+    justifyContent: 'flex-end', // Make the container content stick to the bottom
   },
   header: {
     backgroundColor: '#FF6F00',
@@ -272,7 +353,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'space-between',
     shadowColor: '#FF6F00',
     shadowOffset: {
       width: 0,
@@ -330,13 +410,9 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: 2,
   },
-  moreButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
   chatContainer: {
     flex: 1,
+    position: 'relative',
   },
   messagesWrapper: {
     flex: 1,
@@ -373,6 +449,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingVertical: 20,
+    paddingBottom: 80,
   },
   messageContainer: {
     marginVertical: 4,
@@ -418,6 +495,12 @@ const styles = StyleSheet.create({
   theirMessageText: {
     color: '#2C3E50',
   },
+  messageImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
   messageTime: {
     fontSize: 11,
     marginTop: 4,
@@ -430,6 +513,9 @@ const styles = StyleSheet.create({
     color: '#95A5A6',
   },
   inputWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -445,7 +531,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   inputContainer: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-end',
     backgroundColor: '#F5F5F5',
     borderRadius: 25,
@@ -453,7 +539,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     minHeight: 50,
   },
-  attachButton: {
+  cameraButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
