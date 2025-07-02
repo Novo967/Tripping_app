@@ -66,7 +66,19 @@ class Pin(Base):
     event_type = Column(String, nullable=False)
     description = Column(String, nullable=True)
     location = Column(String, nullable=True)
-    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "event_date": self.event_date.isoformat(), # חשוב להמיר לתאריך בפורמט ISO
+            "username": self.username,
+            # וודא שכל השדות החדשים כלולים כאן:
+            "event_title": self.event_title,
+            "event_type": self.event_type,
+            "description": self.description,
+            "location": self.location,
+        }
 Base.metadata.create_all(engine)
 
 # ----------------------------
