@@ -24,7 +24,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # הגדרת DB
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://trippingappdb_user:mmH6sl3iPNTJyrVg9hfY2iQWLB8KK8gl@dpg-d0u17ge3jp1c73f7kk2g-a.oregon-postgres.render.com/trippingappdb')
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://trippingappdbnew_user:ks2QQdvcWfXPyr8yJ8r8gU1Ux2fLIuUi@dpg-d1ieg9jipnbc73bk80m0-a.oregon-postgres.render.com/trippingappdbnew')
 engine = create_engine(DATABASE_URL)
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
