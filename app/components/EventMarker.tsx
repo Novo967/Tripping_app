@@ -27,12 +27,10 @@ const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
       anchor={{ x: 0.5, y: 1 }}
     >
       <View style={styles.markerContainer}>
-        <View style={[styles.markerShadow, { backgroundColor: color + '40' }]} />
-        <View style={[styles.markerBody, { backgroundColor: color }]}>
-          <Ionicons name={icon as any} size={16} color="white" />
-        </View>
-        <View style={[styles.markerTip, { borderTopColor: color }]} />
-        <View style={[styles.pulse, { backgroundColor: color + '30' }]} />
+      <View style={[styles.markerBody, { backgroundColor: color }]}>
+        <Ionicons name={icon as any} size={16} color="white" />
+      </View>
+      <View style={[styles.markerTip, { borderTopColor: color }]} />
       </View>
     </Marker>
   );
@@ -40,7 +38,6 @@ const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
 
 const styles = StyleSheet.create({
   markerContainer: { alignItems: 'center', justifyContent: 'center', width: 40, height: 50 },
-  markerShadow: { position: 'absolute', width: 26, height: 26, borderRadius: 13, top: 2, left: 2 },
   markerBody: {
     width: 24, height: 24, borderRadius: 12,
     justifyContent: 'center', alignItems: 'center',
@@ -54,7 +51,6 @@ const styles = StyleSheet.create({
     borderLeftColor: 'transparent', borderRightColor: 'transparent',
     marginTop: -1,
   },
-  pulse: { position: 'absolute', width: 40, height: 40, borderRadius: 20, opacity: 0.6, top: -8 },
 });
 
 export default React.memo(EventMarker);

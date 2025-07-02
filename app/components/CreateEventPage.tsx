@@ -43,8 +43,8 @@ export default function CreateEventPage() {
         
         // Extract city and country
         const contexts = feature.context || [];
-        const place = contexts.find(c => c.id.includes('place'));
-        const country = contexts.find(c => c.id.includes('country'));
+        const place = contexts.find((c: any) => c.id.includes('place'));
+        const country = contexts.find((c: any) => c.id.includes('country'));
         if (place && country) {
           setCityCountry(`${place.text_he || place.text}, ${country.text_he || country.text}`);
         }
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   typeButton:{flexDirection:'row',alignItems:'center',backgroundColor:'white',padding:10,borderRadius:10,marginRight:10},
   typeSelected:{backgroundColor:'#FF6F00'},
   typeText:{marginLeft:5,fontSize:14},
-  dateButton:{flexDirection:'row',alignItems:'center',padding:12,backgroundColor:'white',borderRadius:10,marginVertical:10},
+  dateButton:{flexDirection:'row',alignContent: 'flex-end',padding:12,backgroundColor:'white',borderRadius:10,marginVertical:10},
   dateText:{marginLeft:10,fontSize:16,color:'#333'},
   createButton:{backgroundColor:'#FF6F00',padding:15,borderRadius:10,alignItems:'center',marginTop:20},
   createButtonText:{color:'white',fontWeight:'bold'},
