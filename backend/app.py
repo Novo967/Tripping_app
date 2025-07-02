@@ -389,6 +389,40 @@ def get_pin():
     else:
         return jsonify({'error': 'Pin not found'}), 404
 
+@app.route('/delete-image', methods=['POST'])
+def delete_image():
+    data = request.get_json()
+    uid = data.get('uid')
+    image_url = data.get('image_url')
+
+    if not uid or not image_url:
+        return jsonify({'error': 'Missing uid or image_url'}), 400
+
+    session = Session()
+
+    try:
+        # מחיקת רשומת התמונה מה־DB
+        image = session.query(GalleryImage).filter_by(uid=uid, image_url=image_url).first()
+        if image:
+            session.delete(image)
+            session.commit()
+        else:
+            return jsonify({'error': 'Image not found in database'}), 404
+
+        # מחיקת הקובץ מהתיקייה הפיזית (אם קיים)
+        filename = image_url.split('/')[-1]
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+        return jsonify({'success': True})
+    except Exception as e:
+        session.rollback()
+        print(e)
+        return jsonify({'error': 'Server error'}), 500
+    finally:
+        session.close()
 
 # ----------------------------
 # 🚀 Run locally

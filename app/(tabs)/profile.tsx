@@ -122,14 +122,17 @@ export default function ProfileScreen() {
         if (profileRes.ok) {
           const data = await profileRes.json();
           setProfilePic(data.profile_image || null);
-          setBio(data.bio || '');
+          if (data.bio) setBio(data.bio); // נשתמש בזה רק אם אין בהמשך משהו טוב יותר
         }
+
 
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
           setUsername(data.username || '');
+          if (data.bio) setBio(data.bio); // זה ידרוס את הביו מהשרת רק אם יש בפיירבייס
         }
+
 
         const galleryData = await fetchGallery(user.uid);
         setGallery(galleryData);

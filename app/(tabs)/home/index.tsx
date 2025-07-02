@@ -175,6 +175,36 @@ export default function HomeScreen() {
           </TouchableWithoutFeedback>
         </Modal>
       )}
+      {selectedUser && (
+        <Modal visible animationType="fade" transparent onRequestClose={() => setSelectedUser(null)}>
+          <TouchableWithoutFeedback onPress={() => setSelectedUser(null)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalBox}>
+                  <Text style={styles.modalTitle}> {selectedUser.username}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedUser(null);
+                      router.push({ pathname: '/ProfileServices/OtherUserProfile', params: { uid: selectedUser.uid } });
+                    }}
+                    style={{
+                      marginTop: 18,
+                      backgroundColor: '#FF6F00',
+                      paddingVertical: 12,
+                      paddingHorizontal: 20,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ color: 'white', fontWeight: '600', fontSize: 16 }}>
+                      צפה בפרופיל
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
 
       <DistanceFilterButton displayDistance={displayDistance} setDisplayDistance={setDisplayDistance}
         visible={distanceModalVisible} setVisible={setDistanceModalVisible} />
@@ -285,7 +315,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#FF6F00',
+    color: '#000',
     textAlign: 'center',
   },
   modalDate: {

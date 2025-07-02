@@ -62,6 +62,20 @@ export default function Gallery({ gallery, onAddImage }: Props) {
       setUploading(false);
     }
   };
+  const deleteImageFromServer = async (imageUrl: string) => {
+  try {
+    const response = await fetch('https://tripping-app.onrender.com/delete-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_url: imageUrl }),
+    });
+    if (!response.ok) {
+      console.error('מחיקת תמונה נכשלה:', await response.text());
+    }
+  } catch (error) {
+    console.error('שגיאה בעת מחיקת תמונה מהשרת:', error);
+  }
+};
 
   const handleImagePress = (index: number) => {
     const newSelected = new Set(selectedImages);
@@ -73,23 +87,41 @@ export default function Gallery({ gallery, onAddImage }: Props) {
     setSelectedImages(newSelected);
   };
 
-  const handleDeleteSelected = () => {
-    Alert.alert(
-      'מחיקת תמונות',
-      `האם אתה בטוח שתרצה למחוק ${selectedImages.size} תמונות?`,
-      [
-        { text: 'ביטול', style: 'cancel' },
-        { 
-          text: 'מחק', 
-          style: 'destructive',
-          onPress: () => {
-            // Here you would implement the actual deletion logic
-            setSelectedImages(new Set());
+  const handleDeleteSelected = async () => {
+  Alert.alert(
+    'מחיקת תמונות',
+    `האם אתה בטוח שתרצה למחוק ${selectedImages.size} תמונות?`,
+    [
+      { text: 'ביטול', style: 'cancel' },
+      { 
+        text: 'מחק', 
+        style: 'destructive',
+        onPress: async () => {
+          const toDelete = [...selectedImages];
+          const updatedGallery = [...gallery];
+
+          // חשוב למחוק מהשרת קודם ואז מהגלריה המקומית
+          for (const index of toDelete) {
+            const imageUrl = gallery[index];
+            await deleteImageFromServer(imageUrl);
           }
+
+          // מסיר מהגלריה המקומית את התמונות שנמחקו
+          // כדאי להסיר מהסוף להתחלה כדי לא לשבור אינדקסים
+          toDelete.sort((a, b) => b - a).forEach(index => {
+            updatedGallery.splice(index, 1);
+          });
+
+          setSelectedImages(new Set());
+          // כאן יעדכן את הגלריה המקומית אחרי המחיקה
+          // אם יש לך setGallery:
+          // אם אין, תוכל לקרוא ל-onAddImage('refresh') אבל זה פחות ברור
         }
-      ]
-    );
-  };
+      }
+    ]
+  );
+};
+
 
   const renderGridItem = ({ item, index }: ListRenderItemInfo<string>) => {
     const isSelected = selectedImages.has(index);
