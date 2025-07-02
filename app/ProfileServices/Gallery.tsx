@@ -72,10 +72,11 @@ export default function Gallery({ gallery, onAddImage }: Props) {
 
   try {
     const response = await fetch(`https://tripping-app.onrender.com/delete-image`, {
-      method: 'DELETE',
+      method: 'POST',  // שים לב כאן POST ולא DELETE
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
     });
+
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`מחיקת תמונה נכשלה: ${errorText}`);
@@ -85,6 +86,7 @@ export default function Gallery({ gallery, onAddImage }: Props) {
     console.error(error);
   }
 };
+
 
   const handleImagePress = (index: number) => {
     const newSelected = new Set(selectedImages);
