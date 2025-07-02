@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // הוספת useRef
 import {
   ActivityIndicator,
   Alert,
@@ -11,6 +11,7 @@ import {
   FlatList,
   Image,
   ListRenderItemInfo,
+  Modal, // הוספת Modal
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,7 +20,7 @@ import {
 import { auth } from '../../firebaseConfig';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window'); // הוספת SCREEN_HEIGHT
 const GALLERY_IMAGE_SIZE = (SCREEN_WIDTH - 32 - 4) / 3; // 16px margin on each side, 2px gap
 
 type Props = {
@@ -33,6 +34,9 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
   const [uploading, setUploading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [modalVisible, setModalVisible] = useState(false); // מצב המודל לתצוגת תמונה
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null); // ה-URI של התמונה הנבחרת למודל
+  const [longPressActive, setLongPressActive] = useState(false); // מצב המציין אם לחיצה ארוכה פעילה
 
   const handlePickImage = async () => {
     try {
@@ -64,10 +68,10 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       setUploading(false);
     }
   };
+
   const deleteImageFromServer = async (imageUrl: string) => {
     const user = auth.currentUser;
     if (!user) {
-      // במקום Alert, עדיף לזרוק שגיאה כדי ש handleSelectedDelete יטפל בה
       throw new Error('משתמש לא מחובר'); 
     }
 
@@ -83,20 +87,35 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
         throw new Error(`מחיקת תמונה נכשלה: ${errorText}`);
       }
     } catch (error) {
-      // נזרוק שוב את השגיאה כדי שתטופל ב-handleDeleteSelected
       throw error; 
     }
   };
 
   const handleImagePress = (index: number) => {
-    const newSelected = new Set(selectedImages);
-    if (newSelected.has(index)) {
-      newSelected.delete(index);
-    } else {
-      newSelected.add(index);
+    if (longPressActive) { // אם לחיצה ארוכה פעילה, המשך עם לוגיקת הבחירה
+      const newSelected = new Set(selectedImages);
+      if (newSelected.has(index)) {
+        newSelected.delete(index);
+      } else {
+        newSelected.add(index);
+      }
+      setSelectedImages(newSelected);
+    } else { // אחרת, הצג את התמונה במודל
+      setSelectedImageUri(gallery[index]);
+      setModalVisible(true);
     }
-    setSelectedImages(newSelected);
   };
+
+  const handleLongPress = (index: number) => {
+    // הפעלת מצב לחיצה ארוכה וסימון התמונה
+    setLongPressActive(true);
+    const newSelected = new Set(selectedImages);
+    if (!newSelected.has(index)) { // סמן את התמונה רק אם היא לא מסומנת כבר
+      newSelected.add(index);
+      setSelectedImages(newSelected);
+    }
+  };
+
 
   const handleDeleteSelected = async () => {
     Alert.alert(
@@ -108,10 +127,9 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
           text: 'מחק', 
           style: 'destructive',
           onPress: async () => {
-            const toDeleteUrls: string[] = []; // נשמור כאן את כתובות ה-URL של התמונות למחיקה
+            const toDeleteUrls: string[] = []; 
             const deletePromises: Promise<void>[] = [];
 
-            // נאסוף את כתובות ה-URL של התמונות שנבחרו למחיקה
             for (const index of Array.from(selectedImages)) {
               const imageUrl = gallery[index];
               if (imageUrl) {
@@ -121,12 +139,11 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
             }
 
             try {
-              // נמתין שכל בקשות המחיקה לשרת יסתיימו
               await Promise.all(deletePromises)
               
-              // אם הכל הצליח, נעדכן את רכיב האב
-              onDeleteImages(toDeleteUrls); // קוראים לפונקציה החדשה
-              setSelectedImages(new Set()); // מאפסים את הבחירה
+              onDeleteImages(toDeleteUrls); 
+              setSelectedImages(new Set()); 
+              setLongPressActive(false); // יציאה ממצב לחיצה ארוכה לאחר מחיקה
               Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה');
 
             } catch (error) {
@@ -151,7 +168,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
           isSelected && { opacity: 0.7 }
         ]}
         onPress={() => handleImagePress(index)}
-        onLongPress={() => handleImagePress(index)}
+        onLongPress={() => handleLongPress(index)} // שימוש ב-handleLongPress
         activeOpacity={0.8}
       >
         <Image 
@@ -232,7 +249,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       </View>
 
       <View style={styles.headerRight}>
-        {selectedImages.size > 0 ? (
+        {selectedImages.size > 0 || longPressActive ? ( // הצג כפתור איפוס בחירה או מחיקה אם יש תמונות שנבחרו או מצב לחיצה ארוכה פעיל
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
             onPress={handleDeleteSelected}
@@ -285,6 +302,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
     </View>
   );
 
+  // במידה ואין תמונות, עדיין מציגים את ההדר ואת מצב הריק
   if (gallery.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -309,16 +327,47 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
         ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
       />
       
-      {selectedImages.size > 0 && (
+      {/* כפתור לביטול בחירה כשמצב לחיצה ארוכה פעיל או תמונות נבחרו */}
+      {(selectedImages.size > 0 || longPressActive) && (
         <TouchableOpacity
           style={styles.floatingClearButton}
-          onPress={() => setSelectedImages(new Set())}
+          onPress={() => {
+            setSelectedImages(new Set());
+            setLongPressActive(false); // ביטול מצב לחיצה ארוכה
+          }}
         >
           <BlurView intensity={80} tint={theme.isDark ? 'dark' : 'light'} style={styles.blurButton}>
             <Ionicons name="close" size={20} color={theme.colors.text} />
           </BlurView>
         </TouchableOpacity>
       )}
+
+      {/* Modal for displaying single image */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          setModalVisible(!modalVisible);
+          setSelectedImageUri(null); // איפוס התמונה שנבחרה בעת סגירה
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView style={styles.modalBlur} intensity={80} tint={theme.isDark ? 'dark' : 'light'} />
+          <View style={styles.modalContent}>
+            {selectedImageUri && <Image source={{ uri: selectedImageUri }} style={styles.modalImage} resizeMode="contain" />}
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => {
+                setModalVisible(!modalVisible);
+                setSelectedImageUri(null);
+              }}
+            >
+              <Ionicons name="close-circle" size={30} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -473,22 +522,57 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     gap: 8,
   },
-    emptyButtonText: {
-      color: 'white',
-      fontSize: 16,
-    },
-    floatingClearButton: {
-      position: 'absolute',
-      bottom: 32,
-      right: 32,
-      zIndex: 10,
-      borderRadius: 24,
-      overflow: 'hidden',
-    },
-    blurButton: {
-      padding: 12,
-      borderRadius: 24,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-  });
+  emptyButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  floatingClearButton: {
+    position: 'absolute',
+    bottom: 32,
+    right: 32,
+    zIndex: 10,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  blurButton: {
+    padding: 12,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // סגנונות חדשים למודל התצוגה המוגדלת
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // רקע שחור שקוף למילוי המסך
+  },
+  modalBlur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalContent: {
+    backgroundColor: 'white', // ייתכן שתרצה לשנות זאת לצבע רקע של התמה
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: SCREEN_WIDTH * 0.8, // 80% מרוחב המסך
+    maxHeight: SCREEN_HEIGHT * 0.7, // 70% מגובה המסך
+    position: 'relative', // כדי למקם את כפתור הסגירה ביחס אליו
+  },
+  modalImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+  },
+});
