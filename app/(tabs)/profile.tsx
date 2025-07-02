@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 import Bio from '../ProfileServices/bio';
-import ProfileGallery from '../ProfileServices/Gallery';
+import Gallery from '../ProfileServices/Gallery'; // שיניתי את השם ל-Gallery
 import ProfileImage from '../ProfileServices/ProfileImage';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
@@ -23,7 +23,7 @@ const SERVER_URL = 'https://tripping-app.onrender.com';
 export default function ProfileScreen() {
   const [bio, setBio] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
-  const [gallery, setGallery] = useState<string[]>([]);
+  const [gallery, setGallery] = useState<string[]>([]); // זה ה-state שאותו נעדכן
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
@@ -86,6 +86,15 @@ export default function ProfileScreen() {
       console.error(err);
     }
   };
+
+  // --- הוספת הפונקציה החדשה למחיקת תמונות מה-state המקומי ---
+  const handleDeleteImagesFromGallery = (deletedImageUrls: string[]) => {
+    setGallery(prevGallery => 
+      prevGallery.filter(imageUrl => !deletedImageUrls.includes(imageUrl))
+    );
+  };
+  // --- סוף הוספת הפונקציה ---
+
 
   const saveBio = async () => {
     try {
@@ -233,17 +242,18 @@ export default function ProfileScreen() {
           onEditToggle={() => setIsEditingBio(prev => !prev)}
         />
 
-        <ProfileGallery
+        {/* --- העברת ה-prop החדש ל-Gallery --- */}
+        <Gallery
           gallery={gallery}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
           onAddImage={(uri: string) => uploadImageToServer(uri, false)}
+          onDeleteImages={handleDeleteImagesFromGallery} // כאן אנחנו מעבירים את הפונקציה!
         />
+        {/* --- סוף העברת ה-prop החדש --- */}
+
       </Animated.View>
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

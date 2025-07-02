@@ -25,9 +25,10 @@ const GALLERY_IMAGE_SIZE = (SCREEN_WIDTH - 32 - 4) / 3; // 16px margin on each s
 type Props = {
   gallery: string[];
   onAddImage: (uri: string) => void;
+  onDeleteImages: (deletedImageUrls: string[]) => void; 
 };
 
-export default function Gallery({ gallery, onAddImage }: Props) {
+export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
   const { theme } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
@@ -64,29 +65,28 @@ export default function Gallery({ gallery, onAddImage }: Props) {
     }
   };
   const deleteImageFromServer = async (imageUrl: string) => {
-  const user = auth.currentUser;
-  if (!user) {
-    Alert.alert('שגיאה', 'משתמש לא מחובר');
-    return;
-  }
-
-  try {
-    const response = await fetch(`https://tripping-app.onrender.com/delete-image`, {
-      method: 'POST',  // שים לב כאן POST ולא DELETE
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`מחיקת תמונה נכשלה: ${errorText}`);
+    const user = auth.currentUser;
+    if (!user) {
+      // במקום Alert, עדיף לזרוק שגיאה כדי ש handleSelectedDelete יטפל בה
+      throw new Error('משתמש לא מחובר'); 
     }
-  } catch (error) {
-    Alert.alert('שגיאה');
-    console.error(error);
-  }
-};
 
+    try {
+      const response = await fetch(`https://tripping-app.onrender.com/delete-image`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`מחיקת תמונה נכשלה: ${errorText}`);
+      }
+    } catch (error) {
+      // נזרוק שוב את השגיאה כדי שתטופל ב-handleDeleteSelected
+      throw error; 
+    }
+  };
 
   const handleImagePress = (index: number) => {
     const newSelected = new Set(selectedImages);
@@ -99,39 +99,45 @@ export default function Gallery({ gallery, onAddImage }: Props) {
   };
 
   const handleDeleteSelected = async () => {
-  Alert.alert(
-    'מחיקת תמונות',
-    `האם אתה בטוח שתרצה למחוק ${selectedImages.size} תמונות?`,
-    [
-      { text: 'ביטול', style: 'cancel' },
-      { 
-        text: 'מחק', 
-        style: 'destructive',
-        onPress: async () => {
-          const toDelete = [...selectedImages];
-          const updatedGallery = [...gallery];
+    Alert.alert(
+      'מחיקת תמונות',
+      `האם אתה בטוח שתרצה למחוק ${selectedImages.size} תמונות?`,
+      [
+        { text: 'ביטול', style: 'cancel' },
+        { 
+          text: 'מחק', 
+          style: 'destructive',
+          onPress: async () => {
+            const toDeleteUrls: string[] = []; // נשמור כאן את כתובות ה-URL של התמונות למחיקה
+            const deletePromises: Promise<void>[] = [];
 
-          // חשוב למחוק מהשרת קודם ואז מהגלריה המקומית
-          for (const index of toDelete) {
-            const imageUrl = gallery[index];
-            await deleteImageFromServer(imageUrl);
+            // נאסוף את כתובות ה-URL של התמונות שנבחרו למחיקה
+            for (const index of Array.from(selectedImages)) {
+              const imageUrl = gallery[index];
+              if (imageUrl) {
+                toDeleteUrls.push(imageUrl);
+                deletePromises.push(deleteImageFromServer(imageUrl));
+              }
+            }
+
+            try {
+              // נמתין שכל בקשות המחיקה לשרת יסתיימו
+              await Promise.all(deletePromises)
+              
+              // אם הכל הצליח, נעדכן את רכיב האב
+              onDeleteImages(toDeleteUrls); // קוראים לפונקציה החדשה
+              setSelectedImages(new Set()); // מאפסים את הבחירה
+              Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה');
+
+            } catch (error) {
+              console.error('שגיאה במחיקת תמונות:', error);
+              Alert.alert('שגיאה', 'אירעה שגיאה במחיקת התמונות. אנא נסה שוב.');
+            }
           }
-
-          // מסיר מהגלריה המקומית את התמונות שנמחקו
-          // כדאי להסיר מהסוף להתחלה כדי לא לשבור אינדקסים
-          toDelete.sort((a, b) => b - a).forEach(index => {
-            updatedGallery.splice(index, 1);
-          });
-
-          setSelectedImages(new Set());
-          // כאן יעדכן את הגלריה המקומית אחרי המחיקה
-          // אם יש לך setGallery:
-          // אם אין, תוכל לקרוא ל-onAddImage('refresh') אבל זה פחות ברור
         }
-      }
-    ]
-  );
-};
+      ]
+    );
+  };
 
 
   const renderGridItem = ({ item, index }: ListRenderItemInfo<string>) => {
