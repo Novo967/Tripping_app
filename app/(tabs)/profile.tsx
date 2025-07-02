@@ -5,6 +5,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated,
+  Dimensions,
+  Image, Modal,
   Platform,
   SafeAreaView, StatusBar,
   StyleSheet,
@@ -12,23 +14,26 @@ import {
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 import Bio from '../ProfileServices/bio';
-import Gallery from '../ProfileServices/Gallery'; // שיניתי את השם ל-Gallery
+import Gallery from '../ProfileServices/Gallery';
 import ProfileImage from '../ProfileServices/ProfileImage';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
-
-
+const { width, height } = Dimensions.get('window');
 const SERVER_URL = 'https://tripping-app.onrender.com';
 
 export default function ProfileScreen() {
   const [bio, setBio] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
-  const [gallery, setGallery] = useState<string[]>([]); // זה ה-state שאותו נעדכן
+  const [gallery, setGallery] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [showSettings, setShowSettings] = useState(false);
+  
+  // New states for image modal
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const navigation = useNavigation();
   const { theme, toggleTheme } = useTheme();
@@ -87,14 +92,23 @@ export default function ProfileScreen() {
     }
   };
 
-  // --- הוספת הפונקציה החדשה למחיקת תמונות מה-state המקומי ---
   const handleDeleteImagesFromGallery = (deletedImageUrls: string[]) => {
     setGallery(prevGallery => 
       prevGallery.filter(imageUrl => !deletedImageUrls.includes(imageUrl))
     );
   };
-  // --- סוף הוספת הפונקציה ---
 
+  // Function to open image in modal
+  const openImageModal = (imageUri: string) => {
+    setSelectedImage(imageUri);
+    setModalVisible(true);
+  };
+
+  // Function to close image modal
+  const closeImageModal = () => {
+    setModalVisible(false);
+    setSelectedImage(null);
+  };
 
   const saveBio = async () => {
     try {
@@ -131,17 +145,15 @@ export default function ProfileScreen() {
         if (profileRes.ok) {
           const data = await profileRes.json();
           setProfilePic(data.profile_image || null);
-          if (data.bio) setBio(data.bio); // נשתמש בזה רק אם אין בהמשך משהו טוב יותר
+          if (data.bio) setBio(data.bio);
         }
-
 
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
           setUsername(data.username || '');
-          if (data.bio) setBio(data.bio); // זה ידרוס את הביו מהשרת רק אם יש בפיירבייס
+          if (data.bio) setBio(data.bio);
         }
-
 
         const galleryData = await fetchGallery(user.uid);
         setGallery(galleryData);
@@ -201,9 +213,6 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={toggleSettings} style={styles.navButton}>
             <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={fadeOutAndLogout} style={styles.navButton}>
-            <Ionicons name="log-out-outline" size={24} color={theme.colors.primary} />
-          </TouchableOpacity>
         </View>
 
         <Animated.View style={[styles.settingsPanel, {
@@ -225,6 +234,16 @@ export default function ProfileScreen() {
               {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
             </Text>
           </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.settingsItem} onPress={() => {
+            toggleSettings();
+            fadeOutAndLogout();
+          }}>
+            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+            <Text style={[styles.settingsText, { color: '#FF3B30' }]}>
+              התנתקות
+            </Text>
+          </TouchableOpacity>
         </Animated.View>
 
         <ProfileImage
@@ -232,6 +251,10 @@ export default function ProfileScreen() {
           username={username}
           galleryLength={gallery.length}
           onChangeImage={(uri: string) => uploadImageToServer(uri, true)}
+          onImagePress={openImageModal}
+          gallery={gallery}
+          onAddImage={(uri: string) => uploadImageToServer(uri, false)}
+          onDeleteImages={handleDeleteImagesFromGallery}
         />
 
         <Bio
@@ -242,18 +265,49 @@ export default function ProfileScreen() {
           onEditToggle={() => setIsEditingBio(prev => !prev)}
         />
 
-        {/* --- העברת ה-prop החדש ל-Gallery --- */}
         <Gallery
           gallery={gallery}
           onAddImage={(uri: string) => uploadImageToServer(uri, false)}
-          onDeleteImages={handleDeleteImagesFromGallery} // כאן אנחנו מעבירים את הפונקציה!
+          onDeleteImages={handleDeleteImagesFromGallery}
+          onImagePress={openImageModal}
         />
-        {/* --- סוף העברת ה-prop החדש --- */}
+
+        {/* Image Modal */}
+        <Modal
+          visible={modalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={closeImageModal}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={closeImageModal}
+          >
+            <View style={styles.modalContainer}>
+              <TouchableOpacity 
+                style={styles.closeButton} 
+                onPress={closeImageModal}
+              >
+                <Ionicons name="close" size={30} color="white" />
+              </TouchableOpacity>
+              
+              {selectedImage && (
+                <Image 
+                  source={{ uri: selectedImage }} 
+                  style={styles.modalImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
       </Animated.View>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -293,7 +347,7 @@ const styles = StyleSheet.create({
   },
   topNav: {
     flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 10 : 20,
@@ -302,7 +356,7 @@ const styles = StyleSheet.create({
   navButton: {
     padding: 10,
     borderRadius: 50,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)', // רקע עדין שמתאים לשני המצבים
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 6,
@@ -457,5 +511,31 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     textAlign: 'center',
   },
-
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  modalImage: {
+    width: width * 0.95,
+    height: height * 0.8,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    zIndex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 8,
+  },
 });
