@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: SCREEN_WIDTH * 0.8, // 80% מרוחב המסך
-    maxHeight: SCREEN_HEIGHT * 0.7, // 70% מגובה המסך
+    maxHeight: SCREEN_HEIGHT * 0.45, // 70% מגובה המסך
     position: 'relative', // כדי למקם את כפתור הסגירה ביחס אליו
   },
   modalImage: {
