@@ -389,7 +389,7 @@ def get_pin():
     else:
         return jsonify({'error': 'Pin not found'}), 404
 
-@app.route('/delete-image', methods=['POST'])
+@app.route('/delete-image', methods=['DELETE'])
 def delete_image():
     data = request.get_json()
     uid = data.get('uid')

@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { auth } from '../../firebaseConfig';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -63,17 +64,25 @@ export default function Gallery({ gallery, onAddImage }: Props) {
     }
   };
   const deleteImageFromServer = async (imageUrl: string) => {
+  const user = auth.currentUser;
+  if (!user) {
+    Alert.alert('שגיאה', 'משתמש לא מחובר');
+    return;
+  }
+
   try {
-    const response = await fetch('https://tripping-app.onrender.com/delete-image', {
-      method: 'POST',
+    const response = await fetch(`https://tripping-app.onrender.com/delete-image`, {
+      method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image_url: imageUrl }),
+      body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
     });
     if (!response.ok) {
-      console.error('מחיקת תמונה נכשלה:', await response.text());
+      const errorText = await response.text();
+      throw new Error(`מחיקת תמונה נכשלה: ${errorText}`);
     }
   } catch (error) {
-    console.error('שגיאה בעת מחיקת תמונה מהשרת:', error);
+    Alert.alert('שגיאה');
+    console.error(error);
   }
 };
 
