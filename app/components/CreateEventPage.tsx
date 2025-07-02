@@ -61,7 +61,7 @@ export default function CreateEventPage() {
     }
     setIsLoading(true);
     try {
-      const response = await fetch('https://tripping-app.onrender.com/create-pin', {
+      const response = await fetch('https://tripping-app.onrender.com/add-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

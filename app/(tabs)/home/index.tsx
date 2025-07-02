@@ -14,14 +14,29 @@ import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
 import UserMarker from '../../components/UserMarker';
 
+// הגדרת ממשק (interface) עבור selectedEvent
+// זה מבטיח שממשק הנתונים תואם לשדות שאתה מצפה לקבל
+interface SelectedEventType {
+  id: string; // מזהה האירוע
+  latitude: number;
+  longitude: number;
+  event_date: string; // חשוב שזה יהיה מחרוזת הניתנת ל-ISO
+  username: string;
+  event_title: string;
+  event_type: string;
+  description?: string; // אופציונלי, אם קיים בנתונים שחוזרים מהשרת
+  location?: string; // אופציונלי
+}
+
+
 export default function HomeScreen() {
   const [region, setRegion] = useState<Region | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
-  const [displayDistance, setDisplayDistance] = useState(40);
+  const [displayDistance, setDisplayDistance] = useState(150);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null); // השתמש בטיפוס החדש
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
 
@@ -33,13 +48,13 @@ export default function HomeScreen() {
   const user = auth.currentUser;
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
+    const R = 6371; // רדיוס כדור הארץ בק"מ
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
   const fetchUsers = async () => {
@@ -47,27 +62,45 @@ export default function HomeScreen() {
       const res = await fetch('https://tripping-app.onrender.com/get-all-users');
       const data = await res.json();
       setUsers(data.users || []);
-    } catch {}
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
   };
 
   const fetchPins = async () => {
     try {
       const res = await fetch('https://tripping-app.onrender.com/get-pins');
       const data = await res.json();
-      setEvents((data.pins || []).map((pin:any) => ({
-        id: pin.id, latitude: pin.latitude, longitude: pin.longitude,
-        date: pin.event_date, username: pin.username,
-        title: pin.event_title, type: pin.event_type
+      // וודא שאתה ממפה את השדות הנכונים מה-API לפורמט של EventMarker ו-SelectedEventType
+      setEvents((data.pins || []).map((pin: any) => ({
+        id: pin.id,
+        latitude: pin.latitude,
+        longitude: pin.longitude,
+        event_date: pin.event_date, // וודא שזה event_date ולא date
+        username: pin.username,
+        event_title: pin.event_title, // וודא שזה event_title ולא title
+        event_type: pin.event_type, // וודא שזה event_type ולא type
+        description: pin.description, // הוסף אם קיים
+        location: pin.location // הוסף אם קיים
       })));
-    } catch {}
+    } catch (error) {
+      console.error("Error fetching pins:", error);
+    }
   };
 
   const fetchLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return;
-    const loc = await Location.getCurrentPositionAsync({});
-    setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-    setRegion({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 });
+    if (status !== 'granted') {
+      console.warn('Permission to access location was denied');
+      return;
+    }
+    try {
+      const loc = await Location.getCurrentPositionAsync({});
+      setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      setRegion({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 });
+    } catch (error) {
+      console.error("Error fetching current location:", error);
+    }
   };
 
   useEffect(() => {
@@ -77,11 +110,21 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchUsers(); fetchPins(); }, []));
+  useFocusEffect(useCallback(() => {
+    // רענן משתמשים ופינים בכל פעם שהמסך מתמקד
+    fetchUsers();
+    fetchPins();
+    // אם המיקום לא ידוע, נסה לאחזר אותו שוב
+    if (!currentLocation) {
+      fetchLocation(); 
+    }
+  }, [currentLocation])); // תלויות ב-currentLocation כדי לנסות לאחזר מיקום אם לא הצליח בפעם הראשונה
 
   const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;
-    return events.filter(ev => calculateDistance(currentLocation.latitude, currentLocation.longitude, ev.latitude, ev.longitude) <= displayDistance);
+    return events.filter(ev =>
+      calculateDistance(currentLocation.latitude, currentLocation.longitude, ev.latitude, ev.longitude) <= displayDistance
+    );
   }, [events, currentLocation, displayDistance]);
 
   const toggleFilterMenu = () => {
@@ -96,21 +139,39 @@ export default function HomeScreen() {
     Animated.spring(filterAnimation, { toValue: 0, useNativeDriver: true }).start();
   };
 
+  // --- הפונקציה החדשה לפתיחת הצ'אט הקבוצתי ---
+  const handleOpenGroupChat = (eventTitle: string) => {
+    if (eventTitle) {
+      setSelectedEvent(null); // סגור את המודל לפני הניווט
+      router.push({
+        pathname: '/Chats/GroupChatModal', // וודא שזה הנתיב הנכון לקובץ הצ'אט שלך ב-expo-router
+        params: { eventTitle: eventTitle }
+      });
+    }
+  };
+  // --- סוף הפונקציה החדשה ---
+
   if (!initialDataLoaded || !region) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color="#FF6F00" /><Text>📡 טוען מפה...</Text></View>;
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#FF6F00" />
+        <Text style={{ marginTop: 10, fontSize: 16 }}>📡 טוען מפה...</Text>
+      </View>
+    );
   }
 
   const filterMenuStyle = {
     transform: [{
-      translateY: filterAnimation.interpolate({ inputRange: [0,1], outputRange: [-100,0] })
+      translateY: filterAnimation.interpolate({ inputRange: [0, 1], outputRange: [-100, 0] })
     }],
     opacity: filterAnimation
   };
 
   return (
-    <View style={{flex:1}}>
+    <View style={{ flex: 1 }}>
       <MapView
-        style={{flex:1}} region={region}
+        style={{ flex: 1 }}
+        region={region}
         onPress={(e) => {
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
@@ -121,32 +182,64 @@ export default function HomeScreen() {
             setIsChoosingLocation(false);
           }
           if (isFilterMenuVisible) toggleFilterMenu();
+          // סגור גם את מודלי פרטי המשתמש/אירוע בלחיצה על המפה
+          setSelectedUser(null);
+          setSelectedEvent(null);
         }}
       >
         {visibleEvents.map(event => (
-          <EventMarker key={event.id} event={event} onPress={(id) => {
-            fetch(`https://tripping-app.onrender.com/get-pin?id=${id}`)
-              .then(res => res.json())
-              .then(data => setSelectedEvent(data.pin ? { ...data.pin, id: data.pin.id } : null))
-              .catch(console.error);
-          }} />
+          <EventMarker
+            key={event.id}
+            event={event}
+            onPress={(id) => {
+              // קודם נסה לסגור מודלים אחרים
+              setSelectedUser(null); 
+              fetch(`https://tripping-app.onrender.com/get-pin?id=${id}`)
+                .then(res => res.json())
+                .then(data => {
+                  // וודא שהנתונים מגיעים בפורמט הנכון
+                  if (data.pin) {
+                    setSelectedEvent({
+                      id: data.pin.id,
+                      latitude: data.pin.latitude,
+                      longitude: data.pin.longitude,
+                      event_date: data.pin.event_date,
+                      username: data.pin.username,
+                      event_title: data.pin.event_title,
+                      event_type: data.pin.event_type,
+                      description: data.pin.description,
+                      location: data.pin.location
+                    });
+                  } else {
+                    setSelectedEvent(null);
+                  }
+                })
+                .catch(error => {
+                  console.error("Error fetching single pin:", error);
+                  setSelectedEvent(null); // סגור מודל במקרה של שגיאה
+                });
+            }}
+          />
         ))}
         {users.filter(u =>
           currentLocation && calculateDistance(currentLocation.latitude, currentLocation.longitude, u.latitude, u.longitude) <= displayDistance
         ).map(user => (
-          <UserMarker key={user.uid} user={user} onPress={setSelectedUser} />
+          <UserMarker key={user.uid} user={user} onPress={(u) => {
+            setSelectedEvent(null); // סגור מודל אירוע אם נבחר משתמש
+            setSelectedUser(u);
+          }} />
         ))}
       </MapView>
 
       <View style={styles.filterContainer}>
-        <TouchableOpacity style={[styles.filterButton, isChoosingLocation && {backgroundColor:'#FFB74D'}]} onPress={toggleFilterMenu}>
+        <TouchableOpacity style={[styles.filterButton, isChoosingLocation && { backgroundColor: '#FFB74D' }]} onPress={toggleFilterMenu}>
           <Ionicons name={isFilterMenuVisible ? "close" : "options"} size={24} color="white" />
         </TouchableOpacity>
         {isFilterMenuVisible && (
           <Animated.View style={[styles.filterMenu, filterMenuStyle]}>
-            <TouchableOpacity style={styles.menuItemContainer} onPress={() => {setDistanceModalVisible(true);toggleFilterMenu();}}>
+            <TouchableOpacity style={styles.menuItemContainer} onPress={() => { setDistanceModalVisible(true); toggleFilterMenu(); }}>
               <Ionicons name="resize" size={18} color="#FF6F00" style={styles.menuIcon} />
-              <Text style={styles.menuItemText}>מרחק תצוגה ({displayDistance} ק"מ)</Text>
+              <Text style={styles.menuItemText}>מרחק תצוגה ({displayDistance} קמ)</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItemContainer} onPress={handleAddEventPress}>
               <Ionicons name="add-circle-outline" size={18} color="#FF6F00" style={styles.menuIcon} />
@@ -163,20 +256,32 @@ export default function HomeScreen() {
       )}
 
       {selectedEvent && (
-        <Modal visible animationType="fade" transparent onRequestClose={() => setSelectedEvent(null)}>
+        <Modal visible={true} animationType="fade" transparent onRequestClose={() => setSelectedEvent(null)}>
           <TouchableWithoutFeedback onPress={() => setSelectedEvent(null)}>
             <View style={styles.modalOverlay}>
               <View style={styles.modalBox}>
                 <Text style={styles.modalTitle}>{selectedEvent.event_title}</Text>
+                {/* וודא ש-event_date הוא תאריך תקין */}
                 <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL')}</Text>
                 <Text style={styles.modalAuthor}>מאת: {selectedEvent.username}</Text>
+
+                {/* --- כפתור צ'אט קבוצתי חדש שהוספנו --- */}
+                <TouchableOpacity
+                  style={styles.chatButton} // סטייל חדש שנוסיף
+                  onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
+                >
+                  <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
+                  <Text style={styles.chatButtonText}>פתח צאט קבוצתי</Text>
+                </TouchableOpacity>
+                {/* --- סוף כפתור צ'אט קבוצתי --- */}
+
               </View>
             </View>
           </TouchableWithoutFeedback>
         </Modal>
       )}
       {selectedUser && (
-        <Modal visible animationType="fade" transparent onRequestClose={() => setSelectedUser(null)}>
+        <Modal visible={true} animationType="fade" transparent onRequestClose={() => setSelectedUser(null)}>
           <TouchableWithoutFeedback onPress={() => setSelectedUser(null)}>
             <View style={styles.modalOverlay}>
               <TouchableWithoutFeedback>
@@ -206,8 +311,12 @@ export default function HomeScreen() {
         </Modal>
       )}
 
-      <DistanceFilterButton displayDistance={displayDistance} setDisplayDistance={setDisplayDistance}
-        visible={distanceModalVisible} setVisible={setDistanceModalVisible} />
+      <DistanceFilterButton
+        displayDistance={displayDistance}
+        setDisplayDistance={setDisplayDistance}
+        visible={distanceModalVisible}
+        setVisible={setDistanceModalVisible}
+      />
     </View>
   );
 }
@@ -329,4 +438,27 @@ const styles = StyleSheet.create({
     color: '#555',
     textAlign: 'center',
   },
+  // --- סטיילים חדשים לכפתור הצ'אט הקבוצתי ---
+  chatButton: {
+    backgroundColor: '#FF6F00', // צבע הכפתור
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    flexDirection: 'row-reverse', // כדי שהאייקון יהיה מימין לטקסט
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20, // מרווח מהתוכן הקודם במודל
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5, // צל עבור אנדרואיד
+  },
+  chatButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8, // רווח בין הטקסט לאייקון
+  },
+  // --- סוף סטיילים חדשים ---
 });
