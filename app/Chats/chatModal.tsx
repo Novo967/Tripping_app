@@ -17,7 +17,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
-  Dimensions,
   FlatList,
   Image,
   Keyboard,
@@ -33,8 +32,6 @@ import {
   View,
 } from 'react-native';
 import { db } from '../../firebaseConfig';
-
-const { width, height } = Dimensions.get('window');
 
 interface Message {
   id: string;
@@ -54,7 +51,6 @@ const ChatModal = () => {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
   const auth = getAuth();
@@ -67,30 +63,13 @@ const ChatModal = () => {
 
   useEffect(() => {
     if (!chatId) return;
-
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
-
+    const q = query(messagesRef, orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
     });
-
     return unsubscribe;
   }, [chatId]);
-
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
-    };
-  }, []);
 
   const sendMessage = async (imageUrl?: string) => {
     if ((!input.trim() && !imageUrl) || !currentUid) return;
@@ -116,7 +95,7 @@ const ChatModal = () => {
 
     setInput('');
     setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }, 100);
   };
 
@@ -173,9 +152,7 @@ const ChatModal = () => {
     }
   };
 
-  const goBack = () => {
-    router.back();
-  };
+  const goBack = () => router.back();
 
   const handleUserProfilePress = () => {
     router.push({
@@ -187,11 +164,7 @@ const ChatModal = () => {
   const formatTime = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleTimeString('he-IL', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    });
+    return date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
@@ -230,27 +203,13 @@ const ChatModal = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
-      
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={goBack} 
-          style={styles.backButton}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.userInfo}
-          onPress={handleUserProfilePress}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.userInfo} onPress={handleUserProfilePress} activeOpacity={0.7}>
           <View style={styles.avatarContainer}>
-            <Image 
-              source={{ uri: otherUserImage || 'https://via.placeholder.com/50' }} 
-              style={styles.avatar} 
-            />
+            <Image source={{ uri: otherUserImage || 'https://via.placeholder.com/50' }} style={styles.avatar} />
             <View style={styles.onlineIndicator} />
           </View>
           <View style={styles.userTextInfo}>
@@ -260,18 +219,18 @@ const ChatModal = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.chatContainer}>
+      <KeyboardAvoidingView
+        style={styles.flexContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.messagesWrapper}>
+          <View style={styles.chatContainer}>
             {messages.length === 0 ? (
               <View style={styles.emptyState}>
-                <View style={styles.emptyStateIcon}>
-                  <Ionicons name="chatbubble-outline" size={60} color="#E0E0E0" />
-                </View>
+                <Ionicons name="chatbubble-outline" size={60} color="#E0E0E0" />
                 <Text style={styles.emptyStateTitle}>התחל שיחה</Text>
-                <Text style={styles.emptyStateSubtitle}>
-                  שלח הודעה ראשונה ל{otherUsername}
-                </Text>
+                <Text style={styles.emptyStateSubtitle}>שלח הודעה ראשונה ל{otherUsername}</Text>
               </View>
             ) : (
               <FlatList
@@ -281,37 +240,22 @@ const ChatModal = () => {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.messagesContainer}
                 showsVerticalScrollIndicator={false}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                inverted
               />
             )}
           </View>
         </TouchableWithoutFeedback>
 
-        {/* Input Container - Fixed Position */}
-        <KeyboardAvoidingView 
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-          style={[styles.inputWrapper, { bottom: keyboardHeight }]}
-          behavior={Platform.OS === 'ios' ? 'position' : 'height'}
-        >
+        <View style={styles.inputWrapper}>
           <View style={styles.inputContainer}>
-            <TouchableOpacity 
-              onPress={() => sendMessage()} 
-              style={[
-              styles.sendButton,
-              !input.trim() && styles.sendButtonDisabled,
-              { marginRight: 4, marginLeft: 0 } // move to the right side
-              ]}
+            <TouchableOpacity
+              onPress={() => sendMessage()}
+              style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
               activeOpacity={0.8}
               disabled={!input.trim()}
             >
-              <Ionicons 
-              name="send" 
-              size={20} 
-              color={input.trim() ? "#FFFFFF" : "#CCC"} 
-              style={{ transform: [{ scaleX: -1 }] }} // flip icon direction
-              />
+              <Ionicons name="send" size={20} color={input.trim() ? "#FFFFFF" : "#CCC"} style={{ transform: [{ scaleX: -1 }] }} />
             </TouchableOpacity>
-            
             <TextInput
               style={styles.input}
               placeholder="הקלד הודעה..."
@@ -324,17 +268,12 @@ const ChatModal = () => {
               multiline
               maxLength={500}
             />
-            
-            <TouchableOpacity 
-              style={styles.cameraButton} 
-              onPress={handleImagePicker}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} activeOpacity={0.7}>
               <Ionicons name="camera" size={24} color="#FF6F00" />
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -345,7 +284,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
-    justifyContent: 'flex-end', // Make the container content stick to the bottom
+  },
+  flexContainer: { 
+    flex: 1
   },
   header: {
     backgroundColor: '#FF6F00',
@@ -412,7 +353,6 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     flex: 1,
-    position: 'relative',
   },
   messagesWrapper: {
     flex: 1,
@@ -449,7 +389,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingVertical: 20,
-    paddingBottom: 80,
   },
   messageContainer: {
     marginVertical: 4,
@@ -513,19 +452,13 @@ const styles = StyleSheet.create({
     color: '#95A5A6',
   },
   inputWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 8,
