@@ -20,7 +20,11 @@ interface Props {
   username: string;
   galleryLength: number;
   onChangeImage: (uri: string) => void;
-}
+  onImagePress: (imageUri: string) => void;
+  gallery: string[];
+  onAddImage: (uri: string) => Promise<void>;
+  onDeleteImages: (deletedImageUrls: string[]) => void
+};
 
 const ProfileImage: React.FC<Props> = ({
   profilePic,
