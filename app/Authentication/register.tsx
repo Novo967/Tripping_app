@@ -33,12 +33,16 @@ const getExpoWebRedirectUri = () => {
   const expoConfig = Constants.expoConfig;
   const expoUsername = expoConfig?.owner;
   const appSlug = expoConfig?.slug;
+  const appScheme = expoConfig?.scheme; // <--- הוספנו גישה ל-scheme
 
-  if (!expoUsername || !appSlug) {
-    console.warn('Could not determine Expo username or app slug from Constants.expoConfig. Check app.json and Expo SDK version. Using fallback URI.');
-    return 'https://auth.expo.io/@your-fallback-username/your-fallback-app-slug'; // ודא שזה רשום בגוגל אם אתה משתמש בזה
+  if (!expoUsername || !appSlug || !appScheme) { // <--- ודא שגם scheme קיים
+    console.warn('Could not determine Expo username, app slug, or scheme for redirect URI. Using fallback URI.');
+    return 'https://auth.expo.io/@your-fallback-username/your-fallback-app-slug';
   }
-  return `https://auth.expo.io/@${expoUsername}/${appSlug}`;
+
+  // זהו ה-URI שגוגל מצפה לו עבור לקוח ווב של Expo Go
+  // נוסיף את ה-scheme בסוף ה-URI כדי לוודא שהוא חלק מההפניה
+  return `https://auth.expo.io/@${expoUsername}/${appSlug}`; // <--- שינוי כאן
 };
 
 
