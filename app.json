@@ -2,6 +2,7 @@
   "expo": {
     "name": "Tripping_app",
     "slug": "Tripping_app",
+    "owner": "novrubin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,14 +10,16 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.NovAndNoam.Tripping_app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.anonymous.Tripping_app"
     },
     "web": {
       "bundler": "metro",
@@ -40,7 +43,10 @@
       "typedRoutes": true
     },
     "extra": {
-      "expoClientId": "<328672185045-uab2cso3lfkibs7p5bmf427scqk7nu42.apps.googleusercontent.com>.apps.googleusercontent.com"
+        "router": {},
+      "eas": {
+        "projectId": "b1f09d27-4461-43f4-9fa5-cc2e132c8afc"
+      }
     }
   }
 }

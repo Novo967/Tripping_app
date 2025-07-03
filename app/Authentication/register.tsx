@@ -1,9 +1,13 @@
+import { useAuthRequest } from 'expo-auth-session';
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import * as WebBrowser from 'expo-web-browser';
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   KeyboardAvoidingView,
@@ -17,8 +21,26 @@ import {
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 
+WebBrowser.maybeCompleteAuthSession();
+
+const ANDROID_CLIENT_ID = '328672185045-j2ufp6opvvq2hbce9u4og7rt6ghvb08j.apps.googleusercontent.com';
+const IOS_CLIENT_ID = '328672185045-ope89nmh8ft15p1smem42e7no81ukc85.apps.googleusercontent.com';
+const WEB_CLIENT_ID = '328672185045-g7gkss6smt3t1nkbp73nf1tt2bmham58.apps.googleusercontent.com'; // ודא שזה מדויק!
 
 const { width, height } = Dimensions.get('window');
+
+const getExpoWebRedirectUri = () => {
+  const expoConfig = Constants.expoConfig;
+  const expoUsername = expoConfig?.owner;
+  const appSlug = expoConfig?.slug;
+
+  if (!expoUsername || !appSlug) {
+    console.warn('Could not determine Expo username or app slug from Constants.expoConfig. Check app.json and Expo SDK version. Using fallback URI.');
+    return 'https://auth.expo.io/@your-fallback-username/your-fallback-app-slug'; // ודא שזה רשום בגוגל אם אתה משתמש בזה
+  }
+  return `https://auth.expo.io/@${expoUsername}/${appSlug}`;
+};
+
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -28,7 +50,47 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
+  const redirectUri = getExpoWebRedirectUri();
+  console.log('Redirect URI for Google (from getExpoWebRedirectUri):', redirectUri);
+
+  const [request, response, promptAsync] = useAuthRequest(
+    {
+      clientId: WEB_CLIENT_ID,
+      redirectUri,
+      scopes: ['profile', 'email'],
+    },
+    {
+      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenEndpoint: 'https://oauth2.googleapis.com/token',
+      revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
+    }
+  );
+
+  useEffect(() => {
+    if (response) {
+      console.log('Auth Session Response Type:', response.type);
+      if (response.type === 'success') {
+        const { id_token } = response.params;
+        console.log('Received id_token:', id_token ? 'YES' : 'NO'); // נדפיס רק אם קיים
+        if (id_token) {
+          handleGoogleSignIn(id_token);
+        } else {
+          Alert.alert('שגיאה', 'לא התקבל אסימון זיהוי מגוגל. אנא נסה שוב.');
+          setIsLoading(false);
+        }
+      } else if (response.type === 'cancel') {
+        Alert.alert('התחברות בוטלה', 'התחברות לגוגל בוטלה על ידי המשתמש.');
+        setIsLoading(false);
+      } else if (response.type === 'error') {
+        console.error("Google Sign-In Error (Auth Session):", response.error);
+        Alert.alert('שגיאה בהתחברות לגוגל', `אירעה שגיאה: ${response.error?.message || 'לא ידועה'}. אנא נסה שוב.`);
+        setIsLoading(false);
+      }
+    }
+  }, [response]);
+
   const validateForm = () => {
+    // ... (ללא שינוי)
     if (!email.trim() || !username.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('שגיאה', 'נא למלא את כל השדות');
       return false;
@@ -56,8 +118,9 @@ export default function RegisterScreen() {
 
     return true;
   };
-  
+
   const handleRegister = async () => {
+    // ... (ללא שינוי)
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -86,7 +149,6 @@ export default function RegisterScreen() {
         }),
       });
 
-      // בקשת הרשאה למיקום
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
@@ -107,19 +169,94 @@ export default function RegisterScreen() {
       }
 
       router.push('/(tabs)/home');
-    } catch (error: any) {
-      Alert.alert('שגיאה ברישום', error.message);
+    } catch (error) {
+      console.error("שגיאה ברישום:", error);
+      Alert.alert('שגיאה ברישום');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleGoogleSignIn = async (idToken: String) => {
+    setIsLoading(true);
+    try {
+      console.log('Attempting Firebase sign-in with Google ID Token...');
+      const idTokenPrimitive = String(idToken); // <--- הוסף את השורה הזו
+    
+      const credential = GoogleAuthProvider.credential(idTokenPrimitive); // <--- השתמש ב-idTokenPrimitive כאן
+      console.log('Firebase credential created.');
+
+      const userCredential = await signInWithCredential(auth, credential);
+      const user = userCredential.user;
+      console.log('Firebase sign-in successful. User UID:', user.uid);
+
+      const usernameToSave = user.displayName || (user.email ? user.email.split('@')[0] : 'משתמש גוגל');
+      console.log('Saving user data to Firestore...');
+      await setDoc(doc(db, 'users', user.uid), {
+        email: user.email,
+        uid: user.uid,
+        username: usernameToSave,
+        createdAt: new Date(),
+      }, { merge: true });
+      console.log('User data saved to Firestore.');
+
+      console.log('Calling backend /register-user...');
+      await fetch('https://tripping-app.onrender.com/register-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          username: usernameToSave,
+        }),
+      });
+      console.log('Backend /register-user call complete.');
+
+      console.log('Requesting location permissions...');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        console.log('Location permission granted. Getting current position...');
+        const location = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = location.coords;
+        console.log('Location received:', { latitude, longitude });
+
+        console.log('Calling backend /update-user-location...');
+        await fetch('https://tripping-app.onrender.com/update-user-location', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            uid: user.uid,
+            latitude,
+            longitude,
+            username: usernameToSave,
+          }),
+        });
+        console.log('Backend /update-user-location call complete.');
+      } else {
+        console.warn('Location permission not granted.');
+      }
+
+      console.log('Navigating to home screen...');
+      router.push('/(tabs)/home');
+    } catch (error: any) {
+      console.error("שגיאה בתהליך הכניסה ל-Firebase עם גוגל:", error);
+      Alert.alert('שגיאה בהתחברות לגוגל', error.message);
+    } finally {
+      setIsLoading(false);
+      console.log('Finished handleGoogleSignIn process.');
+    }
+  };
+
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -199,7 +336,7 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.termsContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.checkboxContainer}
               onPress={() => setAgreedToTerms(!agreedToTerms)}
               disabled={isLoading}
@@ -222,12 +359,12 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.registerButton, 
+              styles.registerButton,
               isLoading && styles.registerButtonDisabled,
               !agreedToTerms && styles.registerButtonInactive
-            ]} 
+            ]}
             onPress={handleRegister}
             disabled={isLoading || !agreedToTerms}
             activeOpacity={0.8}
@@ -238,6 +375,33 @@ export default function RegisterScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* כפתור התחברות עם גוגל */}
+        <TouchableOpacity
+          style={[
+            styles.googleButton,
+            isLoading && styles.googleButtonDisabled,
+          ]}
+          onPress={() => {
+            if (request && !isLoading) {
+              setIsLoading(true);
+              promptAsync();
+            } else if (!request) {
+              Alert.alert('שגיאה', 'התחברות לגוגל אינה זמינה כרגע. אנא נסה שוב מאוחר יותר.');
+            }
+          }}
+          disabled={isLoading || !request}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.googleButtonText}>התחבר עם גוגל</Text>
+        </TouchableOpacity>
+
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+            <Text style={styles.loadingText}>טוען...</Text>
+          </View>
+        )}
+
         <View style={styles.footerContainer}>
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -245,7 +409,7 @@ export default function RegisterScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.push('/Authentication/login')}
             style={styles.loginLink}
             disabled={isLoading}
@@ -471,5 +635,43 @@ const styles = StyleSheet.create({
     color: PRIMARY_COLOR,
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 16,
+    shadowColor: '#4285F4',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  googleButtonDisabled: {
+    backgroundColor: '#A0A0A0',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  googleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: TEXT_COLOR,
   },
 });
