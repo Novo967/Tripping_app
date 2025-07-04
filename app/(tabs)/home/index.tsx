@@ -6,7 +6,9 @@ import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Animated, Modal, StyleSheet, Text,
+  ActivityIndicator,
+  Alert,
+  Animated, Modal, StyleSheet, Text,
   TouchableOpacity, TouchableWithoutFeedback, View
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
@@ -15,19 +17,21 @@ import EventMarker from '../../components/EventMarker';
 import UserMarker from '../../components/UserMarker';
 
 // הגדרת ממשק (interface) עבור selectedEvent
-// זה מבטיח שממשק הנתונים תואם לשדות שאתה מצפה לקבל
 interface SelectedEventType {
   id: string; // מזהה האירוע
   latitude: number;
   longitude: number;
-  event_date: string; // חשוב שזה יהיה מחרוזת הניתנת ל-ISO
-  username: string;
+  event_date: string;
+  username: string; // שם המשתמש של מנהל האירוע
   event_title: string;
   event_type: string;
-  description?: string; // אופציונלי, אם קיים בנתונים שחוזרים מהשרת
-  location?: string; // אופציונלי
+  description?: string;
+  location?: string;
+  event_owner_uid: string; // UID של מנהל האירוע
+  approved_users?: string[]; // ✅ שדה חדש: רשימת UID של משתמשים שאושרו
 }
 
+const SERVER_URL = 'https://tripping-app.onrender.com';
 
 export default function HomeScreen() {
   const [region, setRegion] = useState<Region | null>(null);
@@ -36,16 +40,17 @@ export default function HomeScreen() {
   const [displayDistance, setDisplayDistance] = useState(150);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null); // השתמש בטיפוס החדש
+  const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null);
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
 
   const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
   const [filterAnimation] = useState(new Animated.Value(0));
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const [currentUserUsername, setCurrentUserUsername] = useState('');
 
   const auth = getAuth();
-  const user = auth.currentUser;
+  const user = auth.currentUser; // המשתמש המחובר כרגע
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; // רדיוס כדור הארץ בק"מ
@@ -59,7 +64,7 @@ export default function HomeScreen() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('https://tripping-app.onrender.com/get-all-users');
+      const res = await fetch(`${SERVER_URL}/get-all-users`);
       const data = await res.json();
       setUsers(data.users || []);
     } catch (error) {
@@ -67,10 +72,28 @@ export default function HomeScreen() {
     }
   };
 
-  // פונקציה חדשה למחיקת סיכה
+  const fetchCurrentUserUsername = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`${SERVER_URL}/get-user-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid }),
+      });
+      const data = await res.json();
+      if (res.ok && data.username) {
+        setCurrentUserUsername(data.username);
+      } else {
+        console.error("Error fetching current user username:", data.error);
+      }
+    } catch (error) {
+      console.error("Error fetching current user username:", error);
+    }
+  };
+
   const deletePin = async (pinId: string) => {
     try {
-      const res = await fetch('https://tripping-app.onrender.com/delete-pin', {
+      const res = await fetch(`${SERVER_URL}/delete-pin`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +103,6 @@ export default function HomeScreen() {
       const data = await res.json();
       if (res.ok) {
         console.log(`Pin ${pinId} deleted successfully:`, data.message);
-        // הסר את הסיכה מהמצב המקומי
         setEvents(prevEvents => prevEvents.filter(event => event.id !== pinId));
       } else {
         console.error(`Error deleting pin ${pinId}:`, data.message);
@@ -89,31 +111,26 @@ export default function HomeScreen() {
       console.error(`Error deleting pin ${pinId}:`, error);
     }
   };
-const fetchPins = async () => {
+
+  const fetchPins = async () => {
     try {
-      const res = await fetch('https://tripping-app.onrender.com/get-pins');
+      const res = await fetch(`${SERVER_URL}/get-pins`);
       const data = await res.json();
       
-      // יצירת אובייקט תאריך נוכחי, מאופס לשעה 00:00:00 של היום
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
       const updatedPins = await Promise.all((data.pins || []).map(async (pin: any) => {
         const eventDate = new Date(pin.event_date);
-        // מאפסים גם את תאריך האירוע לשעה 00:00:00 כדי להשוות ימים בלבד
         eventDate.setHours(0, 0, 0, 0);
 
-        // תאריך הסיום האפקטיבי של האירוע: יום אחרי תאריך האירוע בחצות
         const deletionDate = new Date(eventDate);
-        deletionDate.setDate(eventDate.getDate() + 1); // יום לאחר האירוע
+        deletionDate.setDate(eventDate.getDate() + 1); 
 
-
-        // אם היום הנוכחי (או תאריך מאוחר יותר) גדול או שווה לתאריך המחיקה
-        // כלומר, אם תאריך המחיקה כבר עבר
         if (todayStart.getTime() >= deletionDate.getTime()) {
           console.log(`Event ${pin.event_title} (${pin.id}) has passed its deletion threshold. Deleting pin.`);
-          await deletePin(pin.id); // קרא לפונקציית המחיקה
-          return null; // סמן למחיקה מהרשימה המקומית
+          await deletePin(pin.id);
+          return null;
         }
         return {
           id: pin.id,
@@ -124,16 +141,18 @@ const fetchPins = async () => {
           event_title: pin.event_title,
           event_type: pin.event_type,
           description: pin.description,
-          location: pin.location
+          location: pin.location,
+          event_owner_uid: pin.owner_uid,
+          approved_users: pin.approved_users || [], // ✅ קבלת approved_users מהשרת
         };
       }));
 
-      // עדכן את מצב האירועים רק עם הסיכות שעדיין רלוונטיות
       setEvents(updatedPins.filter(pin => pin !== null));
     } catch (error) {
       console.error("Error fetching pins:", error);
     }
   };
+
   const fetchLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -151,20 +170,19 @@ const fetchPins = async () => {
 
   useEffect(() => {
     (async () => {
-      await Promise.all([fetchLocation(), fetchUsers(), fetchPins()]);
+      await Promise.all([fetchLocation(), fetchUsers(), fetchPins(), fetchCurrentUserUsername()]);
       setInitialDataLoaded(true);
     })();
   }, []);
 
   useFocusEffect(useCallback(() => {
-    // רענן משתמשים ופינים בכל פעם שהמסך מתמקד
     fetchUsers();
     fetchPins();
-    // אם המיקום לא ידוע, נסה לאחזר אותו שוב
+    fetchCurrentUserUsername();
     if (!currentLocation) {
       fetchLocation(); 
     }
-  }, [currentLocation])); // תלויות ב-currentLocation כדי לנסות לאחזר מיקום אם לא הצליח בפעם הראשונה
+  }, [currentLocation]));
 
   const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;
@@ -185,17 +203,83 @@ const fetchPins = async () => {
     Animated.spring(filterAnimation, { toValue: 0, useNativeDriver: true }).start();
   };
 
-  // --- הפונקציה החדשה לפתיחת הצ'אט הקבוצתי ---
+  const handleSendRequest = async () => {
+    if (!user || !selectedEvent || !currentUserUsername) {
+      Alert.alert('שגיאה', 'לא ניתן לשלוח בקשה כרגע. נתונים חסרים.');
+      return;
+    }
+
+    if (user.uid === selectedEvent.event_owner_uid) {
+      Alert.alert('שגיאה', 'אינך יכול לשלוח בקשה לאירוע שאתה מנהל.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${SERVER_URL}/send-event-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender_uid: user.uid,
+          sender_username: currentUserUsername,
+          receiver_uid: selectedEvent.event_owner_uid,
+          event_id: selectedEvent.id,
+          event_title: selectedEvent.event_title,
+        }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        Alert.alert('הצלחה', 'הבקשה נשלחה למנהל האירוע!');
+      } else {
+        Alert.alert('שגיאה', result.error || 'שליחת הבקשה נכשלה.');
+      }
+    } catch (error) {
+      console.error('Error sending request:', error);
+      Alert.alert('שגיאה', 'אירעה שגיאה בשליחת הבקשה.');
+    } finally {
+      setSelectedEvent(null);
+    }
+  };
+
+  // ✅ פונקציה לפתיחת הצ'אט הקבוצתי (הוחזר)
   const handleOpenGroupChat = (eventTitle: string) => {
     if (eventTitle) {
       setSelectedEvent(null); // סגור את המודל לפני הניווט
       router.push({
-        pathname: '/Chats/GroupChatModal', // וודא שזה הנתיב הנכון לקובץ הצ'אט שלך ב-expo-router
+        pathname: '/Chats/GroupChatModal',
         params: { eventTitle: eventTitle }
       });
     }
   };
-  // --- סוף הפונקציה החדשה ---
+
+  // ✅ לוגיקה לקביעת איזה כפתור להציג במודל האירוע
+  const renderEventActionButton = () => {
+    if (!user || !selectedEvent) return null;
+
+    const isOwner = user.uid === selectedEvent.event_owner_uid;
+    const isApproved = selectedEvent.approved_users?.includes(user.uid);
+
+    if (isOwner || isApproved) {
+      return (
+        <TouchableOpacity
+          style={styles.chatButton} // השתמש בסטייל של כפתור הצ'אט הישן
+          onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
+        >
+          <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
+          <Text style={styles.chatButtonText}>פתח צאט קבוצתי</Text>
+        </TouchableOpacity>
+      );
+    } else {
+      return (
+        <TouchableOpacity
+          style={styles.requestButton}
+          onPress={handleSendRequest}
+        >
+          <Ionicons name="mail-outline" size={24} color="#FFFFFF" />
+          <Text style={styles.requestButtonText}>שלח בקשה למנהל האירוע</Text>
+        </TouchableOpacity>
+      );
+    }
+  };
 
   if (!initialDataLoaded || !region) {
     return (
@@ -223,12 +307,11 @@ const fetchPins = async () => {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             router.push({
               pathname: '/components/CreateEventPage',
-              params: { latitude: latitude.toString(), longitude: longitude.toString() }
+              params: { latitude: latitude.toString(), longitude: longitude.toString(), owner_uid: user?.uid || '' }
             });
             setIsChoosingLocation(false);
           }
           if (isFilterMenuVisible) toggleFilterMenu();
-          // סגור גם את מודלי פרטי המשתמש/אירוע בלחיצה על המפה
           setSelectedUser(null);
           setSelectedEvent(null);
         }}
@@ -238,12 +321,10 @@ const fetchPins = async () => {
             key={event.id}
             event={event}
             onPress={(id) => {
-              // קודם נסה לסגור מודלים אחרים
               setSelectedUser(null); 
-              fetch(`https://tripping-app.onrender.com/get-pin?id=${id}`)
+              fetch(`${SERVER_URL}/get-pin?id=${id}`)
                 .then(res => res.json())
                 .then(data => {
-                  // וודא שהנתונים מגיעים בפורמט הנכון
                   if (data.pin) {
                     setSelectedEvent({
                       id: data.pin.id,
@@ -254,7 +335,9 @@ const fetchPins = async () => {
                       event_title: data.pin.event_title,
                       event_type: data.pin.event_type,
                       description: data.pin.description,
-                      location: data.pin.location
+                      location: data.pin.location,
+                      event_owner_uid: data.pin.owner_uid,
+                      approved_users: data.pin.approved_users || [], // ✅ קבלת approved_users
                     });
                   } else {
                     setSelectedEvent(null);
@@ -262,7 +345,7 @@ const fetchPins = async () => {
                 })
                 .catch(error => {
                   console.error("Error fetching single pin:", error);
-                  setSelectedEvent(null); // סגור מודל במקרה של שגיאה
+                  setSelectedEvent(null);
                 });
             }}
           />
@@ -271,7 +354,7 @@ const fetchPins = async () => {
           currentLocation && calculateDistance(currentLocation.latitude, currentLocation.longitude, u.latitude, u.longitude) <= displayDistance
         ).map(user => (
           <UserMarker key={user.uid} user={user} onPress={(u) => {
-            setSelectedEvent(null); // סגור מודל אירוע אם נבחר משתמש
+            setSelectedEvent(null);
             setSelectedUser(u);
           }} />
         ))}
@@ -307,19 +390,11 @@ const fetchPins = async () => {
             <View style={styles.modalOverlay}>
               <View style={styles.modalBox}>
                 <Text style={styles.modalTitle}>{selectedEvent.event_title}</Text>
-                {/* וודא ש-event_date הוא תאריך תקין */}
                 <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL')}</Text>
                 <Text style={styles.modalAuthor}>מאת: {selectedEvent.username}</Text>
 
-                {/* --- כפתור צ'אט קבוצתי חדש שהוספנו --- */}
-                <TouchableOpacity
-                  style={styles.chatButton} // סטייל חדש שנוסיף
-                  onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
-                >
-                  <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
-                  <Text style={styles.chatButtonText}>פתח צאט קבוצתי</Text>
-                </TouchableOpacity>
-                {/* --- סוף כפתור צ'אט קבוצתי --- */}
+                {/* ✅ רנדור דינמי של הכפתור */}
+                {renderEventActionButton()}
 
               </View>
             </View>
@@ -484,27 +559,48 @@ const styles = StyleSheet.create({
     color: '#555',
     textAlign: 'center',
   },
-  // --- סטיילים חדשים לכפתור הצ'אט הקבוצתי ---
-  chatButton: {
-    backgroundColor: '#FF6F00', // צבע הכפתור
+  // סטיילים של כפתור שליחת בקשה (כפי שהיו)
+  requestButton: {
+    backgroundColor: '#FF6F00',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 25,
-    flexDirection: 'row-reverse', // כדי שהאייקון יהיה מימין לטקסט
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20, // מרווח מהתוכן הקודם במודל
+    marginTop: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
-    elevation: 5, // צל עבור אנדרואיד
+    elevation: 5,
+  },
+  requestButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  // סטיילים של כפתור צ'אט קבוצתי (הוחזרו)
+  chatButton: {
+    backgroundColor: '#4CAF50', // צבע ירוק לכפתור הצ'אט
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5,
   },
   chatButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8, // רווח בין הטקסט לאייקון
+    marginLeft: 8,
   },
-  // --- סוף סטיילים חדשים ---
 });

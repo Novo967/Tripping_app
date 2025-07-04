@@ -5,9 +5,10 @@ import uuid
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-from sqlalchemy import create_engine, Column, Integer, String, Text, ARRAY, Float, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Text, Float, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY # ✅ ייבוא ARRAY עבור PostgreSQL
 
 # Import Pillow and pillow_heif for image processing
 from PIL import Image
@@ -39,6 +40,8 @@ class User(Base):
     username = Column(String)
     latitude = Column(Float)
     longitude = Column(Float)
+    # ✅ הוספנו שדה ביו למודל המשתמש
+    bio = Column(Text, nullable=True, default="")
     gallery_images = relationship(
         'GalleryImage',
         back_populates='user',
@@ -83,8 +86,9 @@ class Pin(Base):
     event_type = Column(String, nullable=False)
     description = Column(String, nullable=True)
     location = Column(String, nullable=True)
-    # ✅ שדה חדש: מזהה המשתמש שהוסיף את הסיכה
     owner_uid = Column(String(128), ForeignKey('users.uid'), nullable=False)
+    # ✅ שדה חדש: רשימת UID של משתמשים שאושרו לאירוע
+    approved_users = Column(PG_ARRAY(String), default=[])
 
     def to_dict(self):
         return {
@@ -97,10 +101,11 @@ class Pin(Base):
             "event_type": self.event_type,
             "description": self.description,
             "location": self.location,
-            "owner_uid": self.owner_uid, # ✅ הוספנו את השדה ל-dict
+            "owner_uid": self.owner_uid,
+            "approved_users": self.approved_users, # ✅ הוספנו את השדה ל-dict
         }
 
-# ✅ מודל חדש לבקשות הצטרפות לאירועים
+# מודל לבקשות הצטרפות לאירועים
 class EventRequest(Base):
     __tablename__ = 'event_requests'
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -143,8 +148,8 @@ def get_user_profile():
     if user:
         response = {
             'profile_image': user.profile_image or '',
-            'username': user.username or '', # ✅ וודא ששם המשתמש מוחזר
-            'bio': user.bio if hasattr(user, 'bio') else '', # אם יש שדה ביו
+            'username': user.username or '',
+            'bio': user.bio or '', # ✅ החזרת שדה ביו
         }
     else:
         response = {'profile_image': '', 'username': '', 'bio': ''}
@@ -188,20 +193,18 @@ def register_user():
 def update_user_profile():
     data = request.get_json()
     profile_image = data.get('profile_image')
-    bio = data.get('bio') # ✅ קבלת שדה ביו
+    bio = data.get('bio')
     uid = data.get('uid')
     session = Session()
     try:
         user = session.query(User).filter_by(uid=uid).first()
         if not user:
-            # אם המשתמש לא קיים, צור אותו עם UID ו-ID זהים
-            # (בהנחה שזה המקרה באפליקציה שלך)
             user = User(id=uid, uid=uid, username=f"User_{uid[:8]}")
             session.add(user)
 
         if profile_image is not None:
             user.profile_image = profile_image
-        if bio is not None: # ✅ עדכון שדה ביו
+        if bio is not None:
             user.bio = bio
         session.commit()
         return jsonify({'status': 'success'})
@@ -224,7 +227,6 @@ def upload_image():
     if not file or not uid:
         return jsonify({'error': 'Missing data'}), 400
 
-    # Create a unique filename for the processed image (always .jpg)
     base_filename = os.path.splitext(secure_filename(file.filename))[0]
     output_filename = f"{uid}_{image_type}_{int(time.time())}_{base_filename}.jpg"
     output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
@@ -386,7 +388,6 @@ def get_other_user_profile():
 @app.route('/add-pin', methods=['POST'])
 def add_pin():
     data = request.get_json()
-    # ✅ קבלת owner_uid מהבקשה
     owner_uid = data.get('owner_uid')
     if not owner_uid:
         return jsonify({"success": False, "error": "Missing owner_uid"}), 400
@@ -402,7 +403,8 @@ def add_pin():
             event_type=data.get('event_type', ''),
             description=data.get('description', ''),
             location=data.get('location', ''),
-            owner_uid=owner_uid # ✅ שמירת owner_uid
+            owner_uid=owner_uid,
+            approved_users=[] # ✅ אתחול רשימת המאושרים כריקה
         )
         session.add(new_pin)
         session.commit()
@@ -430,7 +432,8 @@ def get_pins():
             'event_type': pin.event_type,
             'description': pin.description,
             'location': pin.location,
-            'owner_uid': pin.owner_uid, # ✅ החזרת owner_uid
+            'owner_uid': pin.owner_uid,
+            'approved_users': pin.approved_users, # ✅ החזרת approved_users
         } for pin in pins]
         return jsonify({'pins': result})
     finally:
@@ -458,7 +461,8 @@ def get_pin():
                 'event_type': pin.event_type,
                 'description': pin.description,
                 'location': pin.location,
-                'owner_uid': pin.owner_uid, # ✅ החזרת owner_uid
+                'owner_uid': pin.owner_uid,
+                'approved_users': pin.approved_users, # ✅ החזרת approved_users
             }
         })
     else:
@@ -522,7 +526,7 @@ def delete_image():
         session.close()
 
 # ----------------------------
-# ✅ רוטים חדשים לבקשות אירועים
+# רוטים לבקשות אירועים
 # ----------------------------
 
 @app.route('/send-event-request', methods=['POST'])
@@ -539,7 +543,6 @@ def send_event_request():
 
     session = Session()
     try:
-        # וודא שהבקשה לא קיימת כבר במצב 'pending'
         existing_request = session.query(EventRequest).filter_by(
             sender_uid=sender_uid,
             receiver_uid=receiver_uid,
@@ -579,7 +582,7 @@ def get_pending_event_requests():
         requests = session.query(EventRequest).filter_by(
             receiver_uid=receiver_uid,
             status='pending'
-        ).order_by(EventRequest.timestamp.desc()).all() # מיין לפי תאריך יצירה
+        ).order_by(EventRequest.timestamp.desc()).all()
         
         return jsonify({'requests': [req.to_dict() for req in requests]}), 200
     except Exception as e:
@@ -604,6 +607,19 @@ def update_event_request_status():
             return jsonify({'error': 'Event request not found'}), 404
         
         event_request.status = status
+        
+        # ✅ אם הבקשה אושרה, עדכן את רשימת המשתמשים המאושרים בפין
+        if status == 'accepted':
+            pin = session.query(Pin).filter_by(id=event_request.event_id).first()
+            if pin:
+                if event_request.sender_uid not in pin.approved_users:
+                    pin.approved_users = pin.approved_users + [event_request.sender_uid] # הוספה לרשימה
+                    # SQLAlchemy עם PG_ARRAY דורש הקצאה מחדש של הרשימה כדי לזהות שינוי
+                else:
+                    print(f"User {event_request.sender_uid} already approved for pin {pin.id}")
+            else:
+                print(f"Warning: Pin with ID {event_request.event_id} not found for request {request_id}")
+
         session.commit()
         return jsonify({'message': f'Request {request_id} status updated to {status}'}), 200
     except Exception as e:
