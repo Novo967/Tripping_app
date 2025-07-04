@@ -28,6 +28,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://trippingappdbnew_use
 engine = create_engine(DATABASE_URL)
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
+
 # מודל משתמש
 class User(Base):
     __tablename__ = 'users'
@@ -44,6 +45,21 @@ class User(Base):
         foreign_keys='GalleryImage.uid',
         primaryjoin='User.uid==GalleryImage.uid'
     )
+    # יחס חדש לבקשות נכנסות
+    received_requests = relationship(
+        'EventRequest',
+        back_populates='receiver',
+        foreign_keys='EventRequest.receiver_uid',
+        primaryjoin='User.uid==EventRequest.receiver_uid'
+    )
+    # יחס חדש לבקשות יוצאות
+    sent_requests = relationship(
+        'EventRequest',
+        back_populates='sender',
+        foreign_keys='EventRequest.sender_uid',
+        primaryjoin='User.uid==EventRequest.sender_uid'
+    )
+
 
 class GalleryImage(Base):
     __tablename__ = 'gallery_images'
@@ -67,19 +83,50 @@ class Pin(Base):
     event_type = Column(String, nullable=False)
     description = Column(String, nullable=True)
     location = Column(String, nullable=True)
+    # ✅ שדה חדש: מזהה המשתמש שהוסיף את הסיכה
+    owner_uid = Column(String(128), ForeignKey('users.uid'), nullable=False)
 
     def to_dict(self):
         return {
             "id": self.id,
             "latitude": self.latitude,
             "longitude": self.longitude,
-            "event_date": self.event_date.isoformat(), # ✅ וודא שתאריך האירוע מומר לפורמט ISO 8601
+            "event_date": self.event_date.isoformat(),
             "username": self.username,
             "event_title": self.event_title,
             "event_type": self.event_type,
             "description": self.description,
             "location": self.location,
+            "owner_uid": self.owner_uid, # ✅ הוספנו את השדה ל-dict
         }
+
+# ✅ מודל חדש לבקשות הצטרפות לאירועים
+class EventRequest(Base):
+    __tablename__ = 'event_requests'
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    sender_uid = Column(String(128), ForeignKey('users.uid'), nullable=False)
+    sender_username = Column(String, nullable=False)
+    receiver_uid = Column(String(128), ForeignKey('users.uid'), nullable=False)
+    event_id = Column(Integer, nullable=False) # מזהה הסיכה/אירוע
+    event_title = Column(String, nullable=False)
+    status = Column(String, default='pending') # 'pending', 'accepted', 'declined'
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    sender = relationship("User", back_populates="sent_requests", foreign_keys=[sender_uid])
+    receiver = relationship("User", back_populates="received_requests", foreign_keys=[receiver_uid])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "sender_uid": self.sender_uid,
+            "sender_username": self.sender_username,
+            "receiver_uid": self.receiver_uid,
+            "event_id": self.event_id,
+            "event_title": self.event_title,
+            "status": self.status,
+            "timestamp": self.timestamp.isoformat()
+        }
+
 
 Base.metadata.create_all(engine)
 
@@ -96,9 +143,11 @@ def get_user_profile():
     if user:
         response = {
             'profile_image': user.profile_image or '',
+            'username': user.username or '', # ✅ וודא ששם המשתמש מוחזר
+            'bio': user.bio if hasattr(user, 'bio') else '', # אם יש שדה ביו
         }
     else:
-        response = {'profile_image': ''}
+        response = {'profile_image': '', 'username': '', 'bio': ''}
     print("Response JSON:", response)
     return jsonify(response)
 
@@ -139,19 +188,27 @@ def register_user():
 def update_user_profile():
     data = request.get_json()
     profile_image = data.get('profile_image')
-    print("Received data:", data)
+    bio = data.get('bio') # ✅ קבלת שדה ביו
     uid = data.get('uid')
     session = Session()
     try:
         user = session.query(User).filter_by(uid=uid).first()
         if not user:
-            user = User(uid=uid)
+            # אם המשתמש לא קיים, צור אותו עם UID ו-ID זהים
+            # (בהנחה שזה המקרה באפליקציה שלך)
+            user = User(id=uid, uid=uid, username=f"User_{uid[:8]}")
+            session.add(user)
+
         if profile_image is not None:
             user.profile_image = profile_image
-        session.add(user)
-
+        if bio is not None: # ✅ עדכון שדה ביו
+            user.bio = bio
         session.commit()
         return jsonify({'status': 'success'})
+    except Exception as e:
+        session.rollback()
+        print(f"🔥 Error updating user profile: {e}")
+        return jsonify({'error': str(e)}), 500
     finally:
       session.close()
 
@@ -173,31 +230,20 @@ def upload_image():
     output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
 
     try:
-        # Load the image using Pillow. Pillow can handle various formats including HEIC if pillow_heif is registered.
-        # file.stream is a file-like object
         img = Image.open(file.stream)
-
-        # Convert to RGB if needed (some images might be in RGBA, P, etc. which JPG doesn't handle well)
         if img.mode in ('RGBA', 'P'):
             img = img.convert('RGB')
-
-        # Save the image as JPEG
-        # Use 'quality' for compression (85 is a good balance)
-        # Use 'optimize=True' for better file size
         img.save(output_filepath, "jpeg", optimize=True, quality=85)
 
-        # Construct the URL for the saved image
-        timestamp = int(time.time()) # Re-use timestamp for cache-busting
+        timestamp = int(time.time())
         image_url = f"https://tripping-app.onrender.com/uploads/{output_filename}?v={timestamp}"
 
-        # Update database
         session = Session()
         user = session.query(User).filter_by(uid=uid).first()
         if not user:
-            # If user doesn't exist, create it (assuming id and uid are the same here)
             user = User(id=uid, uid=uid, username=f"User_{uid[:8]}", profile_image="")
             session.add(user)
-            session.commit() # Commit new user first if it's new
+            session.commit()
 
         if image_type == 'profile':
             user.profile_image = image_url
@@ -235,14 +281,12 @@ def upload_gallery_image():
 
     session = Session()
     try:
-        # ודא שהמשתמש קיים, ואם לא – צור אותו
         user = session.query(User).filter_by(id=uid).first()
         if not user:
             user = User(id=uid, uid=uid, profile_image="")
             session.add(user)
             session.commit()
 
-        # הוסף את התמונה לגלריה
         new_image = GalleryImage(uid=uid, image_url=image_url, uploaded_at=datetime.utcnow())
         session.add(new_image)
         session.commit()
@@ -342,7 +386,12 @@ def get_other_user_profile():
 @app.route('/add-pin', methods=['POST'])
 def add_pin():
     data = request.get_json()
+    # ✅ קבלת owner_uid מהבקשה
+    owner_uid = data.get('owner_uid')
+    if not owner_uid:
+        return jsonify({"success": False, "error": "Missing owner_uid"}), 400
 
+    session = Session()
     try:
         new_pin = Pin(
             latitude=data['latitude'],
@@ -352,15 +401,16 @@ def add_pin():
             event_title=data.get('event_title', ''),
             event_type=data.get('event_type', ''),
             description=data.get('description', ''),
-            location=data.get('location', '')
+            location=data.get('location', ''),
+            owner_uid=owner_uid # ✅ שמירת owner_uid
         )
-        session=Session()
         session.add(new_pin)
         session.commit()
 
         return jsonify({"success": True, "pin": new_pin.to_dict()}), 201
     except Exception as e:
         session.rollback()
+        print(f"🔥 Error adding pin: {e}")
         return jsonify({"success": False, "error": str(e)}), 400
     finally:
         session.close()
@@ -374,13 +424,13 @@ def get_pins():
             'id': pin.id,
             'latitude': pin.latitude,
             'longitude': pin.longitude,
-            'event_date': pin.event_date.isoformat(), # ✅ פורמט ISO 8601
+            'event_date': pin.event_date.isoformat(),
             'username': pin.username,
             'event_title': pin.event_title,
             'event_type': pin.event_type,
-            # הוסף כאן את השדות 'description' ו-'location' אם אתה רוצה שהם יוחזרו גם ברשימת הסיכות
             'description': pin.description,
             'location': pin.location,
+            'owner_uid': pin.owner_uid, # ✅ החזרת owner_uid
         } for pin in pins]
         return jsonify({'pins': result})
     finally:
@@ -402,18 +452,18 @@ def get_pin():
                 'id': pin.id,
                 'latitude': pin.latitude,
                 'longitude': pin.longitude,
-                'event_date': pin.event_date.isoformat(), # ✅ פורמט ISO 8601
+                'event_date': pin.event_date.isoformat(),
                 'username': pin.username,
                 'event_title': pin.event_title,
                 'event_type': pin.event_type,
                 'description': pin.description,
                 'location': pin.location,
+                'owner_uid': pin.owner_uid, # ✅ החזרת owner_uid
             }
         })
     else:
         return jsonify({'error': 'Pin not found'}), 404
 
-### **DELETE PIN Route**
 @app.route('/delete-pin', methods=['DELETE'])
 def delete_pin():
     data = request.get_json()
@@ -450,7 +500,6 @@ def delete_image():
     session = Session()
 
     try:
-        # מחיקת רשומת התמונה מה־DB
         image = session.query(GalleryImage).filter_by(uid=uid, image_url=image_url).first()
         if image:
             session.delete(image)
@@ -458,7 +507,6 @@ def delete_image():
         else:
             return jsonify({'error': 'Image not found in database'}), 404
 
-        # מחיקת הקובץ מהתיקייה הפיזית (אם קיים)
         filename = image_url.split('/')[-1]
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
@@ -470,6 +518,98 @@ def delete_image():
         session.rollback()
         print(e)
         return jsonify({'error': 'Server error'}), 500
+    finally:
+        session.close()
+
+# ----------------------------
+# ✅ רוטים חדשים לבקשות אירועים
+# ----------------------------
+
+@app.route('/send-event-request', methods=['POST'])
+def send_event_request():
+    data = request.get_json()
+    sender_uid = data.get('sender_uid')
+    sender_username = data.get('sender_username')
+    receiver_uid = data.get('receiver_uid')
+    event_id = data.get('event_id')
+    event_title = data.get('event_title')
+
+    if not all([sender_uid, sender_username, receiver_uid, event_id, event_title]):
+        return jsonify({'error': 'Missing data for event request'}), 400
+
+    session = Session()
+    try:
+        # וודא שהבקשה לא קיימת כבר במצב 'pending'
+        existing_request = session.query(EventRequest).filter_by(
+            sender_uid=sender_uid,
+            receiver_uid=receiver_uid,
+            event_id=event_id,
+            status='pending'
+        ).first()
+
+        if existing_request:
+            return jsonify({'error': 'Request already sent and pending'}), 409 # Conflict
+
+        new_request = EventRequest(
+            sender_uid=sender_uid,
+            sender_username=sender_username,
+            receiver_uid=receiver_uid,
+            event_id=event_id,
+            event_title=event_title,
+            status='pending'
+        )
+        session.add(new_request)
+        session.commit()
+        return jsonify({'message': 'Event request sent successfully', 'request': new_request.to_dict()}), 200
+    except Exception as e:
+        session.rollback()
+        print(f"🔥 Error sending event request: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/get-pending-event-requests', methods=['GET'])
+def get_pending_event_requests():
+    receiver_uid = request.args.get('receiver_uid')
+    if not receiver_uid:
+        return jsonify({'error': 'Missing receiver_uid'}), 400
+
+    session = Session()
+    try:
+        requests = session.query(EventRequest).filter_by(
+            receiver_uid=receiver_uid,
+            status='pending'
+        ).order_by(EventRequest.timestamp.desc()).all() # מיין לפי תאריך יצירה
+        
+        return jsonify({'requests': [req.to_dict() for req in requests]}), 200
+    except Exception as e:
+        print(f"🔥 Error fetching pending event requests: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/update-event-request-status', methods=['POST'])
+def update_event_request_status():
+    data = request.get_json()
+    request_id = data.get('requestId')
+    status = data.get('status') # 'accepted' or 'declined'
+
+    if not all([request_id, status]) or status not in ['accepted', 'declined']:
+        return jsonify({'error': 'Missing request ID or invalid status'}), 400
+
+    session = Session()
+    try:
+        event_request = session.query(EventRequest).filter_by(id=request_id).first()
+        if not event_request:
+            return jsonify({'error': 'Event request not found'}), 404
+        
+        event_request.status = status
+        session.commit()
+        return jsonify({'message': f'Request {request_id} status updated to {status}'}), 200
+    except Exception as e:
+        session.rollback()
+        print(f"🔥 Error updating event request status: {e}")
+        return jsonify({'error': str(e)}), 500
     finally:
         session.close()
 

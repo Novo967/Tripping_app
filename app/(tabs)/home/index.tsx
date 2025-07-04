@@ -67,27 +67,73 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchPins = async () => {
+  // פונקציה חדשה למחיקת סיכה
+  const deletePin = async (pinId: string) => {
+    try {
+      const res = await fetch('https://tripping-app.onrender.com/delete-pin', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: pinId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        console.log(`Pin ${pinId} deleted successfully:`, data.message);
+        // הסר את הסיכה מהמצב המקומי
+        setEvents(prevEvents => prevEvents.filter(event => event.id !== pinId));
+      } else {
+        console.error(`Error deleting pin ${pinId}:`, data.message);
+      }
+    } catch (error) {
+      console.error(`Error deleting pin ${pinId}:`, error);
+    }
+  };
+const fetchPins = async () => {
     try {
       const res = await fetch('https://tripping-app.onrender.com/get-pins');
       const data = await res.json();
-      // וודא שאתה ממפה את השדות הנכונים מה-API לפורמט של EventMarker ו-SelectedEventType
-      setEvents((data.pins || []).map((pin: any) => ({
-        id: pin.id,
-        latitude: pin.latitude,
-        longitude: pin.longitude,
-        event_date: pin.event_date, // וודא שזה event_date ולא date
-        username: pin.username,
-        event_title: pin.event_title, // וודא שזה event_title ולא title
-        event_type: pin.event_type, // וודא שזה event_type ולא type
-        description: pin.description, // הוסף אם קיים
-        location: pin.location // הוסף אם קיים
-      })));
+      
+      // יצירת אובייקט תאריך נוכחי, מאופס לשעה 00:00:00 של היום
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const updatedPins = await Promise.all((data.pins || []).map(async (pin: any) => {
+        const eventDate = new Date(pin.event_date);
+        // מאפסים גם את תאריך האירוע לשעה 00:00:00 כדי להשוות ימים בלבד
+        eventDate.setHours(0, 0, 0, 0);
+
+        // תאריך הסיום האפקטיבי של האירוע: יום אחרי תאריך האירוע בחצות
+        const deletionDate = new Date(eventDate);
+        deletionDate.setDate(eventDate.getDate() + 1); // יום לאחר האירוע
+
+
+        // אם היום הנוכחי (או תאריך מאוחר יותר) גדול או שווה לתאריך המחיקה
+        // כלומר, אם תאריך המחיקה כבר עבר
+        if (todayStart.getTime() >= deletionDate.getTime()) {
+          console.log(`Event ${pin.event_title} (${pin.id}) has passed its deletion threshold. Deleting pin.`);
+          await deletePin(pin.id); // קרא לפונקציית המחיקה
+          return null; // סמן למחיקה מהרשימה המקומית
+        }
+        return {
+          id: pin.id,
+          latitude: pin.latitude,
+          longitude: pin.longitude,
+          event_date: pin.event_date,
+          username: pin.username,
+          event_title: pin.event_title,
+          event_type: pin.event_type,
+          description: pin.description,
+          location: pin.location
+        };
+      }));
+
+      // עדכן את מצב האירועים רק עם הסיכות שעדיין רלוונטיות
+      setEvents(updatedPins.filter(pin => pin !== null));
     } catch (error) {
       console.error("Error fetching pins:", error);
     }
   };
-
   const fetchLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
