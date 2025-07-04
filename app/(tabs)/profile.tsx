@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import React, { useEffect, useRef, useState } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated,
   Dimensions,
   Image, Modal,
   Platform,
-  SafeAreaView, StatusBar,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
   StyleSheet,
   Text, TouchableOpacity, View
 } from 'react-native';
@@ -31,9 +33,10 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [showSettings, setShowSettings] = useState(false);
   
-  // New states for image modal
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
 
   const navigation = useNavigation();
   const { theme, toggleTheme } = useTheme();
@@ -98,13 +101,11 @@ export default function ProfileScreen() {
     );
   };
 
-  // Function to open image in modal
   const openImageModal = (imageUri: string) => {
     setSelectedImage(imageUri);
     setModalVisible(true);
   };
 
-  // Function to close image modal
   const closeImageModal = () => {
     setModalVisible(false);
     setSelectedImage(null);
@@ -130,42 +131,92 @@ export default function ProfileScreen() {
     }
   };
 
-  useEffect(() => {
-    const init = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      try {
-        const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: user.uid }),
-        });
-
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          setProfilePic(data.profile_image || null);
-          if (data.bio) setBio(data.bio);
-        }
-
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUsername(data.username || '');
-          if (data.bio) setBio(data.bio);
-        }
-
-        const galleryData = await fetchGallery(user.uid);
-        setGallery(galleryData);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchPendingRequests = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setPendingRequests([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${SERVER_URL}/get-pending-event-requests?receiver_uid=${user.uid}`);
+      const data = await res.json();
+      if (res.ok) {
+        setPendingRequests(data.requests || []);
+      } else {
+        console.error('Error fetching pending requests:', data.error);
+        setPendingRequests([]);
       }
-    };
-
-    init();
+    } catch (error) {
+      console.error('Error fetching pending requests:', error);
+      setPendingRequests([]);
+    }
   }, []);
+
+  const handleRequestAction = async (requestId: string, action: 'accepted' | 'declined') => {
+    try {
+      const response = await fetch(`${SERVER_URL}/update-event-request-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, status: action }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        Alert.alert('הצלחה', `הבקשה ${action === 'accepted' ? 'אושרה' : 'נדחתה'} בהצלחה.`);
+        // הסר את הבקשה מהמצב המקומי
+        setPendingRequests(prev => prev.filter(req => req.id !== requestId));
+      } else {
+        Alert.alert('שגיאה', result.error || `פעולת ה${action} נכשלה.`);
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing request:`, error);
+      Alert.alert('שגיאה', `אירעה שגיאה בביצוע הפעולה.`);
+    }
+  };
+
+
+  const init = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid }),
+      });
+
+      if (profileRes.ok) {
+        const data = await profileRes.json();
+        setProfilePic(data.profile_image || null);
+        setUsername(data.username || '');
+        if (data.bio) setBio(data.bio);
+      }
+
+      const galleryData = await fetchGallery(user.uid);
+      setGallery(galleryData);
+      
+      await fetchPendingRequests();
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchPendingRequests]);
+
+
+  useEffect(() => {
+    init();
+  }, [init]);
+
+  useFocusEffect(useCallback(() => {
+    fetchPendingRequests();
+    init(); 
+  }, [fetchPendingRequests, init]));
+
 
   const fadeOutAndLogout = () => {
     Animated.timing(fadeAnim, {
@@ -245,6 +296,44 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
         </Animated.View>
+
+        {pendingRequests.length > 0 && (
+          <View style={styles.requestsContainer}>
+            <Text style={[styles.requestsTitle, { color: theme.colors.text }]}>בקשות לאירועים:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.requestsScrollView}>
+              {pendingRequests.map((request) => (
+                <View key={request.id} style={[styles.requestCard, { backgroundColor: theme.colors.card }]}>
+                  <Image
+                    source={{ uri: `https://placehold.co/50x50/FF6F00/FFFFFF?text=${request.sender_username.charAt(0)}` }}
+                    style={styles.requestSenderImage}
+                  />
+                  <View style={styles.requestTextContent}>
+                    <Text style={[styles.requestSenderName, { color: theme.colors.text }]}>
+                      {request.sender_username}
+                    </Text>
+                    <Text style={[styles.requestEventTitle, { color: theme.colors.textSecondary }]}>
+                      רוצה להצטרף ל: {request.event_title}
+                    </Text>
+                  </View>
+                  <View style={styles.requestButtons}>
+                    <TouchableOpacity
+                      style={styles.acceptButton}
+                      onPress={() => handleRequestAction(request.id, 'accepted')}
+                    >
+                      <Text style={styles.acceptButtonText}>אשר</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.declineButton}
+                      onPress={() => handleRequestAction(request.id, 'declined')}
+                    >
+                      <Text style={styles.declineButtonText}>דחה</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         <ProfileImage
           profilePic={profilePic}
@@ -537,5 +626,88 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 20,
     padding: 8,
+  },
+  // סטיילים של בקשות אירועים
+  requestsContainer: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    marginBottom: 10,
+  },
+  requestsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'right',
+    marginBottom: 10,
+    paddingHorizontal: 20,
+  },
+  requestsScrollView: {
+    paddingHorizontal: 10,
+  },
+  requestCard: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 12,
+    marginHorizontal: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    width: width * 0.9 - 20,
+    minHeight: 80,
+  },
+  requestSenderImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginLeft: 15,
+    borderWidth: 1,
+    borderColor: '#FF6F00',
+  },
+  requestTextContent: {
+    flex: 1,
+    marginRight: 10,
+    alignItems: 'flex-end',
+  },
+  requestSenderName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  requestEventTitle: {
+    fontSize: 14,
+    color: '#555',
+    textAlign: 'right',
+    marginTop: 2,
+  },
+  requestButtons: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  acceptButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  acceptButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  declineButton: {
+    backgroundColor: '#F44336',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+  },
+  declineButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });

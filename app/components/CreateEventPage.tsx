@@ -55,35 +55,45 @@ export default function CreateEventPage() {
   };
 
   const handleCreateEvent = async () => {
-    if (!eventTitle.trim() || !eventType) {
-      Alert.alert('שגיאה', 'אנא מלא את כל השדות');
-      return;
+  if (!eventTitle.trim() || !eventType) {
+    Alert.alert('שגיאה', 'אנא מלא את כל השדות');
+    return;
+  }
+  setIsLoading(true);
+  try {
+    const response = await fetch('https://tripping-app.onrender.com/add-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        // שינוי קריטי: שם השדה שונה ל-owner_uid
+        owner_uid: user?.uid,
+        username: user?.displayName || 'משתמש',
+        latitude: parseFloat(latitude as string),
+        longitude: parseFloat(longitude as string),
+        event_title: eventTitle,
+        event_type: eventType,
+        event_date: eventDate.toISOString(),
+        description: eventDescription,
+        location: eventLocation,
+      }),
+    });
+    if (response.ok) {
+      Alert.alert('הצלחה', 'האירוע נוצר!', [
+        { text: 'אוקיי', onPress: () => router.replace('/') }
+      ]);
+    } else {
+      // הוסף לוגים כדי לראות את השגיאה המדויקת מהשרת
+      const errorData = await response.json();
+      console.error('Error from server:', errorData);
+      Alert.alert('שגיאה', `אירעה שגיאה ביצירת האירוע: ${errorData.message || response.statusText}`);
     }
-    setIsLoading(true);
-    try {
-      const response = await fetch('https://tripping-app.onrender.com/add-pin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: user?.uid, username: user?.displayName || 'משתמש',
-          latitude: parseFloat(latitude as string),
-          longitude: parseFloat(longitude as string),
-          event_title: eventTitle, event_type: eventType,
-          event_date: eventDate.toISOString(),
-          description: eventDescription, location: eventLocation,
-        }),
-      });
-      if (response.ok) {
-        Alert.alert('הצלחה', 'האירוע נוצר!', [
-          { text: 'אוקיי', onPress: () => router.replace('/') }
-        ]);
-      }
-    } catch {
-      Alert.alert('שגיאה', 'אירעה שגיאה ביצירת האירוע');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error('Network or parsing error:', error);
+    Alert.alert('שגיאה', 'אירעה שגיאה ביצירת האירוע');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const typeLabels = {trip:'טיול',hiking:'הליכה',camping:'קמפינג',beach:'חוף',party:'מסיבה',sport:'ספורט'};
 
