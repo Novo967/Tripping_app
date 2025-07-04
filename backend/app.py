@@ -36,8 +36,8 @@ class User(Base):
     uid = Column(String(128), unique=True, nullable=False)
     profile_image = Column(String)
     username = Column(String)
-    latitude = Column(Float)  # ✅ נכון!
-    longitude = Column(Float)  # אותו דבר
+    latitude = Column(Float)
+    longitude = Column(Float)
     gallery_images = relationship(
         'GalleryImage',
         back_populates='user',
@@ -54,6 +54,7 @@ class GalleryImage(Base):
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="gallery_images")
+
 class Pin(Base):
     __tablename__ = 'pins'
 
@@ -66,19 +67,20 @@ class Pin(Base):
     event_type = Column(String, nullable=False)
     description = Column(String, nullable=True)
     location = Column(String, nullable=True)
+
     def to_dict(self):
         return {
             "id": self.id,
             "latitude": self.latitude,
             "longitude": self.longitude,
-            "event_date": self.event_date.isoformat(), # חשוב להמיר לתאריך בפורמט ISO
+            "event_date": self.event_date.isoformat(), # ✅ וודא שתאריך האירוע מומר לפורמט ISO 8601
             "username": self.username,
-            # וודא שכל השדות החדשים כלולים כאן:
             "event_title": self.event_title,
             "event_type": self.event_type,
             "description": self.description,
             "location": self.location,
         }
+
 Base.metadata.create_all(engine)
 
 # ----------------------------
@@ -117,7 +119,7 @@ def register_user():
             return jsonify({'message': 'User already exists'}), 200
 
         new_user = User(
-            id=str(uuid.uuid4()),  # או id=uid אם זה מספיק לך
+            id=str(uuid.uuid4()),
             uid=uid,
             username=username
         )
@@ -152,6 +154,7 @@ def update_user_profile():
         return jsonify({'status': 'success'})
     finally:
       session.close()
+
 # ----------------------------
 # 🔴 UPLOAD IMAGE (PROFILE / GALLERY)
 # ----------------------------
@@ -252,6 +255,7 @@ def upload_gallery_image():
 
     finally:
         session.close()
+
 @app.route('/get-gallery', methods=['POST'])
 def get_gallery():
     uid = request.json.get('uid')
@@ -261,7 +265,7 @@ def get_gallery():
     session = Session()
     try:
         images = session.query(GalleryImage).filter_by(uid=uid).all()
-        urls = [img.image_url for img in images]   # [] אם אין תמונות
+        urls = [img.image_url for img in images]
         return jsonify({'gallery': urls})
     except Exception as e:
         session.rollback()
@@ -290,6 +294,7 @@ def get_all_users():
         return jsonify(response)
     finally:
         session.close()
+
 @app.route('/update-user-location', methods=['POST'])
 def update_user_location():
     data = request.get_json()
@@ -312,6 +317,7 @@ def update_user_location():
         return jsonify({'error': str(e)}), 500
     finally:
         session.close()
+
 @app.route('/get-other-user-profile', methods=['GET'])
 def get_other_user_profile():
     uid = request.args.get('uid')
@@ -322,7 +328,7 @@ def get_other_user_profile():
         user = session.query(User).filter_by(uid=uid).first()
         if not user:
             return jsonify({'error': 'User not found'}), 404
-        
+
         gallery_urls = [image.image_url for image in user.gallery_images]
 
         return jsonify({
@@ -332,6 +338,7 @@ def get_other_user_profile():
         })
     finally:
         session.close()
+
 @app.route('/add-pin', methods=['POST'])
 def add_pin():
     data = request.get_json()
@@ -342,7 +349,7 @@ def add_pin():
             longitude=data['longitude'],
             event_date=datetime.fromisoformat(data['event_date']),
             username=data['username'],
-            event_title=data.get('event_title', ''),  # ✅ נוספו השדות
+            event_title=data.get('event_title', ''),
             event_type=data.get('event_type', ''),
             description=data.get('description', ''),
             location=data.get('location', '')
@@ -357,6 +364,7 @@ def add_pin():
         return jsonify({"success": False, "error": str(e)}), 400
     finally:
         session.close()
+
 @app.route('/get-pins', methods=['GET'])
 def get_pins():
     session = Session()
@@ -366,14 +374,18 @@ def get_pins():
             'id': pin.id,
             'latitude': pin.latitude,
             'longitude': pin.longitude,
-            'event_date': pin.event_date.isoformat(),
+            'event_date': pin.event_date.isoformat(), # ✅ פורמט ISO 8601
             'username': pin.username,
             'event_title': pin.event_title,
             'event_type': pin.event_type,
+            # הוסף כאן את השדות 'description' ו-'location' אם אתה רוצה שהם יוחזרו גם ברשימת הסיכות
+            'description': pin.description,
+            'location': pin.location,
         } for pin in pins]
         return jsonify({'pins': result})
     finally:
         session.close()
+
 @app.route('/get-pin', methods=['GET'])
 def get_pin():
     pin_id = request.args.get('id')
@@ -390,7 +402,7 @@ def get_pin():
                 'id': pin.id,
                 'latitude': pin.latitude,
                 'longitude': pin.longitude,
-                'event_date': pin.event_date.isoformat(),
+                'event_date': pin.event_date.isoformat(), # ✅ פורמט ISO 8601
                 'username': pin.username,
                 'event_title': pin.event_title,
                 'event_type': pin.event_type,
@@ -400,6 +412,31 @@ def get_pin():
         })
     else:
         return jsonify({'error': 'Pin not found'}), 404
+
+### **DELETE PIN Route**
+@app.route('/delete-pin', methods=['DELETE'])
+def delete_pin():
+    data = request.get_json()
+    pin_id = data.get('id')
+
+    if not pin_id:
+        return jsonify({'error': 'Missing pin ID'}), 400
+
+    session = Session()
+    try:
+        pin = session.query(Pin).filter_by(id=pin_id).first()
+        if pin:
+            session.delete(pin)
+            session.commit()
+            return jsonify({'message': f'Pin {pin_id} deleted successfully'}), 200
+        else:
+            return jsonify({'error': 'Pin not found'}), 404
+    except Exception as e:
+        session.rollback()
+        print(f"🔥 Error deleting pin: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
 
 @app.route('/delete-image', methods=['POST'])
 def delete_image():
