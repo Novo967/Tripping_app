@@ -28,7 +28,7 @@ interface SelectedEventType {
   description?: string;
   location?: string;
   event_owner_uid: string; // UID של מנהל האירוע
-  approved_users?: string[]; // ✅ שדה חדש: רשימת UID של משתמשים שאושרו
+  approved_users?: string[]; // רשימת UID של משתמשים שאושרו
 }
 
 const SERVER_URL = 'https://tripping-app.onrender.com';
@@ -143,7 +143,7 @@ export default function HomeScreen() {
           description: pin.description,
           location: pin.location,
           event_owner_uid: pin.owner_uid,
-          approved_users: pin.approved_users || [], // ✅ קבלת approved_users מהשרת
+          approved_users: pin.approved_users || [],
         };
       }));
 
@@ -240,10 +240,9 @@ export default function HomeScreen() {
     }
   };
 
-  // ✅ פונקציה לפתיחת הצ'אט הקבוצתי (הוחזר)
   const handleOpenGroupChat = (eventTitle: string) => {
     if (eventTitle) {
-      setSelectedEvent(null); // סגור את המודל לפני הניווט
+      setSelectedEvent(null);
       router.push({
         pathname: '/Chats/GroupChatModal',
         params: { eventTitle: eventTitle }
@@ -251,7 +250,6 @@ export default function HomeScreen() {
     }
   };
 
-  // ✅ לוגיקה לקביעת איזה כפתור להציג במודל האירוע
   const renderEventActionButton = () => {
     if (!user || !selectedEvent) return null;
 
@@ -261,7 +259,7 @@ export default function HomeScreen() {
     if (isOwner || isApproved) {
       return (
         <TouchableOpacity
-          style={styles.chatButton} // השתמש בסטייל של כפתור הצ'אט הישן
+          style={styles.chatButton}
           onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
         >
           <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
@@ -337,7 +335,7 @@ export default function HomeScreen() {
                       description: data.pin.description,
                       location: data.pin.location,
                       event_owner_uid: data.pin.owner_uid,
-                      approved_users: data.pin.approved_users || [], // ✅ קבלת approved_users
+                      approved_users: data.pin.approved_users || [],
                     });
                   } else {
                     setSelectedEvent(null);
@@ -393,7 +391,6 @@ export default function HomeScreen() {
                 <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL')}</Text>
                 <Text style={styles.modalAuthor}>מאת: {selectedEvent.username}</Text>
 
-                {/* ✅ רנדור דינמי של הכפתור */}
                 {renderEventActionButton()}
 
               </View>
@@ -559,7 +556,6 @@ const styles = StyleSheet.create({
     color: '#555',
     textAlign: 'center',
   },
-  // סטיילים של כפתור שליחת בקשה (כפי שהיו)
   requestButton: {
     backgroundColor: '#FF6F00',
     paddingVertical: 12,
@@ -581,9 +577,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
-  // סטיילים של כפתור צ'אט קבוצתי (הוחזרו)
   chatButton: {
-    backgroundColor: '#4CAF50', // צבע ירוק לכפתור הצ'אט
+    backgroundColor: '#4CAF50',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 25,
