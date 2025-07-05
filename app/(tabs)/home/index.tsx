@@ -265,8 +265,8 @@ export default function HomeScreen() {
           style={styles.chatButton}
           onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
         >
-          <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
           <Text style={styles.chatButtonText}>פתח צאט קבוצתי</Text>
+          <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       );
     } else {
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   chatButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FF6F00',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 25,

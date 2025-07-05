@@ -302,7 +302,7 @@ export default function ProfileScreen() {
             <Text style={[styles.requestsTitle, { color: theme.colors.text }]}>בקשות לאירועים:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.requestsScrollView}>
               {pendingRequests.map((request) => (
-                <View key={request.id} style={[styles.requestCard, { backgroundColor: theme.colors.card }]}>
+                <View key={request.id} style={[styles.requestCard, { backgroundColor: theme.colors.surface }]}>
                   <Image
                     source={{ uri: `https://placehold.co/50x50/FF6F00/FFFFFF?text=${request.sender_username.charAt(0)}` }}
                     style={styles.requestSenderImage}

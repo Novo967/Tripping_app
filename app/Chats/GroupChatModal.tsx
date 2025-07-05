@@ -1,32 +1,36 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
-    addDoc,
-    collection,
-    doc,
-    getDoc,
-    onSnapshot,
-    orderBy,
-    query,
-    serverTimestamp,
-    setDoc
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Dimensions,
-    FlatList,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  ActionSheetIOS,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import { db } from '../../firebaseConfig';
 
@@ -38,6 +42,7 @@ interface Message {
   senderId: string;
   senderUsername: string;
   createdAt: any;
+  imageUrl?: string;
 }
 
 const GroupChatModal = () => {
@@ -55,7 +60,7 @@ const GroupChatModal = () => {
     if (!eventTitle || typeof eventTitle !== 'string') return;
 
     const messagesRef = collection(db, 'group_chats', eventTitle, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
+    const q = query(messagesRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
@@ -64,8 +69,8 @@ const GroupChatModal = () => {
     return unsubscribe;
   }, [eventTitle]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !currentUid || typeof eventTitle !== 'string') return;
+  const sendMessage = async (imageUrl?: string) => {
+    if ((!input.trim() && !imageUrl) || !currentUid || typeof eventTitle !== 'string') return;
 
     const chatDocRef = doc(db, 'group_chats', eventTitle);
     const docSnap = await getDoc(chatDocRef);
@@ -82,16 +87,70 @@ const GroupChatModal = () => {
       senderId: currentUid,
       senderUsername: currentUsername,
       createdAt: serverTimestamp(),
+      ...(imageUrl && { imageUrl }),
     });
 
     setInput('');
     setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }, 100);
   };
 
   const goBack = () => {
     router.back();
+  };
+
+  const handleImagePicker = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['ביטול', 'מצלמה', 'גלריה'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) openCamera();
+          if (buttonIndex === 2) openGallery();
+        }
+      );
+    } else {
+      Alert.alert('בחר תמונה', '', [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'מצלמה', onPress: openCamera },
+        { text: 'גלריה', onPress: openGallery },
+      ]);
+    }
+  };
+
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      sendMessage(result.assets[0].uri);
+    }
+  };
+
+  const openGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      sendMessage(result.assets[0].uri);
+    }
   };
 
   const formatTime = (timestamp: any) => {
@@ -118,12 +177,17 @@ const GroupChatModal = () => {
           {!isMe && (
             <Text style={styles.senderName}>{item.senderUsername}</Text>
           )}
-          <Text style={[
-            styles.messageText,
-            isMe ? styles.myMessageText : styles.theirMessageText
-          ]}>
-            {item.text}
-          </Text>
+          {item.imageUrl && (
+            <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
+          )}
+          {item.text && (
+            <Text style={[
+              styles.messageText,
+              isMe ? styles.myMessageText : styles.theirMessageText
+            ]}>
+              {item.text}
+            </Text>
+          )}
           <Text style={[
             styles.messageTime,
             isMe ? styles.myMessageTime : styles.theirMessageTime
@@ -169,6 +233,7 @@ const GroupChatModal = () => {
             <View style={styles.groupIcon}>
               <Ionicons name="people" size={24} color="#FF6F00" />
             </View>
+            <View style={styles.onlineIndicator} />
           </View>
           <View style={styles.groupTextInfo}>
             <Text style={styles.groupName} numberOfLines={1}>
@@ -179,24 +244,18 @@ const GroupChatModal = () => {
             </Text>
           </View>
         </View>
-
-        <TouchableOpacity style={styles.moreButton} activeOpacity={0.7}>
-          <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
-        style={styles.chatContainer}
+        style={styles.flexContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.messagesWrapper}>
+          <View style={styles.chatContainer}>
             {messages.length === 0 ? (
               <View style={styles.emptyState}>
-                <View style={styles.emptyStateIcon}>
-                  <Ionicons name="people-outline" size={60} color="#E0E0E0" />
-                </View>
+                <Ionicons name="people-outline" size={60} color="#E0E0E0" />
                 <Text style={styles.emptyStateTitle}>התחל שיחה קבוצתית</Text>
                 <Text style={styles.emptyStateSubtitle}>
                   שלח הודעה ראשונה לקבוצת {eventTitle}
@@ -210,17 +269,24 @@ const GroupChatModal = () => {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.messagesContainer}
                 showsVerticalScrollIndicator={false}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                inverted
               />
             )}
           </View>
         </TouchableWithoutFeedback>
 
-        {/* Input Container */}
         <View style={styles.inputWrapper}>
           <View style={styles.inputContainer}>
-            <TouchableOpacity style={styles.attachButton} activeOpacity={0.7}>
-              <Ionicons name="add" size={24} color="#FF6F00" />
+            <TouchableOpacity 
+              onPress={() => sendMessage()} 
+              style={[
+                styles.sendButton,
+                !input.trim() && styles.sendButtonDisabled
+              ]}
+              activeOpacity={0.8}
+              disabled={!input.trim()}
+            >
+              <Ionicons name="send" size={20} color={input.trim() ? "#FFFFFF" : "#CCC"} style={{ transform: [{ scaleX: -1 }] }}/>
             </TouchableOpacity>
             
             <TextInput
@@ -229,27 +295,15 @@ const GroupChatModal = () => {
               placeholderTextColor="#999"
               value={input}
               onChangeText={setInput}
-              onSubmitEditing={sendMessage}
+              onSubmitEditing={() => sendMessage()}
               returnKeyType="send"
               textAlign="right"
               multiline
               maxLength={500}
             />
             
-            <TouchableOpacity 
-              onPress={sendMessage} 
-              style={[
-                styles.sendButton,
-                !input.trim() && styles.sendButtonDisabled
-              ]}
-              activeOpacity={0.8}
-              disabled={!input.trim()}
-            >
-              <Ionicons 
-                name="send" 
-                size={20} 
-                color={input.trim() ? "#FFFFFF" : "#CCC"} 
-              />
+            <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} activeOpacity={0.7}>
+              <Ionicons name="camera" size={24} color="#FF6F00" />
             </TouchableOpacity>
           </View>
         </View>
@@ -265,13 +319,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
+  flexContainer: { 
+    flex: 1
+  },
   header: {
     backgroundColor: '#FF6F00',
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'space-between',
     shadowColor: '#FF6F00',
     shadowOffset: {
       width: 0,
@@ -305,14 +361,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   groupTextInfo: {
     flex: 1,
@@ -329,15 +388,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: 2,
   },
-  moreButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
   chatContainer: {
-    flex: 1,
-  },
-  messagesWrapper: {
     flex: 1,
   },
   emptyState: {
@@ -345,15 +396,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
-  },
-  emptyStateIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
   },
   emptyStateTitle: {
     fontSize: 20,
@@ -442,16 +484,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 8,
   },
   inputContainer: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-end',
     backgroundColor: '#F5F5F5',
     borderRadius: 25,
@@ -475,6 +514,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  cameraButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  messageImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 12,
+    marginBottom: 8,
   },
   input: {
     flex: 1,
