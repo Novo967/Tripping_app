@@ -8,12 +8,18 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated, Modal, StyleSheet, Text,
-  TouchableOpacity, TouchableWithoutFeedback, View
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
+import FilterButton from '../../components/FilterButton';
+import LocationSelector from '../../components/LocationSelector';
 import UserMarker from '../../components/UserMarker';
 
 // הגדרת ממשק (interface) עבור selectedEvent
@@ -43,9 +49,6 @@ export default function HomeScreen() {
   const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null);
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
-
-  const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
-  const [filterAnimation] = useState(new Animated.Value(0));
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [currentUserUsername, setCurrentUserUsername] = useState('');
 
@@ -191,16 +194,16 @@ export default function HomeScreen() {
     );
   }, [events, currentLocation, displayDistance]);
 
-  const toggleFilterMenu = () => {
-    const toValue = isFilterMenuVisible ? 0 : 1;
-    setIsFilterMenuVisible(!isFilterMenuVisible);
-    Animated.spring(filterAnimation, { toValue, useNativeDriver: true }).start();
+  const handleAddEventPress = () => {
+    setIsChoosingLocation(true);
   };
 
-  const handleAddEventPress = () => {
-    setIsFilterMenuVisible(false);
-    setIsChoosingLocation(true);
-    Animated.spring(filterAnimation, { toValue: 0, useNativeDriver: true }).start();
+  const handleCancelLocationSelection = () => {
+    setIsChoosingLocation(false);
+  };
+
+  const handleDistanceFilterPress = () => {
+    setDistanceModalVisible(true);
   };
 
   const handleSendRequest = async () => {
@@ -288,13 +291,6 @@ export default function HomeScreen() {
     );
   }
 
-  const filterMenuStyle = {
-    transform: [{
-      translateY: filterAnimation.interpolate({ inputRange: [0, 1], outputRange: [-100, 0] })
-    }],
-    opacity: filterAnimation
-  };
-
   return (
     <View style={{ flex: 1 }}>
       <MapView
@@ -309,7 +305,7 @@ export default function HomeScreen() {
             });
             setIsChoosingLocation(false);
           }
-          if (isFilterMenuVisible) toggleFilterMenu();
+          // סגור מודלים פתוחים
           setSelectedUser(null);
           setSelectedEvent(null);
         }}
@@ -358,29 +354,17 @@ export default function HomeScreen() {
         ))}
       </MapView>
 
-      <View style={styles.filterContainer}>
-        <TouchableOpacity style={[styles.filterButton, isChoosingLocation && { backgroundColor: '#FFB74D' }]} onPress={toggleFilterMenu}>
-          <Ionicons name={isFilterMenuVisible ? "close" : "options"} size={24} color="white" />
-        </TouchableOpacity>
-        {isFilterMenuVisible && (
-          <Animated.View style={[styles.filterMenu, filterMenuStyle]}>
-            <TouchableOpacity style={styles.menuItemContainer} onPress={() => { setDistanceModalVisible(true); toggleFilterMenu(); }}>
-              <Ionicons name="resize" size={18} color="#FF6F00" style={styles.menuIcon} />
-              <Text style={styles.menuItemText}>מרחק תצוגה ({displayDistance} קמ)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItemContainer} onPress={handleAddEventPress}>
-              <Ionicons name="add-circle-outline" size={18} color="#FF6F00" style={styles.menuIcon} />
-              <Text style={styles.menuItemText}>בחר במפה להוספת אירוע</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-      </View>
+      <FilterButton
+        displayDistance={displayDistance}
+        onDistanceFilterPress={handleDistanceFilterPress}
+        onAddEventPress={handleAddEventPress}
+        isChoosingLocation={isChoosingLocation}
+      />
 
-      {isChoosingLocation && (
-        <View style={styles.locationIndicator}>
-          <Text style={styles.locationIndicatorText}>👆 לחץ על המפה לבחירת מיקום</Text>
-        </View>
-      )}
+      <LocationSelector
+        visible={isChoosingLocation}
+        onCancel={handleCancelLocationSelection}
+      />
 
       {selectedEvent && (
         <Modal visible={true} animationType="fade" transparent onRequestClose={() => setSelectedEvent(null)}>
@@ -398,6 +382,7 @@ export default function HomeScreen() {
           </TouchableWithoutFeedback>
         </Modal>
       )}
+      
       {selectedUser && (
         <Modal visible={true} animationType="fade" transparent onRequestClose={() => setSelectedUser(null)}>
           <TouchableWithoutFeedback onPress={() => setSelectedUser(null)}>
@@ -441,85 +426,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  filterContainer: {
-    position: 'absolute',
-    top: 20,
-    right: 15,
-    zIndex: 10,
-  },
-  filterButton: {
-    backgroundColor: '#FF6F00',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#FF6F00',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  filterMenu: {
-    position: 'absolute',
-    top: 60,
-    right: 0,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 0,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    minWidth: 220,
-  },
-  menuItemContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f2',
-  },
-  menuItemText: {
-    fontSize: 17,
-    color: '#222',
-    flex: 1,
-    textAlign: 'right',
-    marginRight: 10,
-    fontWeight: '500',
-    letterSpacing: 0.2,
-  },
-  menuIcon: {
-    marginLeft: 12,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 20,
-    padding: 6,
-    overflow: 'hidden',
-  },
-  locationIndicator: {
-    position: 'absolute',
-    top: 120,
-    left: 24,
-    right: 24,
-    backgroundColor: '#FF6F00',
-    padding: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#FF6F00',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-  },
-  locationIndicatorText: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
