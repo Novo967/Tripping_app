@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { doc, setDoc } from 'firebase/firestore';
+// ודא ש-serverTimestamp מיוצא כאן
+import { arrayUnion, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'; // <-- כאן הוספנו את serverTimestamp
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated,
@@ -32,7 +33,7 @@ export default function ProfileScreen() {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [showSettings, setShowSettings] = useState(false);
-  
+
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -96,7 +97,7 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteImagesFromGallery = (deletedImageUrls: string[]) => {
-    setGallery(prevGallery => 
+    setGallery(prevGallery =>
       prevGallery.filter(imageUrl => !deletedImageUrls.includes(imageUrl))
     );
   };
@@ -154,15 +155,53 @@ export default function ProfileScreen() {
 
   const handleRequestAction = async (requestId: string, action: 'accepted' | 'declined') => {
     try {
+      // Find the request from the pendingRequests state to get necessary details
+      const request = pendingRequests.find(req => req.id === requestId);
+
+      if (!request) {
+        Alert.alert('שגיאה', 'הבקשה לא נמצאה.');
+        return;
+      }
+
       const response = await fetch(`${SERVER_URL}/update-event-request-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestId, status: action }),
       });
       const result = await response.json();
+
       if (response.ok) {
+        if (action === 'accepted') {
+          // Add the sender's UID to the group chat's members array in Firestore
+          // The event_title is used as the group_chat ID
+          const groupChatRef = doc(db, 'group_chats', request.event_title);
+
+          // Use getDoc to fetch current members and then update.
+          // This handles cases where the document or members field might not exist.
+          const groupSnap = await getDoc(groupChatRef);
+
+          if (groupSnap.exists()) {
+            // Document exists, update members array
+            await updateDoc(groupChatRef, {
+              members: arrayUnion(request.sender_uid) // Add sender_uid if not already present
+            });
+            console.log(`User ${request.sender_uid} added to group ${request.event_title}`);
+          } else {
+            // Document doesn't exist, create it with initial members
+            // This case might be less common if group chats are created when events are
+            // but it's a good safeguard.
+            await setDoc(groupChatRef, {
+              name: request.event_title, // Assuming event_title is the desired group name
+              members: [request.sender_uid],
+              createdAt: serverTimestamp(), // Corrected usage
+              groupImage: null, // Default to null for icon display
+            });
+            console.log(`Group ${request.event_title} created and user ${request.sender_uid} added.`);
+          }
+        }
+
         Alert.alert('הצלחה', `הבקשה ${action === 'accepted' ? 'אושרה' : 'נדחתה'} בהצלחה.`);
-        // הסר את הבקשה מהמצב המקומי
+        // Remove the request from the local state
         setPendingRequests(prev => prev.filter(req => req.id !== requestId));
       } else {
         Alert.alert('שגיאה', result.error || `פעולת ה${action} נכשלה.`);
@@ -197,7 +236,7 @@ export default function ProfileScreen() {
 
       const galleryData = await fetchGallery(user.uid);
       setGallery(galleryData);
-      
+
       await fetchPendingRequests();
 
     } catch (err) {
@@ -214,7 +253,7 @@ export default function ProfileScreen() {
 
   useFocusEffect(useCallback(() => {
     fetchPendingRequests();
-    init(); 
+    init();
   }, [fetchPendingRequests, init]));
 
 
@@ -285,7 +324,7 @@ export default function ProfileScreen() {
               {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
             </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.settingsItem} onPress={() => {
             toggleSettings();
             fadeOutAndLogout();
@@ -368,22 +407,22 @@ export default function ProfileScreen() {
           animationType="fade"
           onRequestClose={closeImageModal}
         >
-          <TouchableOpacity 
-            style={styles.modalOverlay} 
-            activeOpacity={1} 
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
             onPress={closeImageModal}
           >
             <View style={styles.modalContainer}>
-              <TouchableOpacity 
-                style={styles.closeButton} 
+              <TouchableOpacity
+                style={styles.closeButton}
                 onPress={closeImageModal}
               >
                 <Ionicons name="close" size={30} color="white" />
               </TouchableOpacity>
-              
+
               {selectedImage && (
-                <Image 
-                  source={{ uri: selectedImage }} 
+                <Image
+                  source={{ uri: selectedImage }}
                   style={styles.modalImage}
                   resizeMode="contain"
                 />
@@ -501,7 +540,6 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 2,
   },
   statLabel: {
     fontSize: 13,
@@ -572,7 +610,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginRight: 8,
-  },    
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',

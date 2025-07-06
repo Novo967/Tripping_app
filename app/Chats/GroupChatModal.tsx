@@ -12,7 +12,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  updateDoc // Import updateDoc for updating existing group data
+  updateDoc
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -52,7 +52,7 @@ const GroupChatModal = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [groupName, setGroupName] = useState(eventTitle); // State for actual group name
-  const [groupImage, setGroupImage] = useState('https://cdn-icons-png.flaticon.com/512/2621/2621042.png'); // Default group image
+  const [groupImage, setGroupImage] = useState<string | null>(null); // Default group image is null for icon
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
@@ -70,14 +70,14 @@ const GroupChatModal = () => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setGroupName(data.name || eventTitle); // Use actual name, fallback to eventTitle
-        setGroupImage(data.groupImage || 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png');
+        setGroupImage(data.groupImage || null); // Set to null if groupImage is not found
       } else {
         // If the group document doesn't exist yet, we'll create it on first message send
         setGroupName(eventTitle); // Fallback to eventTitle as the name
-        setGroupImage('https://cdn-icons-png.flaticon.com/512/2621/2621042.png');
+        setGroupImage(null); // Keep as null for default icon
       }
     }, (error) => {
-      console.error("Error fetching group details:", error);
+      console.error('Error fetching group details:', error);
     });
 
     // Listener for messages
@@ -87,7 +87,7 @@ const GroupChatModal = () => {
     const unsubscribeMessages = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
     }, (error) => {
-      console.error("Error listening to group messages:", error);
+      console.error('Error listening to group messages:', error);
     });
 
     return () => {
@@ -108,7 +108,7 @@ const GroupChatModal = () => {
       await setDoc(chatDocRef, {
         name: eventTitle, // Use eventTitle as the initial group name
         members: [currentUid], // Add current user as the first member
-        groupImage: 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png', // Default image
+        groupImage: null, // Default to null for icon display
         createdAt: serverTimestamp(),
       });
     } else {
@@ -284,16 +284,26 @@ const GroupChatModal = () => {
 
         <View style={styles.groupInfo}>
           <View style={styles.groupIconContainer}>
-            <Image
-              source={{ uri: groupImage }} // Use groupImage from state
-              style={styles.groupIcon} // Apply groupIcon styles here
-            />
-            {/* You might want a dynamic online indicator for group members here later */}
+            {/* Conditional rendering for group image or icon */}
+            {groupImage ? (
+              // If groupImage exists, render Image inside groupIcon View
+              <View style={styles.groupIcon}>
+                <Image
+                  source={{ uri: groupImage }}
+                  style={StyleSheet.absoluteFillObject} // Image fills the parent View
+                />
+              </View>
+            ) : (
+              // If groupImage is null, render Ionicons people icon
+              <View style={[styles.groupIcon, styles.groupIconPlaceholder]}>
+                <Ionicons name="people" size={24} color="#FF6F00" />
+              </View>
+            )}
             <View style={styles.onlineIndicator} />
           </View>
           <View style={styles.groupTextInfo}>
             <Text style={styles.groupName} numberOfLines={1}>
-              {groupName} {/* Use groupName from state */}
+              {groupName}
             </Text>
             <Text style={styles.groupStatus}>
               צט קבוצתי • {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
@@ -342,7 +352,7 @@ const GroupChatModal = () => {
               activeOpacity={0.8}
               disabled={!input.trim()}
             >
-              <Ionicons name="send" size={20} color={input.trim() ? "#FFFFFF" : "#CCC"} style={{ transform: [{ scaleX: -1 }] }}/>
+              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }}/>
             </TouchableOpacity>
 
             <TextInput
@@ -408,16 +418,19 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginLeft: 12,
   },
-  groupIcon: { // Changed from View to Image, adjusted styles to fit
+  groupIcon: { // This style now applies to both Image and Ionicons container
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF', // Fallback background
+    backgroundColor: '#FFFFFF', // Default background
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    overflow: 'hidden', // Ensure image respects border radius
+    overflow: 'hidden', // Essential for Image borderRadius to work
+  },
+  groupIconPlaceholder: {
+    backgroundColor: '#fff', // Specific background for the icon when no image
   },
   onlineIndicator: {
     position: 'absolute',
