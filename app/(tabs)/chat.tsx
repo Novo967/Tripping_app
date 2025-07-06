@@ -1,15 +1,16 @@
-// ChatsList.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
   collection,
-  getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query
 } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import moment from 'moment'; // Library for date formatting (install if not already)
+import 'moment/locale/he'; // Import Hebrew locale for moment
+import React, { useEffect, useRef, useState } from 'react'; // useRef for handling unmount
 import {
   ActivityIndicator,
   Dimensions,
@@ -25,6 +26,9 @@ import {
 } from 'react-native';
 import { db } from '../../firebaseConfig';
 
+// Set moment locale to Hebrew
+moment.locale('he');
+
 const { width, height } = Dimensions.get('window');
 
 interface ChatItem {
@@ -33,6 +37,7 @@ interface ChatItem {
   otherUsername: string;
   otherUserImage: string;
   lastMessage: string;
+  lastMessageTimestamp: number; // Added for sorting
   isGroup?: boolean;
 }
 
@@ -43,84 +48,164 @@ const ChatsList = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // useRef to keep track of active listeners for cleanup
+  const unsubscribeListeners = useRef<(() => void)[]>([]);
+
   useEffect(() => {
     const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
     });
-    return () => unsubscribe();
+    // Add auth unsubscribe to cleanup
+    return () => {
+      unsubscribeAuth();
+      // Unsubscribe all Firestore listeners when component unmounts
+      unsubscribeListeners.current.forEach(unsubscribe => unsubscribe());
+    };
   }, []);
 
   useEffect(() => {
     if (!user?.uid) return;
 
-    const loadChats = async () => {
-      try {
-        const chatList: ChatItem[] = [];
+    setLoading(true);
+    // Cleanup previous listeners when user changes or component re-renders
+    unsubscribeListeners.current.forEach(unsubscribe => unsubscribe());
+    unsubscribeListeners.current = [];
 
-        // Load private chats
-        const chatsSnapshot = await getDocs(collection(db, 'chats'));
-        for (const chatDoc of chatsSnapshot.docs) {
+    const loadAndListenToChats = async () => {
+      const allChatItems: ChatItem[] = [];
+      const chatMap = new Map<string, ChatItem>(); // To easily update existing chats
+
+      // --- Private Chats Listener ---
+      const privateChatsQuery = query(collection(db, 'chats'));
+      const unsubscribePrivateChats = onSnapshot(privateChatsQuery, async (chatsSnapshot) => {
+        const privateChatPromises = chatsSnapshot.docs.map(async (chatDoc) => {
           const chatId = chatDoc.id;
           const messagesRef = collection(db, 'chats', chatId, 'messages');
           const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
-          const lastMsgSnapshot = await getDocs(lastMsgQuery);
 
-          if (lastMsgSnapshot.empty) continue;
+          return new Promise<ChatItem | null>((resolve) => {
+            const unsubscribeMsg = onSnapshot(lastMsgQuery, async (lastMsgSnapshot) => {
+              if (lastMsgSnapshot.empty) {
+                unsubscribeMsg(); // No messages, so no need to listen
+                return resolve(null);
+              }
 
-          const msg = lastMsgSnapshot.docs[0].data();
-          const { senderId, receiverId, text } = msg;
+              const msg = lastMsgSnapshot.docs[0].data();
+              const { senderId, receiverId, text, createdAt } = msg;
 
-          if (senderId !== user.uid && receiverId !== user.uid) continue;
+              // Ensure the current user is part of this chat
+              if (senderId !== user.uid && receiverId !== user.uid) {
+                unsubscribeMsg(); // Not relevant to current user
+                return resolve(null);
+              }
 
-          const otherUserId = senderId === user.uid ? receiverId : senderId;
+              const otherUserId = senderId === user.uid ? receiverId : senderId;
 
-          const response = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${otherUserId}`);
-          if (!response.ok) continue;
+              // Fetch other user's profile
+              const response = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${otherUserId}`);
+              if (!response.ok) {
+                console.error('Failed to fetch user data for ID:', otherUserId);
+                unsubscribeMsg();
+                return resolve(null);
+              }
+              const userData = await response.json();
 
-          const userData = await response.json();
+              const newChatItem: ChatItem = {
+                chatId,
+                otherUserId,
+                otherUsername: userData.username || 'משתמש',
+                otherUserImage: userData.profile_image || '',
+                lastMessage: text || '',
+                lastMessageTimestamp: createdAt?.toDate().getTime() || 0,
+                isGroup: false,
+              };
 
-          chatList.push({
-            chatId,
-            otherUserId,
-            otherUsername: userData.username || 'משתמש',
-            otherUserImage: userData.profile_image || '',
-            lastMessage: text || '',
+              // Update the map and trigger state update
+              chatMap.set(chatId, newChatItem);
+              setChats(sortChats(Array.from(chatMap.values())));
+              setLoading(false);
+              resolve(newChatItem); // Resolve the promise
+            });
+            unsubscribeListeners.current.push(unsubscribeMsg); // Store for cleanup
           });
-        }
+        });
 
-        // Load group chats
-        const groupSnapshot = await getDocs(collection(db, 'group_chats'));
-        for (const groupDoc of groupSnapshot.docs) {
+        // Wait for all private chat promises to resolve to update the initial state
+        await Promise.all(privateChatPromises);
+        setChats(sortChats(Array.from(chatMap.values())));
+        setLoading(false);
+      }, (error) => {
+        console.error('Error listening to private chats:', error);
+        setLoading(false);
+      });
+      unsubscribeListeners.current.push(unsubscribePrivateChats);
+
+      // --- Group Chats Listener ---
+      const groupChatsQuery = query(collection(db, 'group_chats'));
+      const unsubscribeGroupChats = onSnapshot(groupChatsQuery, async (groupSnapshot) => {
+        const groupChatPromises = groupSnapshot.docs.map(async (groupDoc) => {
           const groupId = groupDoc.id;
+          // Check if current user is a member of the group (assuming you have a 'members' field)
+          const groupData = groupDoc.data();
+          if (!groupData.members || !groupData.members.includes(user.uid)) {
+            return null; // Skip if user is not a member
+          }
+
           const messagesRef = collection(db, 'group_chats', groupId, 'messages');
           const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
-          const lastMsgSnapshot = await getDocs(lastMsgQuery);
 
-          if (lastMsgSnapshot.empty) continue;
+          return new Promise<ChatItem | null>((resolve) => {
+            const unsubscribeGroupMsg = onSnapshot(lastMsgQuery, (lastMsgSnapshot) => {
+              if (lastMsgSnapshot.empty) {
+                unsubscribeGroupMsg();
+                return resolve(null);
+              }
 
-          const msg = lastMsgSnapshot.docs[0].data();
+              const msg = lastMsgSnapshot.docs[0].data();
+              const newGroupChatItem: ChatItem = {
+                chatId: groupId,
+                otherUsername: groupData.name || 'קבוצה', // Assuming group name is stored here
+                otherUserImage: groupData.groupImage || 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
+                lastMessage: msg.text || '',
+                lastMessageTimestamp: msg.createdAt?.toDate().getTime() || 0,
+                isGroup: true,
+              };
 
-          chatList.push({
-            chatId: groupId,
-            otherUsername: groupId,
-            otherUserImage: 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
-            lastMessage: msg.text || '',
-            isGroup: true,
+              // Update the map and trigger state update
+              chatMap.set(groupId, newGroupChatItem);
+              setChats(sortChats(Array.from(chatMap.values())));
+              setLoading(false);
+              resolve(newGroupChatItem);
+            });
+            unsubscribeListeners.current.push(unsubscribeGroupMsg);
           });
-        }
+        });
 
-        setChats(chatList);
-        setFilteredChats(chatList);
+        // Wait for all group chat promises to resolve to update the initial state
+        await Promise.all(groupChatPromises);
+        setChats(sortChats(Array.from(chatMap.values())));
         setLoading(false);
-      } catch (error) {
-        console.error('Error loading chats:', error);
+      }, (error) => {
+        console.error('Error listening to group chats:', error);
         setLoading(false);
-      }
+      });
+      unsubscribeListeners.current.push(unsubscribeGroupChats);
     };
 
-    loadChats();
-  }, [user]);
+    loadAndListenToChats();
+
+    // Cleanup function for useEffect
+    return () => {
+      unsubscribeListeners.current.forEach(unsubscribe => unsubscribe());
+      unsubscribeListeners.current = [];
+    };
+  }, [user]); // Rerun when user changes
+
+  // Helper function to sort chats
+  const sortChats = (chatArray: ChatItem[]) => {
+    return [...chatArray].sort((a, b) => b.lastMessageTimestamp - a.lastMessageTimestamp);
+  };
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -148,9 +233,27 @@ const ChatsList = () => {
     }
   };
 
+  const formatTimestamp = (timestamp: number) => {
+    if (!timestamp) return '';
+    const now = moment();
+    const messageTime = moment(timestamp);
+
+    if (now.isSame(messageTime, 'day')) {
+      return messageTime.format('HH:mm'); // Today: 14:30
+    } else if (now.clone().subtract(1, 'days').isSame(messageTime, 'day')) {
+      return 'אתמול'; // Yesterday
+    } else if (now.isSame(messageTime, 'week')) {
+      return messageTime.format('dddd'); // Same week: Sunday
+    } else if (now.isSame(messageTime, 'year')) {
+      return messageTime.format('D MMM'); // Same year: 5 ביולי
+    } else {
+      return messageTime.format('D MMM YY'); // Older: 5 ביולי 24
+    }
+  };
+
   const renderChatItem = ({ item }: { item: ChatItem }) => (
-    <TouchableOpacity 
-      style={styles.chatItem} 
+    <TouchableOpacity
+      style={styles.chatItem}
       onPress={() => openChat(item)}
       activeOpacity={0.7}
     >
@@ -160,11 +263,11 @@ const ChatsList = () => {
             <Ionicons name="people" size={24} color="#FF6F00" />
           </View>
         ) : (
-          <Image 
+          <Image
             source={{
               uri: item.otherUserImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png'
-            }} 
-            style={styles.avatar} 
+            }}
+            style={styles.avatar}
           />
         )}
         <View style={styles.onlineIndicator} />
@@ -173,7 +276,7 @@ const ChatsList = () => {
       <View style={styles.textContainer}>
         <View style={styles.headerRow}>
           <Text style={styles.username}>{item.otherUsername}</Text>
-          <Text style={styles.time}>עכשיו</Text>
+          <Text style={styles.time}>{formatTimestamp(item.lastMessageTimestamp)}</Text>
         </View>
         <Text style={styles.lastMessage} numberOfLines={1}>
           {item.lastMessage || 'התחל שיחה חדשה'}
@@ -239,8 +342,6 @@ const ChatsList = () => {
 };
 
 export default ChatsList;
-
-// שאר הקובץ (styles) לא שונה ויכול להישאר כפי שהוא.
 
 const styles = StyleSheet.create({
   container: {

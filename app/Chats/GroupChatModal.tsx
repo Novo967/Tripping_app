@@ -11,7 +11,8 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  setDoc
+  setDoc,
+  updateDoc // Import updateDoc for updating existing group data
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -46,27 +47,53 @@ interface Message {
 }
 
 const GroupChatModal = () => {
-  const { eventTitle } = useLocalSearchParams<{ eventTitle: string }>();
+  const { eventTitle } = useLocalSearchParams<{ eventTitle: string }>(); // eventTitle now represents the groupId
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [groupName, setGroupName] = useState(eventTitle); // State for actual group name
+  const [groupImage, setGroupImage] = useState('https://cdn-icons-png.flaticon.com/512/2621/2621042.png'); // Default group image
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
   const currentUsername = currentUser?.displayName || currentUser?.email || 'משתמש אנונימי';
 
+  // Effect to load group details (name, image) and listen to messages
   useEffect(() => {
     if (!eventTitle || typeof eventTitle !== 'string') return;
 
+    const groupDocRef = doc(db, 'group_chats', eventTitle);
+
+    // Listener for group details (name, image)
+    const unsubscribeGroupDetails = onSnapshot(groupDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setGroupName(data.name || eventTitle); // Use actual name, fallback to eventTitle
+        setGroupImage(data.groupImage || 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png');
+      } else {
+        // If the group document doesn't exist yet, we'll create it on first message send
+        setGroupName(eventTitle); // Fallback to eventTitle as the name
+        setGroupImage('https://cdn-icons-png.flaticon.com/512/2621/2621042.png');
+      }
+    }, (error) => {
+      console.error("Error fetching group details:", error);
+    });
+
+    // Listener for messages
     const messagesRef = collection(db, 'group_chats', eventTitle, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeMessages = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
+    }, (error) => {
+      console.error("Error listening to group messages:", error);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeGroupDetails();
+      unsubscribeMessages();
+    };
   }, [eventTitle]);
 
   const sendMessage = async (imageUrl?: string) => {
@@ -75,12 +102,28 @@ const GroupChatModal = () => {
     const chatDocRef = doc(db, 'group_chats', eventTitle);
     const docSnap = await getDoc(chatDocRef);
 
+    // If group document doesn't exist, create it with initial data
     if (!docSnap.exists()) {
+      console.log(`Creating new group document for: ${eventTitle}`);
       await setDoc(chatDocRef, {
-        createdAt: serverTimestamp()
+        name: eventTitle, // Use eventTitle as the initial group name
+        members: [currentUid], // Add current user as the first member
+        groupImage: 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png', // Default image
+        createdAt: serverTimestamp(),
       });
+    } else {
+      // Optional: If the group exists, but somehow 'members' is missing (e.g. legacy data),
+      // ensure the current user is added. This is a safeguard.
+      const groupData = docSnap.data();
+      if (!groupData.members || !groupData.members.includes(currentUid)) {
+        console.log(`Adding current user (${currentUid}) to members list of group: ${eventTitle}`);
+        await updateDoc(chatDocRef, {
+          members: [...(groupData.members || []), currentUid] // Add current user if not present
+        });
+      }
     }
 
+    // Add the message to the messages subcollection
     const messagesRef = collection(chatDocRef, 'messages');
     await addDoc(messagesRef, {
       text: input.trim(),
@@ -91,6 +134,7 @@ const GroupChatModal = () => {
     });
 
     setInput('');
+    // Scroll to top to show the latest message
     setTimeout(() => {
       flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }, 100);
@@ -123,7 +167,10 @@ const GroupChatModal = () => {
 
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return;
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera permission is required to take photos.');
+      return;
+    }
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -133,13 +180,19 @@ const GroupChatModal = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
+      // In a real app, you'd upload this image to Firebase Storage and get a URL
+      // For now, we'll just pass the local URI.
+      // Example: const imageUrl = await uploadImage(result.assets[0].uri);
       sendMessage(result.assets[0].uri);
     }
   };
 
   const openGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') return;
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Media library permission is required to pick photos.');
+      return;
+    }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -149,6 +202,7 @@ const GroupChatModal = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
+      // Same as camera: upload to storage and get URL
       sendMessage(result.assets[0].uri);
     }
   };
@@ -156,10 +210,10 @@ const GroupChatModal = () => {
   const formatTime = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleTimeString('he-IL', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      hour12: false 
+    return date.toLocaleTimeString('he-IL', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
     });
   };
 
@@ -217,27 +271,29 @@ const GroupChatModal = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={goBack} 
+        <TouchableOpacity
+          onPress={goBack}
           style={styles.backButton}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        
+
         <View style={styles.groupInfo}>
           <View style={styles.groupIconContainer}>
-            <View style={styles.groupIcon}>
-              <Ionicons name="people" size={24} color="#FF6F00" />
-            </View>
+            <Image
+              source={{ uri: groupImage }} // Use groupImage from state
+              style={styles.groupIcon} // Apply groupIcon styles here
+            />
+            {/* You might want a dynamic online indicator for group members here later */}
             <View style={styles.onlineIndicator} />
           </View>
           <View style={styles.groupTextInfo}>
             <Text style={styles.groupName} numberOfLines={1}>
-              {eventTitle}
+              {groupName} {/* Use groupName from state */}
             </Text>
             <Text style={styles.groupStatus}>
               צט קבוצתי • {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
@@ -258,7 +314,7 @@ const GroupChatModal = () => {
                 <Ionicons name="people-outline" size={60} color="#E0E0E0" />
                 <Text style={styles.emptyStateTitle}>התחל שיחה קבוצתית</Text>
                 <Text style={styles.emptyStateSubtitle}>
-                  שלח הודעה ראשונה לקבוצת {eventTitle}
+                  שלח הודעה ראשונה לקבוצת {groupName}
                 </Text>
               </View>
             ) : (
@@ -277,8 +333,8 @@ const GroupChatModal = () => {
 
         <View style={styles.inputWrapper}>
           <View style={styles.inputContainer}>
-            <TouchableOpacity 
-              onPress={() => sendMessage()} 
+            <TouchableOpacity
+              onPress={() => sendMessage()}
               style={[
                 styles.sendButton,
                 !input.trim() && styles.sendButtonDisabled
@@ -288,7 +344,7 @@ const GroupChatModal = () => {
             >
               <Ionicons name="send" size={20} color={input.trim() ? "#FFFFFF" : "#CCC"} style={{ transform: [{ scaleX: -1 }] }}/>
             </TouchableOpacity>
-            
+
             <TextInput
               style={styles.input}
               placeholder="הקלד הודעה קבוצתית..."
@@ -301,7 +357,7 @@ const GroupChatModal = () => {
               multiline
               maxLength={500}
             />
-            
+
             <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} activeOpacity={0.7}>
               <Ionicons name="camera" size={24} color="#FF6F00" />
             </TouchableOpacity>
@@ -319,7 +375,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  flexContainer: { 
+  flexContainer: {
     flex: 1
   },
   header: {
@@ -352,15 +408,16 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginLeft: 12,
   },
-  groupIcon: {
+  groupIcon: { // Changed from View to Image, adjusted styles to fit
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF', // Fallback background
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    overflow: 'hidden', // Ensure image respects border radius
   },
   onlineIndicator: {
     position: 'absolute',
