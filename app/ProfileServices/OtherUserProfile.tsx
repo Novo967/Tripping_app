@@ -1,7 +1,6 @@
-// screens/OtherUserProfile.tsx
-
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
+import { BlurView } from 'expo-blur'; // ודא ש-expo-blur מותקן: npm install expo-blur
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
@@ -9,19 +8,20 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { db } from '../../firebaseConfig';
 import { RootStackParamList } from '../types';
 
-
 type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile'>;
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface UserData {
   username: string;
@@ -48,6 +48,8 @@ const OtherUserProfile = () => {
     galleryImages: [],
   });
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -55,7 +57,7 @@ const OtherUserProfile = () => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch from API
         const res = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${uid}`);
         const apiData = await res.json();
@@ -63,17 +65,17 @@ const OtherUserProfile = () => {
         // Fetch from Firestore
         const userDocRef = doc(db, 'users', uid);
         const userSnap = await getDoc(userDocRef);
-        
+
         if (userSnap.exists()) {
           const firestoreData = userSnap.data();
-          const profileImageUrl = apiData.profile_image || ''; // קבלת ה-URI
+          const profileImageUrl = apiData.profile_image || '';
           console.log('Profile Image URI:', profileImageUrl);
           setUserData({
             username: firestoreData.username || '',
             profileImage: apiData.profile_image || '',
             galleryImages: apiData.gallery_images || [],
-            location: firestoreData.location && firestoreData.location.city && firestoreData.location.country 
-              ? firestoreData.location 
+            location: firestoreData.location && firestoreData.location.city && firestoreData.location.country
+              ? firestoreData.location
               : null,
             bio: firestoreData.bio || '',
             favoriteDestinations: firestoreData.favoriteDestinations || [],
@@ -97,10 +99,10 @@ const OtherUserProfile = () => {
   const handleSendMessage = () => {
     router.push({
       pathname: '/Chats/chatModal',
-      params: { 
-        otherUserId: uid, 
-        otherUsername: userData.username, 
-        otherUserImage: userData.profileImage 
+      params: {
+        otherUserId: uid,
+        otherUsername: userData.username,
+        otherUserImage: userData.profileImage
       },
     });
   };
@@ -121,6 +123,16 @@ const OtherUserProfile = () => {
     </View>
   );
 
+  const openImageModal = (imageUri: string) => {
+    setSelectedImage(imageUri);
+    setModalVisible(true);
+  };
+
+  const closeImageModal = () => {
+    setModalVisible(false);
+    setSelectedImage(null);
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -138,7 +150,7 @@ const OtherUserProfile = () => {
             <Feather name="arrow-right" size={22} color="#FF6F00" />
           </TouchableOpacity>
         </View>
-        
+
         {userData.isOnline && (
           <View style={styles.onlineIndicator}>
             <View style={styles.onlineDot} />
@@ -161,21 +173,21 @@ const OtherUserProfile = () => {
             </View>
           )}
           {userData.isOnline && <View style={styles.onlineBadge} />}
-      </View>
+        </View>
 
-        
+
         <Text style={styles.username}>{userData.username}</Text>
-        
+
         {/* Location */}
-        {(userData.location?.city && userData.location?.country && 
+        {(userData.location?.city && userData.location?.country &&
           userData.location.city !== 'לא זמין' && userData.location.country !== 'לא זמין') && (
-          <View style={styles.locationContainer}>
-            <Feather name="map-pin" size={16} color="#666" />
-            <Text style={styles.locationText}>
-              {userData.location.city}, {userData.location.country}
-            </Text>
-          </View>
-        )}
+            <View style={styles.locationContainer}>
+              <Feather name="map-pin" size={16} color="#666" />
+              <Text style={styles.locationText}>
+                {userData.location.city}, {userData.location.country}
+              </Text>
+            </View>
+          )}
 
         {userData.joinDate && (
           <Text style={styles.joinDate}>{formatJoinDate(userData.joinDate)}</Text>
@@ -194,20 +206,20 @@ const OtherUserProfile = () => {
       {(userData.travelStyle || (userData.favoriteDestinations && userData.favoriteDestinations.length > 0)) && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>פרטי נסיעות</Text>
-          
+
           {userData.travelStyle && (
-            <InfoCard 
-              icon="compass" 
-              title="סגנון נסיעה" 
-              content={userData.travelStyle} 
+            <InfoCard
+              icon="compass"
+              title="סגנון נסיעה"
+              content={userData.travelStyle}
             />
           )}
-          
+
           {userData.favoriteDestinations && userData.favoriteDestinations.length > 0 && (
-            <InfoCard 
-              icon="heart" 
-              title="יעדים מועדפים" 
-              content={userData.favoriteDestinations.join(', ')} 
+            <InfoCard
+              icon="heart"
+              title="יעדים מועדפים"
+              content={userData.favoriteDestinations.join(', ')}
             />
           )}
         </View>
@@ -227,12 +239,9 @@ const OtherUserProfile = () => {
             scrollEnabled={false}
             contentContainerStyle={styles.galleryContainer}
             renderItem={({ item, index }) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.galleryImageContainer}
-                onPress={() => {
-                  // כאן תוכל להוסיף פתיחת מודל תצוגת תמונות
-                  console.log('Open image gallery at index:', index);
-                }}
+                onPress={() => openImageModal(item)}
               >
                 <Image source={{ uri: item }} style={styles.galleryImage} />
                 {index === 8 && userData.galleryImages.length > 9 && (
@@ -253,6 +262,34 @@ const OtherUserProfile = () => {
           <Text style={styles.messageButtonText}>שלח הודעה</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Image Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeImageModal}
+      >
+        <View style={styles.modalOverlay}>
+          {/* Blur effect for the background */}
+          {Platform.OS === 'ios' ? (
+            <BlurView style={styles.modalBlur} intensity={80} tint="dark" />
+          ) : (
+            <View style={styles.androidBlurFallback} /> // פתרון חלופי לאנדרואיד
+          )}
+
+          <View style={styles.modalContent}>
+            {selectedImage && <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeImageModal}
+            >
+              <Ionicons name="close" size={30} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 };
@@ -437,18 +474,23 @@ const styles = StyleSheet.create({
   galleryImageContainer: {
     position: 'relative',
     marginBottom: 8,
+    marginRight: 8,
+    width: (width - 20 * 2 - 8 * 2) / 3,
+    height: (width - 20 * 2 - 8 * 2) / 3,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   galleryImage: {
-    width: (width - 80) / 3,
-    height: (width - 80) / 3,
-    marginRight: 8,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
     borderRadius: 12,
   },
   moreImagesOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
-    right: 8,
+    right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 12,
@@ -494,6 +536,52 @@ const styles = StyleSheet.create({
     borderColor: '#FF6F00',
     justifyContent: 'center',
     alignItems: 'center',
-  }
-
+  },
+  // Modal styles (updated to match Gallery.tsx)
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)', // רקע שחור שקוף יותר
+  },
+  modalBlur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  androidBlurFallback: { // פתרון חלופי לאנדרואיד ללא BlurView
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.8)', // רקע כהה אחיד
+  },
+  modalContent: {
+    borderRadius: 16,
+    // הוסר padding כי התמונה תופסת את כל המודל כמעט
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: width * 0.95, // התאמה לגודל התמונה ב-Gallery.tsx
+    height: height * 0.8, // התאמה לגודל התמונה ב-Gallery.tsx
+    position: 'relative',
+    backgroundColor: 'transparent', // רקע שקוף מאחורי התמונה, הבלור יטפל בזה
+  },
+  modalImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+    borderRadius: 12, // שומר על הפינות המעוגלות
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 60, // מיקום כפתור הסגירה בראש המסך
+    right: 20,
+    zIndex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // רקע שקוף למחצה לכפתור
+    borderRadius: 20,
+    padding: 8,
+  },
 });
