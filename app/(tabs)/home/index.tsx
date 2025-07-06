@@ -195,7 +195,9 @@ export default function HomeScreen() {
   }, [events, currentLocation, displayDistance]);
 
   const handleAddEventPress = () => {
-    setIsChoosingLocation(true);
+     setTimeout(() => {
+      setIsChoosingLocation(true);
+    }, 500);
   };
 
   const handleCancelLocationSelection = () => {
@@ -353,7 +355,7 @@ export default function HomeScreen() {
           }} />
         ))}
       </MapView>
-
+      
       <FilterButton
         displayDistance={displayDistance}
         onDistanceFilterPress={handleDistanceFilterPress}
