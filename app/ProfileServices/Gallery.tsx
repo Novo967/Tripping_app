@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react'; // הוספת useRef
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,7 @@ import {
   FlatList,
   Image,
   ListRenderItemInfo,
-  Modal, // הוספת Modal
+  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,35 +20,35 @@ import {
 import { auth } from '../../firebaseConfig';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window'); // הוספת SCREEN_HEIGHT
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GALLERY_IMAGE_SIZE = (SCREEN_WIDTH - 32 - 4) / 3; // 16px margin on each side, 2px gap
 
 type Props = {
   gallery: string[];
   onAddImage: (uri: string) => void;
-  onDeleteImages: (deletedImageUrls: string[]) => void; 
+  onDeleteImages: (deletedImageUrls: string[]) => void;
 };
 
 export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
   const { theme } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [modalVisible, setModalVisible] = useState(false); // מצב המודל לתצוגת תמונה
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null); // ה-URI של התמונה הנבחרת למודל
-  const [longPressActive, setLongPressActive] = useState(false); // מצב המציין אם לחיצה ארוכה פעילה
+  // הוסר: const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [longPressActive, setLongPressActive] = useState(false);
 
   const handlePickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+
       if (permissionResult.granted === false) {
         Alert.alert('הרשאה נדרשת', 'אנחנו צריכים הרשאה לגשת לגלריה שלך');
         return;
       }
 
       setUploading(true);
-      
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
@@ -72,12 +72,12 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
   const deleteImageFromServer = async (imageUrl: string) => {
     const user = auth.currentUser;
     if (!user) {
-      throw new Error('משתמש לא מחובר'); 
+      throw new Error('משתמש לא מחובר');
     }
 
     try {
       const response = await fetch(`https://tripping-app.onrender.com/delete-image`, {
-        method: 'POST', 
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
       });
@@ -87,12 +87,12 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
         throw new Error(`מחיקת תמונה נכשלה: ${errorText}`);
       }
     } catch (error) {
-      throw error; 
+      throw error;
     }
   };
 
   const handleImagePress = (index: number) => {
-    if (longPressActive) { // אם לחיצה ארוכה פעילה, המשך עם לוגיקת הבחירה
+    if (longPressActive) {
       const newSelected = new Set(selectedImages);
       if (newSelected.has(index)) {
         newSelected.delete(index);
@@ -100,17 +100,16 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
         newSelected.add(index);
       }
       setSelectedImages(newSelected);
-    } else { // אחרת, הצג את התמונה במודל
+    } else {
       setSelectedImageUri(gallery[index]);
       setModalVisible(true);
     }
   };
 
   const handleLongPress = (index: number) => {
-    // הפעלת מצב לחיצה ארוכה וסימון התמונה
     setLongPressActive(true);
     const newSelected = new Set(selectedImages);
-    if (!newSelected.has(index)) { // סמן את התמונה רק אם היא לא מסומנת כבר
+    if (!newSelected.has(index)) {
       newSelected.add(index);
       setSelectedImages(newSelected);
     }
@@ -123,11 +122,11 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       `האם אתה בטוח שתרצה למחוק ${selectedImages.size} תמונות?`,
       [
         { text: 'ביטול', style: 'cancel' },
-        { 
-          text: 'מחק', 
+        {
+          text: 'מחק',
           style: 'destructive',
           onPress: async () => {
-            const toDeleteUrls: string[] = []; 
+            const toDeleteUrls: string[] = [];
             const deletePromises: Promise<void>[] = [];
 
             for (const index of Array.from(selectedImages)) {
@@ -140,10 +139,10 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
 
             try {
               await Promise.all(deletePromises)
-              
-              onDeleteImages(toDeleteUrls); 
-              setSelectedImages(new Set()); 
-              setLongPressActive(false); // יציאה ממצב לחיצה ארוכה לאחר מחיקה
+
+              onDeleteImages(toDeleteUrls);
+              setSelectedImages(new Set());
+              setLongPressActive(false);
               Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה');
 
             } catch (error) {
@@ -159,7 +158,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
 
   const renderGridItem = ({ item, index }: ListRenderItemInfo<string>) => {
     const isSelected = selectedImages.has(index);
-    
+
     return (
       <TouchableOpacity
         style={[
@@ -168,15 +167,15 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
           isSelected && { opacity: 0.7 }
         ]}
         onPress={() => handleImagePress(index)}
-        onLongPress={() => handleLongPress(index)} // שימוש ב-handleLongPress
+        onLongPress={() => handleLongPress(index)}
         activeOpacity={0.8}
       >
-        <Image 
-          source={{ uri: item }} 
+        <Image
+          source={{ uri: item }}
           style={styles.galleryImage}
           resizeMode="cover"
         />
-        
+
         {/* Selection overlay */}
         {isSelected && (
           <View style={styles.selectionOverlay}>
@@ -213,33 +212,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
   const renderHeader = () => (
     <View style={[styles.galleryHeader, { backgroundColor: theme.colors.surface }]}>
       <View style={styles.headerLeft}>
-        <TouchableOpacity
-          style={[
-            styles.viewModeButton,
-            viewMode === 'grid' && { backgroundColor: theme.colors.primary + '20' }
-          ]}
-          onPress={() => setViewMode('grid')}
-        >
-          <Ionicons 
-            name="grid" 
-            size={20} 
-            color={viewMode === 'grid' ? theme.colors.primary : theme.colors.textSecondary} 
-          />
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.viewModeButton,
-            viewMode === 'list' && { backgroundColor: theme.colors.primary + '20' }
-          ]}
-          onPress={() => setViewMode('list')}
-        >
-          <Ionicons 
-            name="list" 
-            size={20} 
-            color={viewMode === 'list' ? theme.colors.primary : theme.colors.textSecondary} 
-          />
-        </TouchableOpacity>
+        {/* הוסרו כפתורי viewMode */}
       </View>
 
       <View style={styles.headerCenter}>
@@ -249,10 +222,11 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       </View>
 
       <View style={styles.headerRight}>
-        {selectedImages.size > 0 || longPressActive ? ( // הצג כפתור איפוס בחירה או מחיקה אם יש תמונות שנבחרו או מצב לחיצה ארוכה פעיל
+        {selectedImages.size > 0 || longPressActive ? (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
             onPress={handleDeleteSelected}
+            accessibilityLabel={`מחק ${selectedImages.size} תמונות שנבחרו`} // נגישות
           >
             <Ionicons name="trash" size={16} color="white" />
             <Text style={styles.actionButtonText}>{selectedImages.size}</Text>
@@ -262,14 +236,13 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
             style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
             onPress={handlePickImage}
             disabled={uploading}
+            accessibilityLabel={uploading ? "מעלה תמונה" : "הוסף תמונה חדשה"} // נגישות
           >
             {uploading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <>
-                <Ionicons name="add" size={16} color="white" />
-                <Text style={styles.addButtonText}>הוסף</Text>
-              </>
+              // רק אייקון פלוס
+              <Ionicons name="add" size={20} color="white" /> // הגדלתי את גודל האייקון
             )}
           </TouchableOpacity>
         )}
@@ -290,10 +263,11 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
         <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
           הוסף תמונות כדי לשתף עם חברים
         </Text>
-        
+
         <TouchableOpacity
           style={[styles.emptyButton, { backgroundColor: theme.colors.primary }]}
           onPress={handlePickImage}
+          accessibilityLabel="הוסף תמונה ראשונה" // נגישות
         >
           <Ionicons name="camera" size={20} color="white" />
           <Text style={styles.emptyButtonText}>הוסף תמונה ראשונה</Text>
@@ -302,7 +276,6 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
     </View>
   );
 
-  // במידה ואין תמונות, עדיין מציגים את ההדר ואת מצב הריק
   if (gallery.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -315,26 +288,26 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {renderHeader()}
-      
+
       <FlatList
         data={gallery}
         keyExtractor={(_, index) => index.toString()}
-        numColumns={viewMode === 'grid' ? 3 : 1}
-        key={viewMode} // Force re-render when view mode changes
+        numColumns={3} // תמיד 3 עמודות לרשת
+        key={'grid'} // key קבוע למצב רשת
         renderItem={renderGridItem}
         contentContainerStyle={styles.flatListContent}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
       />
-      
-      {/* כפתור לביטול בחירה כשמצב לחיצה ארוכה פעיל או תמונות נבחרו */}
+
       {(selectedImages.size > 0 || longPressActive) && (
         <TouchableOpacity
           style={styles.floatingClearButton}
           onPress={() => {
             setSelectedImages(new Set());
-            setLongPressActive(false); // ביטול מצב לחיצה ארוכה
+            setLongPressActive(false);
           }}
+          accessibilityLabel="בטל בחירה של תמונות" // נגישות
         >
           <BlurView intensity={80} tint={theme.isDark ? 'dark' : 'light'} style={styles.blurButton}>
             <Ionicons name="close" size={20} color={theme.colors.text} />
@@ -342,19 +315,18 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
         </TouchableOpacity>
       )}
 
-      {/* Modal for displaying single image */}
       <Modal
         animationType="fade"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => {
           setModalVisible(!modalVisible);
-          setSelectedImageUri(null); // איפוס התמונה שנבחרה בעת סגירה
+          setSelectedImageUri(null);
         }}
       >
         <View style={styles.modalOverlay}>
           <BlurView style={styles.modalBlur} intensity={80} tint={theme.isDark ? 'dark' : 'light'} />
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}> {/* צבע רקע מהתמה */}
             {selectedImageUri && <Image source={{ uri: selectedImageUri }} style={styles.modalImage} resizeMode="contain" />}
             <TouchableOpacity
               style={styles.modalCloseButton}
@@ -362,6 +334,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
                 setModalVisible(!modalVisible);
                 setSelectedImageUri(null);
               }}
+              accessibilityLabel="סגור תצוגת תמונה מוגדלת" // נגישות
             >
               <Ionicons name="close-circle" size={30} color={theme.colors.text} />
             </TouchableOpacity>
@@ -394,7 +367,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerRight: {
-    minWidth: 80,
+    minWidth: 50, // הוקטן כי הכפתור קטן יותר
     alignItems: 'flex-end',
   },
   viewModeButton: {
@@ -406,14 +379,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addButton: {
-    flexDirection: 'row-reverse',
+    // מותאם לכפתור אייקון בלבד
+    padding: 8, // ריפוד עדין יותר
+    borderRadius: 20, // עגול יותר
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
+    justifyContent: 'center',
   },
   addButtonText: {
+    // הוסר, אין טקסט
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
@@ -540,12 +513,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // סגנונות חדשים למודל התצוגה המוגדלת
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // רקע שחור שקוף למילוי המסך
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalBlur: {
     position: 'absolute',
@@ -555,14 +527,13 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   modalContent: {
-    backgroundColor: 'white', // ייתכן שתרצה לשנות זאת לצבע רקע של התמה
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    width: SCREEN_WIDTH * 0.8, // 80% מרוחב המסך
-    maxHeight: SCREEN_HEIGHT * 0.45, // 70% מגובה המסך
-    position: 'relative', // כדי למקם את כפתור הסגירה ביחס אליו
+    width: SCREEN_WIDTH * 0.8,
+    height: SCREEN_HEIGHT * 0.45, // שינוי ל-height כדי לשלוט בגודל טוב יותר
+    position: 'relative',
   },
   modalImage: {
     width: '100%',
