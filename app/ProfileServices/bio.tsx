@@ -1,8 +1,11 @@
 // app/ProfileServices/bio.tsx - Enhanced Version with Responsive Keyboard
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react'; // הוספת useCallback לביצועים
 import {
+  Alert // הוספת Alert עבור הודעות שגיאה אפשריות
+  ,
+
   Animated,
   Dimensions,
   Keyboard,
@@ -23,7 +26,7 @@ type Props = {
   bio: string;
   isEditing: boolean;
   onChange: (bio: string) => void;
-  onSave: () => void;
+  onSave: (newBio: string) => void; // שינוי כאן: העברת ה-newBio לפונקציית השמירה
   onEditToggle: () => void;
 };
 
@@ -34,27 +37,43 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
   const animatedHeight = useRef(new Animated.Value(isEditing ? 120 : 60)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const textInputRef = useRef<TextInput>(null);
+  const [isSaving, setIsSaving] = useState(false); // מצב חדש לניהול אנימציית שמירה
 
+  // אפקט לטיפול בשינוי מצב העריכה
   React.useEffect(() => {
     Animated.timing(animatedHeight, {
       toValue: isEditing ? 120 : 60,
       duration: 300,
       useNativeDriver: false,
-    }).start();
-  }, [isEditing]);
+    }).start(() => {
+      // אם נכנסים למצב עריכה, ממקדים את שדה הקלט
+      if (isEditing) {
+        textInputRef.current?.focus();
+      }
+    });
+    // עדכון tempBio ו characterCount כאשר ה-bio המקורי משתנה
+    setTempBio(bio);
+    setCharacterCount(bio.length);
+  }, [isEditing, bio]); // הוספת bio כתלות כדי לעדכן אם הוא משתנה חיצונית
 
-  // Handle keyboard dismiss when tapping outside
-  const dismissKeyboard = () => {
+  // Handle keyboard dismiss when tapping outside (Memoized for performance)
+  const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
-  };
+  }, []);
 
-  const handleBioChange = (text: string) => {
+  const handleBioChange = useCallback((text: string) => {
     setTempBio(text);
     setCharacterCount(text.length);
     onChange(text);
-  };
+  }, [onChange]); // הוספת onChange כתלות
 
-  const handleSave = () => {
+  const handleSave = useCallback(async () => { // הוספת async לטיפול ב-promise
+    if (isOverLimit || isSaving) { // מונעים לחיצות כפולות ושמירה מעבר למגבלה
+      return;
+    }
+
+    setIsSaving(true); // מתחילים את מצב השמירה
+
     Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 0.5,
@@ -66,31 +85,39 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
         duration: 150,
         useNativeDriver: true,
       }),
-    ]).start();
-    
-    // Dismiss keyboard before saving
-    Keyboard.dismiss();
-    onSave();
-  };
+    ]).start(async () => { // השתמשו ב-callback של אנימציה כדי לוודא שהיא הסתיימה לפני שמירה
+      Keyboard.dismiss(); // סוגרים את המקלדת לפני השמירה
 
-  const handleCancel = () => {
-    setTempBio(bio);
+      try {
+        await onSave(tempBio); // קוראים לפונקציית השמירה עם ה-bio הזמני
+        // אופציונלי: הציגו הודעת הצלחה קצרה
+        // Toast.show({ text1: 'ביוגרפיה נשמרה!', type: 'success' }); 
+      } catch (error) {
+        console.error("Failed to save bio:", error);
+        Alert.alert("שגיאה", "אירעה שגיאה בשמירת הביוגרפיה. אנא נסה שוב.");
+      } finally {
+        setIsSaving(false); // מסיימים את מצב השמירה
+      }
+    });
+  }, [isOverLimit, onSave, tempBio, fadeAnim, isSaving]); // הוספת תלויות
+
+  const handleCancel = useCallback(() => {
+    setTempBio(bio); // מחזירים את ה-bio למצב המקורי
     setCharacterCount(bio.length);
-    onChange(bio);
-    // Dismiss keyboard before canceling
-    Keyboard.dismiss();
-    onEditToggle();
-  };
+    onChange(bio); // מעדכנים גם את ה-prop החיצוני
+    Keyboard.dismiss(); // סוגרים את המקלדת
+    onEditToggle(); // מחזירים למצב תצוגה
+  }, [bio, onChange, onEditToggle]); // הוספת תלויות
 
   const maxLength = 150;
   const isNearLimit = characterCount > maxLength * 0.8;
   const isOverLimit = characterCount > maxLength;
 
   const bioContent = (
-    <Animated.View 
+    <Animated.View
       style={[
-        styles.container, 
-        { 
+        styles.container,
+        {
           backgroundColor: theme.colors.surface,
           opacity: fadeAnim,
         }
@@ -100,7 +127,7 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
         colors={[theme.colors.primary + '10', 'transparent']}
         style={styles.gradientBackground}
       />
-      
+
       {isEditing ? (
         <View style={styles.editingContainer}>
           <View style={styles.inputHeader}>
@@ -108,15 +135,15 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
               ביוגרפיה
             </Text>
             <View style={styles.characterCounter}>
-              <Text 
+              <Text
                 style={[
                   styles.counterText,
-                  { 
-                    color: isOverLimit 
-                      ? theme.colors.error 
-                      : isNearLimit 
-                        ? theme.colors.warning 
-                        : theme.colors.textSecondary 
+                  {
+                    color: isOverLimit
+                      ? theme.colors.error
+                      : isNearLimit
+                        ? theme.colors.warning
+                        : theme.colors.textSecondary
                   }
                 ]}
               >
@@ -124,7 +151,8 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
               </Text>
             </View>
           </View>
-          
+
+          {/* עוטפים את ה-TextInput ב-Animated.View עבור אנימציית גובה */}
           <Animated.View style={{ height: animatedHeight }}>
             <TextInput
               ref={textInputRef}
@@ -133,8 +161,8 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
                 {
                   backgroundColor: theme.colors.background,
                   color: theme.colors.text,
-                  borderColor: isOverLimit 
-                    ? theme.colors.error 
+                  borderColor: isOverLimit
+                    ? theme.colors.error
                     : theme.colors.border,
                 }
               ]}
@@ -144,45 +172,60 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
               placeholderTextColor={theme.colors.textSecondary}
               multiline
               maxLength={maxLength}
-              textAlignVertical="top"
+              textAlignVertical="top" // חשוב עבור multiline TextInput
               textAlign="right"
-              autoFocus
-              blurOnSubmit={false}
-              returnKeyType="done"
-              onSubmitEditing={dismissKeyboard}
+              autoFocus // שדה קלט יקבל מיקוד אוטומטית במצב עריכה
+              blurOnSubmit={false} // מאפשר Enter לשורה חדשה ב-multiline, סגירה עם "Done" במקלדת תטופל ע"י onSubmitEditing
+              returnKeyType="done" // מציג כפתור "Done" במקלדת
+              onSubmitEditing={dismissKeyboard} // סוגר את המקלדת בלחיצה על "Done"
+              // לנגישות טובה יותר
+              accessibilityLabel="שדה עריכת ביוגרפיה"
+              accessibilityHint={`ניתן להזין עד ${maxLength} תווים. נכון לעכשיו, ישנם ${characterCount} תווים.`}
             />
           </Animated.View>
-          
+
           <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              onPress={handleCancel} 
+            <TouchableOpacity
+              onPress={handleCancel}
               style={[styles.cancelButton, { borderColor: theme.colors.border }]}
+              accessibilityLabel="ביטול עריכה" // לנגישות
             >
               <Ionicons name="close" size={16} color={theme.colors.textSecondary} />
               <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>
                 ביטול
               </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={handleSave} 
+
+            <TouchableOpacity
+              onPress={handleSave}
               style={[
-                styles.saveButton, 
-                { 
-                  backgroundColor: isOverLimit 
-                    ? theme.colors.textSecondary 
-                    : theme.colors.primary 
+                styles.saveButton,
+                {
+                  backgroundColor: isOverLimit || isSaving // הוספת isSaving כדי למנוע לחיצה בזמן שמירה
+                    ? theme.colors.textSecondary // צבע אפור כשהוא מושבת או נשמר
+                    : theme.colors.primary
                 }
               ]}
-              disabled={isOverLimit}
+              disabled={isOverLimit || isSaving} // השבתה גם בזמן שמירה
+              accessibilityLabel={isSaving ? "שומר..." : "שמור שינויים בביוגרפיה"} // לנגישות
             >
-              <Ionicons name="checkmark" size={16} color="white" />
-              <Text style={styles.saveButtonText}>שמור</Text>
+              {isSaving ? (
+                <Text style={styles.saveButtonText}>שומר...</Text> // במקום אייקון בזמן שמירה
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={16} color="white" />
+                  <Text style={styles.saveButtonText}>שמור</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>
       ) : (
-        <TouchableOpacity onPress={onEditToggle} style={styles.displayContainer}>
+        <TouchableOpacity
+          onPress={onEditToggle}
+          style={styles.displayContainer}
+          accessibilityLabel={bio ? "הצג ביוגרפיה, לחץ לעריכה" : "הוסף ביוגרפיה"} // לנגישות
+        >
           <View style={styles.bioContent}>
             {bio ? (
               <>
@@ -204,7 +247,7 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
               </View>
             )}
           </View>
-          
+
           <View style={[styles.editIndicator, { backgroundColor: theme.colors.primary }]}>
             <Ionicons name="pencil" size={14} color="white" />
           </View>
@@ -217,11 +260,12 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
   if (isEditing) {
     return (
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} // 'padding' ל-iOS, 'height' לאנדרואיד
         style={styles.keyboardAvoidingView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        // keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // אפשר לכוונן אם יש בעיות עם ריפוד עליון
       >
         <TouchableWithoutFeedback onPress={dismissKeyboard}>
+          {/* חשוב לעטוף ב-View נוסף כדי שה-TouchableWithoutFeedback יתפוס את כל השטח */}
           <View style={styles.touchableContainer}>
             {bioContent}
           </View>
@@ -235,10 +279,11 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
 
 const styles = StyleSheet.create({
   keyboardAvoidingView: {
-    flex: 1,
+    flex: 1, // חשוב שיתפוס את כל השטח הזמין
   },
   touchableContainer: {
-    flex: 1,
+    flex: 1, // חשוב שיתפוס את כל השטח הזמין כדי ש-TouchableWithoutFeedback יעבוד
+    justifyContent: 'flex-end', // יישור תוכן לתחתית כדי שה-TextInput יהיה מעל המקלדת
   },
   container: {
     marginHorizontal: 16,
@@ -246,8 +291,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
-    elevation: 2,
-    shadowColor: '#000',
+    elevation: 2, // צל עבור אנדרואיד
+    shadowColor: '#000', // צל עבור iOS
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -288,14 +333,16 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     lineHeight: 22,
-    flex: 1,
+    // flex: 1, // במקרה של Animated.View, עדיף לתת גובה קבוע או אנימטיבי
     fontFamily: Platform.OS === 'ios' ? 'system' : 'Roboto',
+    minHeight: 60, // גובה מינימלי ל-TextInput
+    maxHeight: 180, // גובה מקסימלי, כדי למנוע מהשדה להיות ענק
   },
   actionButtons: {
     flexDirection: 'row-reverse',
     justifyContent: 'flex-end',
     marginTop: 12,
-    gap: 8,
+    gap: 8, // שימוש ב-gap לרווח בין כפתורים (React Native 0.71+)
   },
   saveButton: {
     flexDirection: 'row-reverse',
