@@ -12,7 +12,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  updateDoc
+  updateDoc,
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -31,7 +31,7 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View
+  View,
 } from 'react-native';
 import { db } from '../../firebaseConfig';
 
@@ -66,29 +66,37 @@ const GroupChatModal = () => {
     const groupDocRef = doc(db, 'group_chats', eventTitle);
 
     // Listener for group details (name, image)
-    const unsubscribeGroupDetails = onSnapshot(groupDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setGroupName(data.name || eventTitle); // Use actual name, fallback to eventTitle
-        setGroupImage(data.groupImage || null); // Set to null if groupImage is not found
-      } else {
-        // If the group document doesn't exist yet, we'll create it on first message send
-        setGroupName(eventTitle); // Fallback to eventTitle as the name
-        setGroupImage(null); // Keep as null for default icon
+    const unsubscribeGroupDetails = onSnapshot(
+      groupDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setGroupName(data.name || eventTitle); // Use actual name, fallback to eventTitle
+          setGroupImage(data.groupImage || null); // Set to null if groupImage is not found
+        } else {
+          // If the group document doesn't exist yet, we'll create it on first message send
+          setGroupName(eventTitle); // Fallback to eventTitle as the name
+          setGroupImage(null); // Keep as null for default icon
+        }
+      },
+      (error) => {
+        console.error('Error fetching group details:', error);
       }
-    }, (error) => {
-      console.error('Error fetching group details:', error);
-    });
+    );
 
     // Listener for messages
     const messagesRef = collection(db, 'group_chats', eventTitle, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
 
-    const unsubscribeMessages = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
-    }, (error) => {
-      console.error('Error listening to group messages:', error);
-    });
+    const unsubscribeMessages = onSnapshot(
+      q,
+      (snapshot) => {
+        setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Message)));
+      },
+      (error) => {
+        console.error('Error listening to group messages:', error);
+      }
+    );
 
     return () => {
       unsubscribeGroupDetails();
@@ -118,7 +126,7 @@ const GroupChatModal = () => {
       if (!groupData.members || !groupData.members.includes(currentUid)) {
         console.log(`Adding current user (${currentUid}) to members list of group: ${eventTitle}`);
         await updateDoc(chatDocRef, {
-          members: [...(groupData.members || []), currentUid] // Add current user if not present
+          members: [...(groupData.members || []), currentUid], // Add current user if not present
         });
       }
     }
@@ -134,10 +142,6 @@ const GroupChatModal = () => {
     });
 
     setInput('');
-    // Scroll to top to show the latest message
-    setTimeout(() => {
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    }, 100);
   };
 
   const goBack = () => {
@@ -180,9 +184,6 @@ const GroupChatModal = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      // In a real app, you'd upload this image to Firebase Storage and get a URL
-      // For now, we'll just pass the local URI.
-      // Example: const imageUrl = await uploadImage(result.assets[0].uri);
       sendMessage(result.assets[0].uri);
     }
   };
@@ -202,7 +203,6 @@ const GroupChatModal = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      // Same as camera: upload to storage and get URL
       sendMessage(result.assets[0].uri);
     }
   };
@@ -213,39 +213,45 @@ const GroupChatModal = () => {
     return date.toLocaleTimeString('he-IL', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false
+      hour12: false,
     });
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === currentUid;
     return (
-      <View style={[
-        styles.messageContainer,
-        isMe ? styles.myMessageContainer : styles.theirMessageContainer
-      ]}>
-        <View style={[
-          styles.messageBubble,
-          isMe ? styles.myMessage : styles.theirMessage
-        ]}>
-          {!isMe && (
-            <Text style={styles.senderName}>{item.senderUsername}</Text>
-          )}
+      <View
+        style={[
+          styles.messageContainer,
+          isMe ? styles.myMessageContainer : styles.theirMessageContainer,
+        ]}
+      >
+        <View
+          style={[
+            styles.messageBubble,
+            isMe ? styles.myMessage : styles.theirMessage,
+          ]}
+        >
+          {!isMe && <Text style={styles.senderName}>{item.senderUsername}</Text>}
           {item.imageUrl && (
             <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
           )}
           {item.text && (
-            <Text style={[
-              styles.messageText,
-              isMe ? styles.myMessageText : styles.theirMessageText
-            ]}>
+            <Text
+              style={[
+                styles.messageText,
+                isMe ? styles.myMessageText : styles.theirMessageText,
+              ]}
+            >
               {item.text}
             </Text>
           )}
-          <Text style={[
-            styles.messageTime,
-            isMe ? styles.myMessageTime : styles.theirMessageTime
-          ]}>
+          <Text
+            style={[
+              styles.messageTime,
+              isMe ? styles.myMessageTime : styles.theirMessageTime,
+            ]}
+          >
             {formatTime(item.createdAt)}
           </Text>
         </View>
@@ -262,11 +268,17 @@ const GroupChatModal = () => {
             <Ionicons name="alert-circle-outline" size={60} color="#E0E0E0" />
           </View>
           <Text style={styles.errorTitle}>אירוע לא זוהה</Text>
-          <Text style={styles.errorSubtitle}>לא ניתן לטעון את הצט הקבוצתי</Text>
+          <Text style={styles.errorSubtitle}>לא ניתן לטעון את הצאט הקבוצתי</Text>
         </View>
       </SafeAreaView>
     );
   }
+
+  // חישוב דינמי של גובה ההאדר והסטטוס בר עבור iOS
+  // גובה הסטטוס בר מחושב אוטומטית ע"י SafeAreaView, אבל אם יש לך StatusBar ידני עם backgroundColor הוא עשוי להשפיע.
+  // ההאדר הוא 68 פיקסלים (paddingVertical 12 * 2 + גובה התוכן בערך 44).
+  // נוסיף קצת בטיחות לאופסט
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? 68 + 20 : 0; // 68 זה גובה ההאדר, 20 זה עוד קצת בטיחות
 
   return (
     <SafeAreaView style={styles.container}>
@@ -306,7 +318,7 @@ const GroupChatModal = () => {
               {groupName}
             </Text>
             <Text style={styles.groupStatus}>
-              צט קבוצתי • {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
+              צאט קבוצתי • {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
             </Text>
           </View>
         </View>
@@ -315,31 +327,32 @@ const GroupChatModal = () => {
       <KeyboardAvoidingView
         style={styles.flexContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+        keyboardVerticalOffset={keyboardVerticalOffset} 
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.chatContainer}>
-            {messages.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="people-outline" size={60} color="#E0E0E0" />
-                <Text style={styles.emptyStateTitle}>התחל שיחה קבוצתית</Text>
-                <Text style={styles.emptyStateSubtitle}>
-                  שלח הודעה ראשונה לקבוצת {groupName}
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                renderItem={renderMessage}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.messagesContainer}
-                showsVerticalScrollIndicator={false}
-                inverted
-              />
-            )}
-          </View>
-        </TouchableWithoutFeedback>
+        {messages.length === 0 ? (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={styles.emptyStateTouchable}>
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={60} color="#E0E0E0" />
+              <Text style={styles.emptyStateTitle}>התחל שיחה קבוצתית</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                שלח הודעה ראשונה לקבוצת {groupName}
+              </Text>
+            </View>
+          </TouchableWithoutFeedback>
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={styles.flatListTouchable}>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.messagesContainer}
+              showsVerticalScrollIndicator={false}
+              inverted
+              style={styles.flatListMain}
+            />
+          </TouchableWithoutFeedback>
+        )}
 
         <View style={styles.inputWrapper}>
           <View style={styles.inputContainer}>
@@ -347,12 +360,12 @@ const GroupChatModal = () => {
               onPress={() => sendMessage()}
               style={[
                 styles.sendButton,
-                !input.trim() && styles.sendButtonDisabled
+                !input.trim() && styles.sendButtonDisabled,
               ]}
               activeOpacity={0.8}
               disabled={!input.trim()}
             >
-              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }}/>
+              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
             </TouchableOpacity>
 
             <TextInput
@@ -386,12 +399,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   flexContainer: {
-    flex: 1
+    flex: 1,
   },
   header: {
     backgroundColor: '#FF6F00',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 12, // 12 + 12 = 24px פאדינג אנכי
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#FF6F00',
@@ -418,19 +431,19 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginLeft: 12,
   },
-  groupIcon: { // This style now applies to both Image and Ionicons container
-    width: 44,
+  groupIcon: {
+    width: 44, // גובה התוכן בערך 44px
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF', // Default background
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    overflow: 'hidden', // Essential for Image borderRadius to work
+    overflow: 'hidden',
   },
   groupIconPlaceholder: {
-    backgroundColor: '#fff', // Specific background for the icon when no image
+    backgroundColor: '#fff',
   },
   onlineIndicator: {
     position: 'absolute',
@@ -458,7 +471,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: 2,
   },
-  chatContainer: {
+  emptyStateTouchable: {
+    flex: 1,
+  },
+  flatListTouchable: {
     flex: 1,
   },
   emptyState: {
@@ -484,6 +500,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingVertical: 20,
+  },
+  flatListMain: {
+    flex: 1,
   },
   messageContainer: {
     marginVertical: 4,
@@ -551,6 +570,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingBottom: 48,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
     shadowColor: '#000',
