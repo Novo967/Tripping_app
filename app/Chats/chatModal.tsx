@@ -57,16 +57,15 @@ const ChatModal = () => {
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
 
-  const chatId = currentUid && otherUserId
-    ? [currentUid, otherUserId].sort().join('_')
-    : '';
+  const chatId =
+    currentUid && otherUserId ? [currentUid, otherUserId].sort().join('_') : '';
 
   useEffect(() => {
     if (!chatId) return;
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
+      setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Message)));
     });
     return unsubscribe;
   }, [chatId]);
@@ -94,9 +93,6 @@ const ChatModal = () => {
     });
 
     setInput('');
-    setTimeout(() => {
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    }, 100);
   };
 
   const handleImagePicker = () => {
@@ -164,41 +160,59 @@ const ChatModal = () => {
   const formatTime = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return date.toLocaleTimeString('he-IL', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === currentUid;
     return (
-      <View style={[
-        styles.messageContainer,
-        isMe ? styles.myMessageContainer : styles.theirMessageContainer
-      ]}>
-        <View style={[
-          styles.messageBubble,
-          isMe ? styles.myMessage : styles.theirMessage
-        ]}>
+      <View
+        style={[
+          styles.messageContainer,
+          isMe ? styles.myMessageContainer : styles.theirMessageContainer,
+        ]}
+      >
+        <View
+          style={[
+            styles.messageBubble,
+            isMe ? styles.myMessage : styles.theirMessage,
+          ]}
+        >
           {item.imageUrl && (
             <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
           )}
           {item.text && (
-            <Text style={[
-              styles.messageText,
-              isMe ? styles.myMessageText : styles.theirMessageText
-            ]}>
+            <Text
+              style={[
+                styles.messageText,
+                isMe ? styles.myMessageText : styles.theirMessageText,
+              ]}
+            >
               {item.text}
             </Text>
           )}
-          <Text style={[
-            styles.messageTime,
-            isMe ? styles.myMessageTime : styles.theirMessageTime
-          ]}>
+          <Text
+            style={[
+              styles.messageTime,
+              isMe ? styles.myMessageTime : styles.theirMessageTime,
+            ]}
+          >
             {formatTime(item.createdAt)}
           </Text>
         </View>
       </View>
     );
   };
+
+  // חישוב דינמי של גובה ההאדר והסטטוס בר עבור iOS
+  // גובה הסטטוס בר מחושב אוטומטית ע"י SafeAreaView, אבל אם יש לך StatusBar ידני עם backgroundColor הוא עשוי להשפיע.
+  // ההאדר הוא 68 פיקסלים (paddingVertical 12 * 2 + גובה התוכן בערך 44).
+  // נוסיף קצת בטיחות לאופסט
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? 68 + 20 : 0; // 68 זה גובה ההאדר, 20 זה עוד קצת בטיחות
 
   return (
     <SafeAreaView style={styles.container}>
@@ -222,29 +236,30 @@ const ChatModal = () => {
       <KeyboardAvoidingView
         style={styles.flexContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+        keyboardVerticalOffset={keyboardVerticalOffset} // השתמש בערך המחושב
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.chatContainer}>
-            {messages.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="chatbubble-outline" size={60} color="#E0E0E0" />
-                <Text style={styles.emptyStateTitle}>התחל שיחה</Text>
-                <Text style={styles.emptyStateSubtitle}>שלח הודעה ראשונה ל{otherUsername}</Text>
-              </View>
-            ) : (
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                renderItem={renderMessage}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.messagesContainer}
-                showsVerticalScrollIndicator={false}
-                inverted
-              />
-            )}
-          </View>
-        </TouchableWithoutFeedback>
+        {messages.length === 0 ? (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={styles.emptyStateTouchable}>
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubble-outline" size={60} color="#E0E0E0" />
+              <Text style={styles.emptyStateTitle}>התחל שיחה</Text>
+              <Text style={styles.emptyStateSubtitle}>שלח הודעה ראשונה ל{otherUsername}</Text>
+            </View>
+          </TouchableWithoutFeedback>
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={styles.flatListTouchable}>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.messagesContainer}
+              showsVerticalScrollIndicator={false}
+              inverted
+              style={styles.flatListMain}
+            />
+          </TouchableWithoutFeedback>
+        )}
 
         <View style={styles.inputWrapper}>
           <View style={styles.inputContainer}>
@@ -285,13 +300,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  flexContainer: { 
+  flexContainer: {
     flex: 1
   },
   header: {
     backgroundColor: '#FF6F00',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 12, // 12 + 12 = 24px פאדינג אנכי
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#FF6F00',
@@ -319,7 +334,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   avatar: {
-    width: 44,
+    width: 44, // גובה התוכן בערך 44px
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
@@ -351,10 +366,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: 2,
   },
-  chatContainer: {
+  emptyStateTouchable: {
     flex: 1,
   },
-  messagesWrapper: {
+  flatListTouchable: {
     flex: 1,
   },
   emptyState: {
@@ -389,6 +404,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingVertical: 20,
+  },
+  flatListMain: {
+    flex: 1,
   },
   messageContainer: {
     marginVertical: 4,
@@ -455,6 +473,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingBottom: 48,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
     shadowColor: '#000',
