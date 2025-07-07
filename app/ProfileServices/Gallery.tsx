@@ -326,7 +326,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       >
         <View style={styles.modalOverlay}>
           <BlurView style={styles.modalBlur} intensity={80} tint={theme.isDark ? 'dark' : 'light'} />
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}> {/* צבע רקע מהתמה */}
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}> 
             {selectedImageUri && <Image source={{ uri: selectedImageUri }} style={styles.modalImage} resizeMode="contain" />}
             <TouchableOpacity
               style={styles.modalCloseButton}
@@ -334,7 +334,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
                 setModalVisible(!modalVisible);
                 setSelectedImageUri(null);
               }}
-              accessibilityLabel="סגור תצוגת תמונה מוגדלת" // נגישות
+              
             >
               <Ionicons name="close-circle" size={30} color={theme.colors.text} />
             </TouchableOpacity>

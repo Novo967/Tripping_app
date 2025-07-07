@@ -278,13 +278,13 @@ const OtherUserProfile = () => {
             <View style={styles.androidBlurFallback} /> // פתרון חלופי לאנדרואיד
           )}
 
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: "#FFF" }]}>
             {selectedImage && <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />}
             <TouchableOpacity
               style={styles.closeButton}
               onPress={closeImageModal}
             >
-              <Ionicons name="close" size={30} color="white" />
+              <Ionicons name="close-circle" size={30} color="#000" />
             </TouchableOpacity>
           </View>
         </View>
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.9)', // רקע שחור שקוף יותר
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // רקע שחור שקוף יותר
   },
   modalBlur: {
     position: 'absolute',
@@ -557,15 +557,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.8)', // רקע כהה אחיד
+    backgroundColor: 'rgba(0,0,0,0.5)', // רקע כהה אחיד
   },
   modalContent: {
     borderRadius: 16,
-    // הוסר padding כי התמונה תופסת את כל המודל כמעט
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    width: width * 0.95, // התאמה לגודל התמונה ב-Gallery.tsx
-    height: height * 0.8, // התאמה לגודל התמונה ב-Gallery.tsx
+    width: width * 0.8, // התאמה לגודל התמונה ב-Gallery.tsx
+    height: height * 0.45, // התאמה לגודל התמונה ב-Gallery.tsx
     position: 'relative',
     backgroundColor: 'transparent', // רקע שקוף מאחורי התמונה, הבלור יטפל בזה
   },
@@ -577,11 +577,8 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 60, // מיקום כפתור הסגירה בראש המסך
-    right: 20,
-    zIndex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // רקע שקוף למחצה לכפתור
-    borderRadius: 20,
-    padding: 8,
+    top: 10,
+    right: 10,
+    zIndex: 10,
   },
 });
