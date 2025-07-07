@@ -395,7 +395,11 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       setSelectedUser(null);
-                      router.push({ pathname: '/ProfileServices/OtherUserProfile', params: { uid: selectedUser.uid } });
+                      if (selectedUser.uid === user?.uid) {
+                        router.push({ pathname: '/profile' }); // או הנתיב המדויק לפרופיל המשתמש העצמי שלך
+                      } else {
+                        router.push({ pathname: '/ProfileServices/OtherUserProfile', params: { uid: selectedUser.uid } });
+                      }
                     }}
                     style={{
                       marginTop: 18,
