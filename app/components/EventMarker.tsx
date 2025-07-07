@@ -16,41 +16,34 @@ interface EventMarkerProps {
 }
 
 const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
-  const color = getEventColor(event.type || '');
+  const color = getEventColor(event.type || ''); // Still use the color from markerUtils if needed for other elements
   const icon = getEventIcon(event.type || '');
+  const iconColor = '#FF6F00'; // The desired color for the icon
 
   return (
     <Marker
       key={event.id}
       coordinate={{ latitude: event.latitude, longitude: event.longitude }}
       onPress={() => onPress(event.id)}
-      anchor={{ x: 0.5, y: 1 }}
+      // Removed anchor to let the icon itself be the anchor point, or adjust as needed
     >
       <View style={styles.markerContainer}>
-      <View style={[styles.markerBody, { backgroundColor: color }]}>
-        <Ionicons name={icon as any} size={16} color="white" />
-      </View>
-      <View style={[styles.markerTip, { borderTopColor: color }]} />
+        <Ionicons name={icon as any} size={30} color={iconColor} />
       </View>
     </Marker>
   );
 };
 
 const styles = StyleSheet.create({
-  markerContainer: { alignItems: 'center', justifyContent: 'center', width: 40, height: 50 },
-  markerBody: {
-    width: 24, height: 24, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: 'white',
-    elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3, shadowRadius: 4,
+  markerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    // We can remove fixed width/height if we want the icon to dictate size
+    // For now, let's keep it flexible or adjust to icon size
+    width: 30, // Adjust based on icon size for touchability
+    height: 30, // Adjust based on icon size for touchability
   },
-  markerTip: {
-    width: 0, height: 0,
-    borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 6,
-    borderLeftColor: 'transparent', borderRightColor: 'transparent',
-    marginTop: -1,
-  },
+  // Removed markerBody and markerTip styles as they are no longer needed for the desired design
 });
 
 export default React.memo(EventMarker);
