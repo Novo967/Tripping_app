@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-// ודא ש-serverTimestamp מיוצא כאן
-import { arrayUnion, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'; // <-- כאן הוספנו את serverTimestamp
+import { arrayUnion, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated,
@@ -18,6 +17,7 @@ import {
 import { auth, db } from '../../firebaseConfig';
 import Bio from '../ProfileServices/bio';
 import Gallery from '../ProfileServices/Gallery';
+import NotificationBell from '../ProfileServices/NoficationBell'; // Import the new component
 import ProfileImage from '../ProfileServices/ProfileImage';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
@@ -31,21 +31,20 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
-  const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [showSettings, setShowSettings] = useState(false);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [showRequests, setShowRequests] = useState(false); // New state to control visibility of requests
 
   const navigation = useNavigation();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const scrollY = useRef(new Animated.Value(0)).current;
   const settingsAnim = useRef(new Animated.Value(0)).current;
+  const requestsPanelAnim = useRef(new Animated.Value(0)).current; // Animation for requests panel
 
+  // Function to fetch gallery images from the server
   const fetchGallery = async (uid: string): Promise<string[]> => {
     try {
       const res = await fetch(`${SERVER_URL}/get-gallery`, {
@@ -61,6 +60,7 @@ export default function ProfileScreen() {
     }
   };
 
+  // Function to upload images to the server (profile pic or gallery)
   const uploadImageToServer = async (uri: string, isProfilePic = false) => {
     const user = auth.currentUser;
     if (!user) return;
@@ -96,12 +96,14 @@ export default function ProfileScreen() {
     }
   };
 
+  // Function to handle deletion of images from the gallery
   const handleDeleteImagesFromGallery = (deletedImageUrls: string[]) => {
     setGallery(prevGallery =>
       prevGallery.filter(imageUrl => !deletedImageUrls.includes(imageUrl))
     );
   };
 
+  // Functions to manage image modal visibility
   const openImageModal = (imageUri: string) => {
     setSelectedImage(imageUri);
     setModalVisible(true);
@@ -112,6 +114,7 @@ export default function ProfileScreen() {
     setSelectedImage(null);
   };
 
+  // Function to save user bio
   const saveBio = async () => {
     try {
       const user = auth.currentUser;
@@ -132,6 +135,7 @@ export default function ProfileScreen() {
     }
   };
 
+  // Function to fetch pending event requests for the current user
   const fetchPendingRequests = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -153,9 +157,9 @@ export default function ProfileScreen() {
     }
   }, []);
 
+  // Function to handle accepting or declining an event request
   const handleRequestAction = async (requestId: string, action: 'accepted' | 'declined') => {
     try {
-      // Find the request from the pendingRequests state to get necessary details
       const request = pendingRequests.find(req => req.id === requestId);
 
       if (!request) {
@@ -172,36 +176,26 @@ export default function ProfileScreen() {
 
       if (response.ok) {
         if (action === 'accepted') {
-          // Add the sender's UID to the group chat's members array in Firestore
-          // The event_title is used as the group_chat ID
           const groupChatRef = doc(db, 'group_chats', request.event_title);
-
-          // Use getDoc to fetch current members and then update.
-          // This handles cases where the document or members field might not exist.
           const groupSnap = await getDoc(groupChatRef);
 
           if (groupSnap.exists()) {
-            // Document exists, update members array
             await updateDoc(groupChatRef, {
-              members: arrayUnion(request.sender_uid) // Add sender_uid if not already present
+              members: arrayUnion(request.sender_uid)
             });
             console.log(`User ${request.sender_uid} added to group ${request.event_title}`);
           } else {
-            // Document doesn't exist, create it with initial members
-            // This case might be less common if group chats are created when events are
-            // but it's a good safeguard.
             await setDoc(groupChatRef, {
-              name: request.event_title, // Assuming event_title is the desired group name
+              name: request.event_title,
               members: [request.sender_uid],
-              createdAt: serverTimestamp(), // Corrected usage
-              groupImage: null, // Default to null for icon display
+              createdAt: serverTimestamp(),
+              groupImage: null,
             });
             console.log(`Group ${request.event_title} created and user ${request.sender_uid} added.`);
           }
         }
 
         Alert.alert('הצלחה', `הבקשה ${action === 'accepted' ? 'אושרה' : 'נדחתה'} בהצלחה.`);
-        // Remove the request from the local state
         setPendingRequests(prev => prev.filter(req => req.id !== requestId));
       } else {
         Alert.alert('שגיאה', result.error || `פעולת ה${action} נכשלה.`);
@@ -212,7 +206,7 @@ export default function ProfileScreen() {
     }
   };
 
-
+  // Initial data fetching on component mount or focus
   const init = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -246,7 +240,6 @@ export default function ProfileScreen() {
     }
   }, [fetchPendingRequests]);
 
-
   useEffect(() => {
     init();
   }, [init]);
@@ -256,7 +249,7 @@ export default function ProfileScreen() {
     init();
   }, [fetchPendingRequests, init]));
 
-
+  // Animation for fading out and logging out
   const fadeOutAndLogout = () => {
     Animated.timing(fadeAnim, {
       toValue: 0,
@@ -273,6 +266,7 @@ export default function ProfileScreen() {
     });
   };
 
+  // Toggle settings panel animation
   const toggleSettings = () => {
     const toValue = showSettings ? 0 : 1;
     Animated.spring(settingsAnim, {
@@ -282,6 +276,26 @@ export default function ProfileScreen() {
       friction: 8,
     }).start();
     setShowSettings(!showSettings);
+    // Close requests panel if open
+    if (showRequests) {
+      toggleRequests();
+    }
+  };
+
+  // Toggle requests panel animation
+  const toggleRequests = () => {
+    const toValue = showRequests ? 0 : 1;
+    Animated.spring(requestsPanelAnim, {
+      toValue,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+    setShowRequests(!showRequests);
+    // Close settings panel if open
+    if (showSettings) {
+      toggleSettings();
+    }
   };
 
   if (loading) {
@@ -300,11 +314,18 @@ export default function ProfileScreen() {
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <View style={styles.topNav}>
+          {/* Notification Bell */}
+          <NotificationBell
+            hasNotifications={pendingRequests.length > 0}
+            onPress={toggleRequests}
+          />
+          {/* Settings Button */}
           <TouchableOpacity onPress={toggleSettings} style={styles.navButton}>
             <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
 
+        {/* Settings Panel */}
         <Animated.View style={[styles.settingsPanel, {
           backgroundColor: theme.colors.surface,
           transform: [{
@@ -314,6 +335,9 @@ export default function ProfileScreen() {
             }),
           }],
           opacity: settingsAnim,
+          // Position settings panel to the left
+          right: 20,
+          left: 'auto',
         }]}>
           <TouchableOpacity style={styles.settingsItem} onPress={() => {
             toggleTheme();
@@ -336,12 +360,25 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </Animated.View>
 
+        {/* Requests Panel */}
         {pendingRequests.length > 0 && (
-          <View style={styles.requestsContainer}>
+          <Animated.View style={[styles.requestsPanel, {
+            backgroundColor: theme.colors.surface,
+            transform: [{
+              translateY: requestsPanelAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-200, 0], // Adjust as needed
+              }),
+            }],
+            opacity: requestsPanelAnim,
+            // Position requests panel to the right
+            left: 20,
+            right: 'auto',
+          }]}>
             <Text style={[styles.requestsTitle, { color: theme.colors.text }]}>בקשות לאירועים:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.requestsScrollView}>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.requestsScrollView}>
               {pendingRequests.map((request) => (
-                <View key={request.id} style={[styles.requestCard, { backgroundColor: theme.colors.surface }]}>
+                <View key={request.id} style={[styles.requestCard, { backgroundColor: theme.colors.background }]}>
                   <Image
                     source={{ uri: `https://placehold.co/50x50/FF6F00/FFFFFF?text=${request.sender_username.charAt(0)}` }}
                     style={styles.requestSenderImage}
@@ -371,7 +408,7 @@ export default function ProfileScreen() {
                 </View>
               ))}
             </ScrollView>
-          </View>
+          </Animated.View>
         )}
 
         <ProfileImage
@@ -450,32 +487,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  scrollView: {
-    flex: 1,
-  },
   topNav: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'flex-start',
+    flexDirection: 'row', // Changed to row to place bell on the right, settings on the left
+    justifyContent: 'space-between', // Space out the buttons
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 10 : 20,
@@ -492,7 +506,7 @@ const styles = StyleSheet.create({
   settingsPanel: {
     position: 'absolute',
     top: 80,
-    right: 20,
+    right: 20, // Keep right for settings
     left: 20,
     zIndex: 15,
     borderRadius: 12,
@@ -502,6 +516,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
+  },
+  requestsPanel: {
+    position: 'absolute',
+    top: 80,
+    left: 20, // Position requests panel to the left
+    right: 20,
+    zIndex: 15,
+    borderRadius: 12,
+    padding: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    maxHeight: height * 0.5, // Limit height of requests panel
   },
   settingsItem: {
     flexDirection: 'row-reverse',
@@ -518,14 +547,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
     marginBottom: 8,
-  },
-  gradientBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 0,
   },
   statsContainer: {
     flexDirection: 'row-reverse',
@@ -665,7 +686,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 8,
   },
-  // סטיילים של בקשות אירועים
+  // Event requests styles
   requestsContainer: {
     paddingVertical: 15,
     borderBottomWidth: 1,
@@ -688,7 +709,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 10,
     padding: 12,
-    marginHorizontal: 10,
+    marginHorizontal: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -696,6 +717,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     width: width * 0.9 - 20,
     minHeight: 80,
+    marginBottom: 10, // Added margin for spacing between cards
   },
   requestSenderImage: {
     width: 50,
