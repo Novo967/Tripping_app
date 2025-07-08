@@ -1,3 +1,4 @@
+// app/GroupChatModal.tsx
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -365,7 +366,7 @@ const GroupChatModal = () => {
               activeOpacity={0.8}
               disabled={!input.trim()}
             >
-              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
+              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'}style={{ transform: [{ scaleX: -1 }] }} />
             </TouchableOpacity>
 
             <TextInput
