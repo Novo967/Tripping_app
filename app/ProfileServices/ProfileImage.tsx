@@ -133,9 +133,6 @@ const ProfileImage: React.FC<Props> = ({
             color="white" 
           />
         </TouchableOpacity>
-        
-        {/* Online status indicator */}
-        <View style={[styles.onlineIndicator, { backgroundColor: theme.colors.success }]} />
       </View>
       
       <Text style={[styles.username, { color: theme.colors.text }]}>
@@ -204,16 +201,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: 'white',
   },
   username: {
     fontSize: 24,
