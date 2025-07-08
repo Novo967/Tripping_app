@@ -270,7 +270,7 @@ const ChatsList = () => {
             style={styles.avatar}
           />
         )}
-        <View style={styles.onlineIndicator} />
+        
       </View>
 
       <View style={styles.textContainer}>
@@ -457,17 +457,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 3,
     borderColor: '#FF6F00',
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   textContainer: {
     flex: 1,
