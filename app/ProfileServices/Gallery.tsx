@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore'; // תוודא שזה קיים
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +18,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { auth } from '../../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -37,7 +38,31 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [longPressActive, setLongPressActive] = useState(false);
+  const [likeCounts, setLikeCounts] = useState<number[]>([]);
+  useEffect(() => {
+    const fetchLikesForGallery = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
 
+      const promises = gallery.map(async (_, index) => {
+        const docId = `${user.uid}_${index}`;
+        const docRef = doc(db, 'imageLikes', docId);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          return Array.isArray(data.likes) ? data.likes.length : 0;
+        }
+        return 0;
+      });
+
+      const results = await Promise.all(promises);
+      setLikeCounts(results);
+    };
+
+    if (gallery.length > 0) {
+      fetchLikesForGallery();
+    }
+  }, [gallery]);
   const handlePickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -115,7 +140,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
     }
   };
 
-
+  
   const handleDeleteSelected = async () => {
     Alert.alert(
       'מחיקת תמונות',
@@ -154,7 +179,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       ]
     );
   };
-
+  
 
   const renderGridItem = ({ item, index }: ListRenderItemInfo<string>) => {
     const isSelected = selectedImages.has(index);
@@ -197,12 +222,11 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
           <View style={styles.imageStats}>
             <View style={styles.statItem}>
               <Ionicons name="heart" size={12} color="white" />
-              <Text style={styles.statText}>24</Text>
+                <Text style={styles.statText}>
+                  {likeCounts[index] !== undefined ? likeCounts[index] : 0}
+                </Text>
             </View>
-            <View style={styles.statItem}>
-              <Ionicons name="chatbubble" size={12} color="white" />
-              <Text style={styles.statText}>8</Text>
-            </View>
+            
           </View>
         </LinearGradient>
       </TouchableOpacity>

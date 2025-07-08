@@ -17,8 +17,8 @@ import {
   View,
 } from 'react-native';
 import { db } from '../../firebaseConfig';
+import { LikeableImage } from '../components/LikeableImage';
 import { RootStackParamList } from '../types';
-
 type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile'>;
 
 const { width, height } = Dimensions.get('window');
@@ -239,17 +239,21 @@ const OtherUserProfile = () => {
             scrollEnabled={false}
             contentContainerStyle={styles.galleryContainer}
             renderItem={({ item, index }) => (
-              <TouchableOpacity
-                style={styles.galleryImageContainer}
-                onPress={() => openImageModal(item)}
-              >
-                <Image source={{ uri: item }} style={styles.galleryImage} />
+              <View style={styles.galleryImageContainer}>
+                <LikeableImage
+                  imageUri={item}
+                  imageIndex={index}
+                  profileOwnerId={uid}
+                  style={styles.galleryImage}
+                  onPress={() => openImageModal(item)}
+                  showLikeButton={true}
+                />
                 {index === 8 && userData.galleryImages.length > 9 && (
                   <View style={styles.moreImagesOverlay}>
                     <Text style={styles.moreImagesText}>+{userData.galleryImages.length - 9}</Text>
                   </View>
                 )}
-              </TouchableOpacity>
+              </View>
             )}
           />
         </View>
@@ -483,9 +487,9 @@ const styles = StyleSheet.create({
   galleryImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
     borderRadius: 12,
   },
+  // Keep all your existing styles, just these two are updated
   moreImagesOverlay: {
     position: 'absolute',
     top: 0,
