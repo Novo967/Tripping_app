@@ -63,6 +63,7 @@ class User(Base):
         primaryjoin='User.uid==EventRequest.sender_uid'
     )
 
+
 class GalleryImage(Base):
     __tablename__ = 'gallery_images'
 
@@ -70,20 +71,8 @@ class GalleryImage(Base):
     uid = Column(String(128), ForeignKey('users.uid'), nullable=False)
     image_url = Column(String, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
-    # ✅ שדה חדש: מערך של User IDs שעשו לייק לתמונה
-    liked_by = Column(PG_ARRAY(String), default=lambda: []) # ברירת מחדל: רשימה ריקה
 
     user = relationship("User", back_populates="gallery_images")
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "uid": self.uid,
-            "image_url": self.image_url,
-            "uploaded_at": self.uploaded_at.isoformat(),
-            "likes_count": len(self.liked_by), # ✅ הוספנו את כמות הלייקים
-            "liked_by_uids": self.liked_by # ✅ הוספנו את רשימת ה-UIDs
-        }
 
 class Pin(Base):
     __tablename__ = 'pins'
@@ -143,116 +132,30 @@ class EventRequest(Base):
             "timestamp": self.timestamp.isoformat()
         }
 
+
 Base.metadata.create_all(engine)
 
 # ----------------------------
 # 🔵 GET USER PROFILE
 # ----------------------------
-@app.route('/get-user-profile', methods=['GET'])
+@app.route('/get-user-profile', methods=['POST'])
 def get_user_profile():
+    data = request.get_json()
+    print("Received data:", data)
+    uid = data.get('uid') if data else None
     session = Session()
-    try:
-        uid = request.args.get('uid')
-        if not uid:
-            return jsonify({"error": "UID is required"}), 400
-
-        user = session.query(User).filter_by(uid=uid).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        gallery_images = session.query(GalleryImage).filter_by(uid=uid).all()
-        # ✅ מעבירים את כל אובייקט התמונה, כולל לייקים
-        gallery_data = [img.to_dict() for img in gallery_images]
-
-        user_data = {
-            "uid": user.uid,
-            "username": user.username,
-            "profile_image": user.profile_image,
-            "latitude": user.latitude,
-            "longitude": user.longitude,
-            "bio": user.bio,
-            "gallery_images": gallery_data # ✅ שינינו לשליחת כל הנתונים
+    user = session.query(User).filter_by(uid=uid).first()
+    if user:
+        response = {
+            'profile_image': user.profile_image or '',
+            'username': user.username or '',
+            'bio': user.bio or '', # ✅ החזרת שדה ביו
         }
-        return jsonify(user_data), 200
-    except Exception as e:
-        print(f"Error fetching user profile: {e}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-@app.route('/toggle-image-like', methods=['POST'])
-def toggle_image_like():
-    session = Session()
-    try:
-        data = request.get_json()
-        user_uid = data.get('user_uid')
-        image_id = data.get('image_id')
+    else:
+        response = {'profile_image': '', 'username': '', 'bio': ''}
+    print("Response JSON:", response)
+    return jsonify(response)
 
-        if not user_uid or not image_id:
-            return jsonify({"error": "user_uid and image_id are required"}), 400
-
-        image = session.query(GalleryImage).filter_by(id=image_id).first()
-        if not image:
-            return jsonify({"error": "Image not found"}), 404
-
-        current_liked_by = list(image.liked_by) # עבודה עם עותק
-        is_liked = user_uid in current_liked_by
-
-        if is_liked:
-            # ביטול לייק
-            current_liked_by.remove(user_uid)
-            message = "Like removed"
-        else:
-            # הוספת לייק
-            current_liked_by.append(user_uid)
-            message = "Like added"
-
-        image.liked_by = current_liked_by
-        session.commit()
-
-        return jsonify({
-            "message": message,
-            "likes_count": len(image.liked_by),
-            "liked_by_uids": image.liked_by,
-            "is_liked": not is_liked # מחזירים את המצב החדש
-        }), 200
-    except Exception as e:
-        session.rollback()
-        print(f"Error toggling like: {e}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-
-# ✅ מסלול חדש: קבלת פרטי משתמשים שעשו לייק לתמונה
-@app.route('/get-image-likers', methods=['GET'])
-def get_image_likers():
-    session = Session()
-    try:
-        image_id = request.args.get('image_id')
-        if not image_id:
-            return jsonify({"error": "image_id is required"}), 400
-
-        image = session.query(GalleryImage).filter_by(id=image_id).first()
-        if not image:
-            return jsonify({"error": "Image not found"}), 404
-
-        liker_uids = image.liked_by
-        likers_data = []
-
-        if liker_uids:
-            likers = session.query(User).filter(User.uid.in_(liker_uids)).all()
-            # שומרים על סדר הלייקים כפי שהם במערך ה-UIDs
-            # ניתן גם למיין לפי תאריך/שם אם רוצים סדר אחר
-            likers_map = {liker.uid: {"username": liker.username, "profile_image": liker.profile_image} for liker in likers}
-            for uid in liker_uids:
-                if uid in likers_map:
-                    likers_data.append(likers_map[uid])
-
-        return jsonify({"likers": likers_data}), 200
-    except Exception as e:
-        print(f"Error fetching likers: {e}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
 @app.route('/register-user', methods=['POST'])
 def register_user():
     data = request.get_json()
