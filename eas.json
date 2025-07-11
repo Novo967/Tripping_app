@@ -1,8 +1,24 @@
 {
   "build": {
-    "android": {
+    "production": {
+      "android": {
+        "buildType": "apk" 
+      },
+      "ios": {
+        "simulator": true
+      }
     },
-    "ios": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
     }
+  },
+  "cli": {
+    "version": ">= 3.0.0"
   }
 }
