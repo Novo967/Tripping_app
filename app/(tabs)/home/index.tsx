@@ -15,8 +15,8 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-// הסר את PROVIDER_OSMDROID מהייבוא
-import MapView, { Region, UrlTile } from 'react-native-maps'; // <--- שינוי כאן: PROVIDER_OSMDROID הוסר
+// ייבא את PROVIDER_GOOGLE כדי לציין את ספק המפה של גוגל
+import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps'; // <--- שינוי כאן: הוספנו PROVIDER_GOOGLE והסרנו UrlTile
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
@@ -297,8 +297,8 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1 }}>
       <MapView
-        // הסר את המאפיין 'provider' לחלוטין כאשר משתמשים רק ב-UrlTile עבור OSM
-        // provider={PROVIDER_OSMDROID} // <--- שורה זו הוסרה
+        // הגדרת ספק המפה להיות Google Maps
+        provider={PROVIDER_GOOGLE} // <--- שינוי חשוב: זה מה שמפעיל את גוגל מפות
         style={{ flex: 1 }}
         region={region}
         onPress={(e) => {
@@ -315,11 +315,9 @@ export default function HomeScreen() {
           setSelectedEvent(null);
         }}
       >
-        <UrlTile
-          urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19} // רמת זום מקסימלית (ניתן לשנות)
-          flipY={false} // חשוב עבור OpenStreetMap
-        />
+        {/* רכיב ה-UrlTile הוסר, כי הוא מיועד למפות אריחים כמו OpenStreetMap */}
+        {/* <UrlTile urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} flipY={false} /> */}
+        
         {visibleEvents.map(event => (
           <EventMarker
             key={event.id}
