@@ -11,20 +11,23 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.novandnoam.trippingapp"
+      "bundleIdentifier": "com.novandnoam.trippingapp",
+      "config": { 
+        "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg" }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Tripping_app"
+      "package": "com.anonymous.Tripping_app",
+      "config": { 
+        "googleMaps": {
+          "apiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg" 
+        }
+      }
     },
-    
-     
-    
     "web": {
       "bundler": "metro",
       "output": "static",

@@ -15,7 +15,8 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-import MapView, { Region, UrlTile } from 'react-native-maps';
+// הסר את PROVIDER_OSMDROID מהייבוא
+import MapView, { Region, UrlTile } from 'react-native-maps'; // <--- שינוי כאן: PROVIDER_OSMDROID הוסר
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
@@ -195,9 +196,9 @@ export default function HomeScreen() {
   }, [events, currentLocation, displayDistance]);
 
   const handleAddEventPress = () => {
-     setTimeout(() => {
-      setIsChoosingLocation(true);
-    }, 500);
+      setTimeout(() => {
+        setIsChoosingLocation(true);
+      }, 500);
   };
 
   const handleCancelLocationSelection = () => {
@@ -296,6 +297,8 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1 }}>
       <MapView
+        // הסר את המאפיין 'provider' לחלוטין כאשר משתמשים רק ב-UrlTile עבור OSM
+        // provider={PROVIDER_OSMDROID} // <--- שורה זו הוסרה
         style={{ flex: 1 }}
         region={region}
         onPress={(e) => {
@@ -311,8 +314,6 @@ export default function HomeScreen() {
           setSelectedUser(null);
           setSelectedEvent(null);
         }}
-        // חשוב: הסר את provider={PROVIDER_GOOGLE} אם קיים!
-        // ודא שאין לך גם מאפיין `provider` אחר שמצביע לגוגל
       >
         <UrlTile
           urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
