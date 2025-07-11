@@ -11,16 +11,20 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.NovAndNoam.Tripping_app"
+      "bundleIdentifier": "com.novandnoam.trippingapp"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Tripping_app"
     },
+    
+     
+    
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -43,7 +47,7 @@
       "typedRoutes": true
     },
     "extra": {
-        "router": {},
+      "router": {},
       "eas": {
         "projectId": "b1f09d27-4461-43f4-9fa5-cc2e132c8afc"
       }
