@@ -15,7 +15,7 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-import MapView, { Region } from 'react-native-maps';
+import MapView, { Region, UrlTile } from 'react-native-maps';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
@@ -311,7 +311,14 @@ export default function HomeScreen() {
           setSelectedUser(null);
           setSelectedEvent(null);
         }}
+        // חשוב: הסר את provider={PROVIDER_GOOGLE} אם קיים!
+        // ודא שאין לך גם מאפיין `provider` אחר שמצביע לגוגל
       >
+        <UrlTile
+          urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19} // רמת זום מקסימלית (ניתן לשנות)
+          flipY={false} // חשוב עבור OpenStreetMap
+        />
         {visibleEvents.map(event => (
           <EventMarker
             key={event.id}
