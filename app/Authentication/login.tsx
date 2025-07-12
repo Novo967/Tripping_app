@@ -80,14 +80,7 @@ export default function LoginScreen() {
           <View style={styles.logoContainer}>
             <Text style={styles.logo}>TREK</Text>
             <Text style={styles.slogenContainer}>
-            <Text style={styles.BoldSlogen}>T</Text>
-            <Text style={styles.slogen}>ravel, </Text>
-            <Text style={styles.BoldSlogen}>R</Text>
-            <Text style={styles.slogen}>elate, </Text>
-            <Text style={styles.BoldSlogen}>E</Text>
-            <Text style={styles.slogen}>xplore, </Text> 
-            <Text style={styles.BoldSlogen}>K</Text>
-            <Text style={styles.slogen}>eep moving</Text>
+           
             </Text>
             <View style={styles.logoUnderline} />
           </View>
@@ -193,20 +186,6 @@ const styles = StyleSheet.create({
   },
   slogenContainer: {
     textAlign: 'center',
-  },
-  slogen: {
-    fontSize: width * 0.04,
-    fontWeight: '200',
-    color: PRIMARY_COLOR,
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
-  BoldSlogen: {
-    fontSize: width * 0.042,
-    fontWeight: '400',
-    color: PRIMARY_COLOR,
-    textAlign: 'center',
-    letterSpacing: 1,
   },
   logoUnderline: {
     width: 60,
