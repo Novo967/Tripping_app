@@ -1,23 +1,67 @@
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { auth } from '../firebaseConfig';
+import SplashScreen from './SplashScreen';
 
 export default function AppEntry() {
   const router = useRouter();
+  const [showSplash, setShowSplash] = useState(true);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) router.replace('/(tabs)/home');
-      else router.replace('/Authentication/login');
-    });
-    return unsubscribe;
-  }, []);
+    // Show splash for 3 seconds
+    const splashTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 5000);
 
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <ActivityIndicator size="large" />
-    </View>
-  );
+    // Firebase auth listener
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthChecked(true);
+      
+      // Only navigate after splash is done
+      if (!showSplash) {
+        if (user) {
+          router.replace('/(tabs)/home');
+        } else {
+          router.replace('/Authentication/login');
+        }
+      }
+    });
+
+    return () => {
+      clearTimeout(splashTimer);
+      unsubscribe();
+    };
+  }, [showSplash]);
+
+  // Navigate after splash is done and auth is checked
+  useEffect(() => {
+    if (!showSplash && isAuthChecked) {
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          router.replace('/(tabs)/home');
+        } else {
+          router.replace('/Authentication/login');
+        }
+      });
+    }
+  }, [showSplash, isAuthChecked]);
+
+  // Show splash screen first
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
+  // Show loading indicator while checking auth after splash
+  if (!isAuthChecked) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return null;
 }
