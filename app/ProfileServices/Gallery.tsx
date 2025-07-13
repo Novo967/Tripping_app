@@ -12,7 +12,6 @@ import {
   FlatList,
   Image,
   ListRenderItemInfo,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -28,17 +27,16 @@ type Props = {
   gallery: string[];
   onAddImage: (uri: string) => void;
   onDeleteImages: (deletedImageUrls: string[]) => void;
+  onImagePress: (imageUri: string) => void; // הוסף את השורה הזו
 };
 
-export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
+export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePress }: Props) {
   const { theme } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
-  // הוסר: const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [longPressActive, setLongPressActive] = useState(false);
   const [likeCounts, setLikeCounts] = useState<number[]>([]);
+  
   useEffect(() => {
     const fetchLikesForGallery = async () => {
       const user = auth.currentUser;
@@ -63,6 +61,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       fetchLikesForGallery();
     }
   }, [gallery]);
+
   const handlePickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -126,8 +125,8 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       }
       setSelectedImages(newSelected);
     } else {
-      setSelectedImageUri(gallery[index]);
-      setModalVisible(true);
+      // השתמש ב-onImagePress שמועבר כפרופ
+      onImagePress(gallery[index]);
     }
   };
 
@@ -140,7 +139,6 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
     }
   };
 
-  
   const handleDeleteSelected = async () => {
     Alert.alert(
       'מחיקת תמונות',
@@ -179,7 +177,6 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
       ]
     );
   };
-  
 
   const renderGridItem = ({ item, index }: ListRenderItemInfo<string>) => {
     const isSelected = selectedImages.has(index);
@@ -338,33 +335,6 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages}: Props) {
           </BlurView>
         </TouchableOpacity>
       )}
-
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(!modalVisible);
-          setSelectedImageUri(null);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <BlurView style={styles.modalBlur} intensity={80} tint={theme.isDark ? 'dark' : 'light'} />
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}> 
-            {selectedImageUri && <Image source={{ uri: selectedImageUri }} style={styles.modalImage} resizeMode="contain" />}
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => {
-                setModalVisible(!modalVisible);
-                setSelectedImageUri(null);
-              }}
-              
-            >
-              <Ionicons name="close-circle" size={30} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -536,38 +506,5 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalBlur: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  modalContent: {
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: SCREEN_WIDTH * 0.8,
-    height: SCREEN_HEIGHT * 0.45, // שינוי ל-height כדי לשלוט בגודל טוב יותר
-    position: 'relative',
-  },
-  modalImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 12,
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    zIndex: 10,
   },
 });
