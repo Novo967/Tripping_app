@@ -21,6 +21,7 @@ import UserMarker from '../../components/UserMarker';
 
 // ייבוא קומפוננטות המודל החדשות
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
+import MyLocationButton from '../../IndexServices/MyLocationButton';
 import UserDetailsModal from '../../IndexServices/UserDetailsModal';
 // ייבוא פונקציית העזר
 import { calculateDistance } from '../../IndexServices/MapUtils';
@@ -269,6 +270,19 @@ export default function HomeScreen() {
   }, []);
 
   /**
+   * מטפל בעדכון המיקום מלחצן המיקום ומזיז את המפה למיקום החדש.
+   */
+  const handleLocationUpdate = useCallback((location: { latitude: number; longitude: number }) => {
+    setCurrentLocation(location);
+    setRegion({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    });
+  }, []);
+
+  /**
    * פותח צ'אט פרטי עם משתמש אחר.
    * @param targetUserUid ה-UID של המשתמש השני
    * @param targetUsername שם המשתמש של המשתמש השני
@@ -370,6 +384,9 @@ export default function HomeScreen() {
         isChoosingLocation={isChoosingLocation}
       />
 
+      {/* לחצן המיקום */}
+      <MyLocationButton onLocationUpdate={handleLocationUpdate} />
+
       {/* סלקטור מיקום חדש לאירוע */}
       <LocationSelector
         visible={isChoosingLocation}
@@ -413,8 +430,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
-  // הסגנונות עבור modalOverlay, modalBox, modalTitle, modalDate, modalAuthor,
-  // requestButton, requestButtonText, chatButton, chatButtonText,
-  // profileButton, profileButtonText, sendMessageButton, sendMessageButtonText
-  // הועברו לקומפוננטות המודל הספציפיות
 });
