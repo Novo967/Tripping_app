@@ -4,25 +4,20 @@ from datetime import datetime
 import uuid
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
 from sqlalchemy import create_engine, Column, Integer, String, Text, Float, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY # ✅ ייבוא ARRAY עבור PostgreSQL
 
 # Import Pillow and pillow_heif for image processing
-from PIL import Image
-import pillow_heif
+
 
 # Register HEIF opener with Pillow
-pillow_heif.register_heif_opener()
 # הגדרות בסיסיות
 app = Flask(__name__)
 CORS(app)
 
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 
 # הגדרת DB
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://trippingappdbnew_user:ks2QQdvcWfXPyr8yJ8r8gU1Ux2fLIuUi@dpg-d1ieg9jipnbc73bk80m0-a.oregon-postgres.render.com/trippingappdbnew')
@@ -220,45 +215,44 @@ def update_user_profile():
 # ----------------------------
 @app.route('/upload-image', methods=['POST'])
 def upload_image():
-    file = request.files.get('image')
-    uid = request.form.get('uid')
-    image_type = request.form.get('type')  # 'profile' or 'gallery'
+    # ציפייה ל-JSON שמכיל את ה-URL של התמונה מפיירבייס סטורג'
+    data = request.get_json() 
+    uid = data.get('uid')
+    image_url = data.get('image_url') # ה-URL שהתקבל מפיירבייס סטורג'
+    image_type = data.get('type')    # 'profile' or 'gallery'
 
-    if not file or not uid:
-        return jsonify({'error': 'Missing data'}), 400
+    if not uid or not image_url or not image_type:
+        print("Missing data for upload-image:", data)
+        return jsonify({'error': 'Missing uid, image_url, or type'}), 400
 
-    base_filename = os.path.splitext(secure_filename(file.filename))[0]
-    output_filename = f"{uid}_{image_type}_{int(time.time())}_{base_filename}.jpg"
-    output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
-
+    session = Session()
     try:
-        img = Image.open(file.stream)
-        if img.mode in ('RGBA', 'P'):
-            img = img.convert('RGB')
-        img.save(output_filepath, "jpeg", optimize=True, quality=85)
-
-        timestamp = int(time.time())
-        image_url = f"https://tripping-app.onrender.com/uploads/{output_filename}?v={timestamp}"
-
-        session = Session()
         user = session.query(User).filter_by(uid=uid).first()
         if not user:
-            user = User(id=uid, uid=uid, username=f"User_{uid[:8]}", profile_image="")
+            # יצירת משתמש אם לא קיים - וודא ש-id ו-uid מוגדרים נכון
+            # במקרה הזה, Firebase auth כבר יוצר משתמש, אז כנראה שפה זה פחות רלוונטי
+            # אבל טוב שזה קיים כ"מחסום ביטחון"
+            user = User(id=str(uuid.uuid4()), uid=uid, username=f"User_{uid[:8]}")
             session.add(user)
-            session.commit()
+            session.commit() # commit כדי שהיוזר יהיה קיים בסשן
 
         if image_type == 'profile':
             user.profile_image = image_url
-        else: # gallery image
-            gallery_image = GalleryImage(uid=uid, image_url=image_url, uploaded_at=datetime.utcnow())
-            session.add(gallery_image)
+            print(f"Updated profile image for {uid} to {image_url}")
+        elif image_type == 'gallery':
+            new_gallery_image = GalleryImage(uid=uid, image_url=image_url, uploaded_at=datetime.utcnow())
+            session.add(new_gallery_image)
+            print(f"Added gallery image for {uid}: {image_url}")
+        else:
+            session.rollback()
+            return jsonify({'error': 'Invalid image type specified'}), 400
 
         session.commit()
-        return jsonify({'url': image_url})
+        return jsonify({'url': image_url, 'message': 'Image URL saved successfully'}), 200
 
     except Exception as e:
         session.rollback()
-        print(f"🔥 Error processing or saving image: {e}")
+        print(f"🔥 Error saving image URL in DB: {e}")
         import traceback
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
@@ -268,39 +262,7 @@ def upload_image():
 # ----------------------------
 # 🟢 Static file serving
 # ----------------------------
-@app.route('/uploads/<path:filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-@app.route('/upload-gallery-image', methods=['POST'])
-def upload_gallery_image():
-    data = request.json
-    uid = data.get('uid')
-    image_url = data.get('image_url')
-
-    if not uid or not image_url:
-        return jsonify({'error': 'Missing uid or image_url'}), 400
-
-    session = Session()
-    try:
-        user = session.query(User).filter_by(id=uid).first()
-        if not user:
-            user = User(id=uid, uid=uid, profile_image="")
-            session.add(user)
-            session.commit()
-
-        new_image = GalleryImage(uid=uid, image_url=image_url, uploaded_at=datetime.utcnow())
-        session.add(new_image)
-        session.commit()
-
-        return jsonify({'message': 'Image uploaded successfully'}), 200
-
-    except Exception as e:
-        session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-    finally:
-        session.close()
 
 @app.route('/get-gallery', methods=['POST'])
 def get_gallery():
@@ -496,32 +458,39 @@ def delete_pin():
 def delete_image():
     data = request.get_json()
     uid = data.get('uid')
-    image_url = data.get('image_url')
+    image_url = data.get('image_url') # ה-URL של התמונה למחיקה
 
     if not uid or not image_url:
+        print("Missing data for delete-image:", data)
         return jsonify({'error': 'Missing uid or image_url'}), 400
 
     session = Session()
-
     try:
+        # נבדוק אם ה-URL הוא תמונת פרופיל
+        user = session.query(User).filter_by(uid=uid).first()
+        if user and user.profile_image == image_url:
+            user.profile_image = None # או הגדר ל-URL של תמונת ברירת מחדל
+            print(f"Deleted profile image URL for {uid}")
+            session.commit()
+            return jsonify({'success': True, 'message': 'Profile image URL deleted successfully'})
+
+        # אם לא תמונת פרופיל, חפש בגלריה
         image = session.query(GalleryImage).filter_by(uid=uid, image_url=image_url).first()
         if image:
             session.delete(image)
             session.commit()
+            print(f"Deleted gallery image URL for {uid}: {image_url}")
+            return jsonify({'success': True, 'message': 'Gallery image URL deleted successfully'})
         else:
-            return jsonify({'error': 'Image not found in database'}), 404
+            # אם לא נמצאה בגלריה וגם לא תמונת פרופיל
+            print(f"Image URL not found for {uid}: {image_url}")
+            return jsonify({'error': 'Image URL not found in database for this user'}), 404
 
-        filename = image_url.split('/')[-1]
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
-        if os.path.exists(filepath):
-            os.remove(filepath)
-
-        return jsonify({'success': True})
     except Exception as e:
         session.rollback()
-        print(e)
-        return jsonify({'error': 'Server error'}), 500
+        print(f"🔥 Error deleting image URL from DB: {e}")
+        import traceback; print(traceback.format_exc())
+        return jsonify({'error': 'Server error during image URL deletion'}), 500
     finally:
         session.close()
 
