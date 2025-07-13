@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Tripping_app",
+    "name": "TREK",
     "slug": "Tripping_app",
     "owner": "novrubin",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/TREKicon.png",
     "scheme": "trippingapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
