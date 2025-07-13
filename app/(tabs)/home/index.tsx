@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -52,6 +52,9 @@ interface SelectedUserType {
 const SERVER_URL = 'https://tripping-app.onrender.com';
 
 export default function HomeScreen() {
+  // רפרנס למפה
+  const mapRef = useRef<MapView>(null);
+  
   // מצב עבור אזור המפה הנוכחי
   const [region, setRegion] = useState<Region | null>(null);
   // מצב עבור רשימת המשתמשים המוצגים
@@ -273,13 +276,23 @@ export default function HomeScreen() {
    * מטפל בעדכון המיקום מלחצן המיקום ומזיז את המפה למיקום החדש.
    */
   const handleLocationUpdate = useCallback((location: { latitude: number; longitude: number }) => {
+    console.log("Updating location:", location);
     setCurrentLocation(location);
-    setRegion({
+    
+    // עדכון המפה באנימציה
+    const newRegion = {
       latitude: location.latitude,
       longitude: location.longitude,
-      latitudeDelta: 0.05,
-      longitudeDelta: 0.05,
-    });
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+    
+    setRegion(newRegion);
+    
+    // אנימציה חלקה למיקום החדש
+    if (mapRef.current) {
+      mapRef.current.animateToRegion(newRegion, 1000);
+    }
   }, []);
 
   /**
@@ -312,6 +325,7 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1 }}>
       <MapView
+        ref={mapRef}
         // הגדרת ספק המפה להיות Google Maps
         provider={PROVIDER_GOOGLE}
         style={{ flex: 1 }}
