@@ -1,28 +1,34 @@
 import React, { useEffect, useRef } from 'react';
 import {
-    Animated,
-    Dimensions,
-    StatusBar,
-    StyleSheet,
-    Text,
-    View
+  ActivityIndicator // Import ActivityIndicator for loading circle
+  ,
+  Animated,
+  Dimensions,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
+  // Animated values for various elements
+  // ערכים מונפשים עבור אלמנטים שונים
   const logoAnim = useRef(new Animated.Value(0)).current;
   const logoScaleAnim = useRef(new Animated.Value(0.3)).current;
-  const subtitleAnim = useRef(new Animated.Value(0)).current;
-  const lettersAnim = useRef(new Animated.Value(0)).current;
+  const lettersContainerAnim = useRef(new Animated.Value(0)).current;
   const loadingAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     startSplashAnimation();
   }, []);
 
+  // Function to start the splash screen animation sequence
+  // פונקציה להפעלת רצף האנימציה של מסך הפתיחה
   const startSplashAnimation = () => {
-    // Stage 1: Logo appears with scale effect (0-1.5s)
+    // Stage 1: Main logo appears with a scale effect
+    // שלב 1: לוגו ראשי מופיע עם אפקט קנה מידה
     Animated.parallel([
       Animated.timing(logoAnim, {
         toValue: 1,
@@ -37,34 +43,29 @@ export default function SplashScreen() {
       }),
     ]).start();
 
-    // Stage 2: Subtitle appears (1.5-2.5s)
+    // Stage 2: Letters and words appear in a row (adjusted timing after tagline removal)
+    // שלב 2: אותיות ומילים מופיעות בשורה (תזמון מותאם לאחר הסרת הסלוגן)
     setTimeout(() => {
-      Animated.timing(subtitleAnim, {
+      Animated.timing(lettersContainerAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 1500, // Adjusted duration
         useNativeDriver: true,
       }).start();
-    }, 1500);
+    }, 1500); // Starts immediately after logo animation ends
 
-    // Stage 3: Letters expand (2.5-4.5s)
-    setTimeout(() => {
-      Animated.timing(lettersAnim, {
-        toValue: 1,
-        duration: 2000,
-        useNativeDriver: true,
-      }).start();
-    }, 2500);
-
-    // Stage 4: Loading appears (4.5-5s)
+    // Stage 3: Loading indicator appears (adjusted timing)
+    // שלב 3: מחוון טעינה מופיע (תזמון מותאם)
     setTimeout(() => {
       Animated.timing(loadingAnim, {
         toValue: 1,
         duration: 500,
         useNativeDriver: true,
       }).start();
-    }, 4500);
+    }, 3000); // Starts after letters animation
   };
 
+  // Define the words for the "TREK" acronym
+  // הגדרת המילים עבור ראשי התיבות "TREK"
   const trekWords = [
     { letter: 'T', word: 'Travel' },
     { letter: 'R', word: 'Relate' },
@@ -74,45 +75,37 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
-      
-      {/* Main Logo Section - Centered */}
+      {/* Set status bar style based on background */}
+      {/* הגדרת סגנון שורת המצב בהתאם לרקע */}
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Main content container, centered */}
+      {/* מיכל תוכן ראשי, ממורכז */}
       <View style={styles.centerContainer}>
+        {/* Main Logo - "TREK" */}
+        {/* לוגו ראשי - "TREK" */}
         <Animated.View
           style={[
             styles.logoContainer,
             {
               opacity: logoAnim,
-              transform: [
-                { scale: logoScaleAnim },
-              ],
+              transform: [{ scale: logoScaleAnim }],
             },
           ]}
         >
           <Text style={styles.mainLogo}>TREK</Text>
         </Animated.View>
 
-        {/* Subtitle */}
+        {/* Animated Letters with Meanings - arranged in a row */}
+        {/* אותיות מונפשות עם משמעויות - מסודרות בשורה */}
         <Animated.View
           style={[
-            styles.subtitleContainer,
+            styles.lettersRowContainer,
             {
-              opacity: subtitleAnim,
-            },
-          ]}
-        >
-          <Text style={styles.tagline}>Your Journey Begins Here</Text>
-        </Animated.View>
-
-        {/* Animated Letters with Meanings */}
-        <Animated.View
-          style={[
-            styles.lettersContainer,
-            {
-              opacity: lettersAnim,
+              opacity: lettersContainerAnim,
               transform: [
                 {
-                  scale: lettersAnim.interpolate({
+                  scale: lettersContainerAnim.interpolate({
                     inputRange: [0, 1],
                     outputRange: [0.8, 1],
                   }),
@@ -122,15 +115,23 @@ export default function SplashScreen() {
           ]}
         >
           {trekWords.map((item, index) => (
-            <View key={index} style={styles.letterItem}>
-              <Text style={styles.letterText}>{item.letter}</Text>
-              <Text style={styles.wordText}>{item.word}</Text>
+            <View key={index} style={styles.letterWordPair}>
+              {/* Emphasized first letter as part of the word */}
+              {/* אות ראשונה מודגשת כחלק מהמילה */}
+              <Text>
+                <Text style={styles.letterText}>{item.word.charAt(0)}</Text>
+                <Text style={styles.wordText}>{item.word.substring(1)}</Text>
+              </Text>
+              {index < trekWords.length - 1 && (
+                <Text style={styles.separatorText}> | </Text>
+              )}
             </View>
           ))}
         </Animated.View>
       </View>
 
       {/* Loading Animation */}
+      {/* אנימציית טעינה */}
       <Animated.View
         style={[
           styles.loadingContainer,
@@ -139,11 +140,7 @@ export default function SplashScreen() {
           },
         ]}
       >
-        <View style={styles.loadingDots}>
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-        </View>
+        <ActivityIndicator size="large" color="#FF6F00" />
         <Text style={styles.loadingText}>Loading...</Text>
       </Animated.View>
     </View>
@@ -153,7 +150,7 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#FFFFFF', // White background
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -165,75 +162,56 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 20, // Adjusted margin for better centering after tagline removal
   },
   mainLogo: {
-    fontSize: 72,
-    fontWeight: 'bold',
-    color: '#ff6600',
-    letterSpacing: 12,
+    fontSize: 80, // Larger font size for main logo
+    fontWeight: '900', // Bolder font weight
+    color: '#FF6F00', // Orange color for the logo
+    letterSpacing: 15, // Increased letter spacing
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.1)', // Subtle text shadow
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 5,
   },
-  subtitleContainer: {
+  lettersRowContainer: {
+    flexDirection: 'row', // Arrange items in a row
+    justifyContent: 'center', // Center items horizontally
     alignItems: 'center',
-    marginBottom: 60,
+    flexWrap: 'wrap', // Allow wrapping if content is too wide
+    paddingHorizontal: 20,
+    maxWidth: width * 0.9,
   },
-  tagline: {
-    fontSize: 18,
-    color: '#cccccc',
-    letterSpacing: 2,
-    fontWeight: '300',
-    textAlign: 'center',
-  },
-  lettersContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  letterItem: {
+  letterWordPair: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingHorizontal: 40,
-    width: '100%',
-    maxWidth: 280,
+    alignItems: 'baseline', // Align text baseline
+    marginHorizontal: 5, // Space between each letter-word pair
   },
   letterText: {
-    fontSize: 32,
+    fontSize: 24, // Smaller for initials
     fontWeight: 'bold',
-    color: '#ff6600',
-    width: 40,
+    color: '#FF6F00', // Orange for initials
+    // Removed marginRight as it's now part of the same Text component
   },
   wordText: {
-    fontSize: 20,
-    color: '#ffffff',
-    fontWeight: '400',
-    letterSpacing: 1,
-    flex: 1,
-    textAlign: 'left',
-    marginLeft: 20,
+    fontSize: 18, // Smaller for full words
+    color: '#333333', // Darker text for readability
+    fontWeight: '500',
+  },
+  separatorText: {
+    fontSize: 18,
+    color: '#AAAAAA', // Lighter separator
+    marginHorizontal: 5,
   },
   loadingContainer: {
     position: 'absolute',
     bottom: 80,
     alignItems: 'center',
   },
-  loadingDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ff6600',
-    marginHorizontal: 4,
-  },
   loadingText: {
     color: '#888888',
-    fontSize: 14,
-    letterSpacing: 1,
+    fontSize: 16, // Slightly larger loading text
+    letterSpacing: 1.2,
+    marginTop: 10, // Space between spinner and text
   },
 });
