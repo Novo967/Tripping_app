@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator // Import ActivityIndicator for loading circle
   ,
+
   Animated,
   Dimensions,
   StatusBar,
@@ -118,7 +119,7 @@ export default function SplashScreen() {
             <View key={index} style={styles.letterWordPair}>
               {/* Emphasized first letter as part of the word */}
               {/* אות ראשונה מודגשת כחלק מהמילה */}
-              <Text>
+              <Text numberOfLines={1} allowFontScaling={false}>
                 <Text style={styles.letterText}>{item.word.charAt(0)}</Text>
                 <Text style={styles.wordText}>{item.word.substring(1)}</Text>
               </Text>
@@ -178,30 +179,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row', // Arrange items in a row
     justifyContent: 'center', // Center items horizontally
     alignItems: 'center',
-    flexWrap: 'wrap', // Allow wrapping if content is too wide
-    paddingHorizontal: 20,
-    maxWidth: width * 0.9,
+    flexWrap: 'nowrap', // Prevent wrapping - force single line
+    paddingHorizontal: 10, // Reduced padding
+    maxWidth: width * 0.95, // Slightly increased max width
   },
   letterWordPair: {
     flexDirection: 'row',
     alignItems: 'baseline', // Align text baseline
-    marginHorizontal: 5, // Space between each letter-word pair
+    marginHorizontal: 2, // Reduced space between each letter-word pair
+    flex: 0, // Don't allow flex growth
+    minWidth: 0, // Allow shrinking
   },
   letterText: {
-    fontSize: 24, // Smaller for initials
+    fontSize: 20, // Reduced size for smaller screens
     fontWeight: 'bold',
     color: '#FF6F00', // Orange for initials
     // Removed marginRight as it's now part of the same Text component
   },
   wordText: {
-    fontSize: 18, // Smaller for full words
+    fontSize: 16, // Reduced size for smaller screens
     color: '#333333', // Darker text for readability
     fontWeight: '500',
   },
   separatorText: {
-    fontSize: 18,
+    fontSize: 16, // Reduced size
     color: '#AAAAAA', // Lighter separator
-    marginHorizontal: 5,
+    marginHorizontal: 3, // Reduced margin
   },
   loadingContainer: {
     position: 'absolute',
