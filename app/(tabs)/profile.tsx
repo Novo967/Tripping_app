@@ -2,6 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,9 +13,12 @@ import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
-  Text, TouchableOpacity, View
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { auth } from '../../firebaseConfig';
+import { app, auth } from '../../firebaseConfig'; // ייבוא firebaseApp
+
 import Bio from '../ProfileServices/bio';
 import EventRequestsHandler from '../ProfileServices/EventRequestsHandler';
 import Gallery from '../ProfileServices/Gallery';
@@ -25,6 +29,27 @@ import { useTheme } from '../ProfileServices/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 const SERVER_URL = 'https://tripping-app.onrender.com';
+const storage = getStorage(app); // אתחול ה-storage instance פעם אחת
+
+// פונקציית עזר להעלאת תמונה ל-Firebase Storage
+const uploadToFirebase = async (uri: string, path: string): Promise<string> => {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  const storageRef = ref(storage, path);
+  const uploadTask = await uploadBytes(storageRef, blob);
+  return getDownloadURL(uploadTask.ref);
+};
+
+// פונקציית עזר למחיקת תמונה מ-Firebase Storage
+const deleteFromFirebase = async (imageUrl: string) => {
+  try {
+    const storageRefToDelete = ref(storage, imageUrl);
+    await deleteObject(storageRefToDelete);
+    console.log("Image deleted from Firebase Storage:", imageUrl);
+  } catch (firebaseErr: any) {
+    console.warn(`Could not delete image from Firebase Storage (${imageUrl}):`, firebaseErr.message);
+  }
+};
 
 export default function ProfileScreen() {
   const [bio, setBio] = useState('');
@@ -46,8 +71,6 @@ export default function ProfileScreen() {
   const settingsAnim = useRef(new Animated.Value(0)).current;
   const requestsPanelAnim = useRef(new Animated.Value(0)).current;
 
-  // Function to fetch gallery images from the server
-  // פונקציה לשליפת תמונות גלריה מהשרת
   const fetchGallery = async (uid: string): Promise<string[]> => {
     try {
       const res = await fetch(`${SERVER_URL}/get-gallery`, {
@@ -63,53 +86,80 @@ export default function ProfileScreen() {
     }
   };
 
-  // Function to upload images to the server (profile pic or gallery)
-  // פונקציה להעלאת תמונות לשרת (תמונת פרופיל או גלריה)
   const uploadImageToServer = async (uri: string, isProfilePic = false) => {
     const user = auth.currentUser;
-    if (!user) return;
-
-    const formData = new FormData();
-    formData.append('image', {
-      uri,
-      name: 'image.jpg',
-      type: 'image/jpeg',
-    } as unknown as Blob);
-    formData.append('uid', user.uid);
-    formData.append('type', isProfilePic ? 'profile' : 'gallery');
+    if (!user) {
+      Alert.alert('שגיאה', 'יש להתחבר כדי להעלות תמונות.');
+      return;
+    }
 
     try {
-      const response = await fetch(`${SERVER_URL}/upload-image`, {
+      const pathSegment = isProfilePic ? 'profile_images' : 'gallery_images';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.jpg`;
+      const storagePath = `${pathSegment}/${user.uid}/${fileName}`;
+
+      const firebaseImageUrl = await uploadToFirebase(uri, storagePath);
+
+      const serverResponse = await fetch(`${SERVER_URL}/upload-image`, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: user.uid,
+          image_url: firebaseImageUrl,
+          type: isProfilePic ? 'profile' : 'gallery',
+        }),
       });
 
-      const result = await response.json();
-      if (response.ok) {
+      const result = await serverResponse.json();
+      if (serverResponse.ok) {
         if (isProfilePic) {
-          setProfilePic(result.url + `?v=${Date.now()}`);
+          setProfilePic(firebaseImageUrl);
         } else {
-          setGallery(prev => [...prev, result.url]);
+          setGallery(prev => [...prev, firebaseImageUrl]);
         }
+        // ✅ הוסר Alert.alert להודעת הצלחה
       } else {
-        throw new Error(result.error || 'Upload failed');
+        throw new Error(result.error || 'Upload to server failed');
       }
-    } catch (err) {
-      Alert.alert('שגיאה', 'העלאת התמונה נכשלה');
-      console.error(err);
+    } catch (err: any) {
+      Alert.alert('שגיאה', `העלאת התמונה נכשלה: ${err.message}`);
+      console.error('Upload process error:', err);
     }
   };
 
-  // Function to handle deletion of images from the gallery
-  // פונקציה לטיפול במחיקת תמונות מהגלריה
-  const handleDeleteImagesFromGallery = (deletedImageUrls: string[]) => {
-    setGallery(prevGallery =>
-      prevGallery.filter(imageUrl => !deletedImageUrls.includes(imageUrl))
-    );
+  const handleDeleteImagesFromGallery = async (deletedImageUrls: string[]) => {
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('שגיאה', 'יש להתחבר כדי למחוק תמונות.');
+      return;
+    }
+
+    try {
+      for (const imageUrl of deletedImageUrls) {
+        await deleteFromFirebase(imageUrl); // שימוש בפונקציית העזר
+        
+        const serverResponse = await fetch(`${SERVER_URL}/delete-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
+        });
+
+        if (!serverResponse.ok) {
+          const errorText = await serverResponse.text();
+          throw new Error(`Failed to delete URL from server: ${serverResponse.status} ${errorText}`);
+        }
+      }
+
+      setGallery(prevGallery =>
+        prevGallery.filter(imageUrl => !deletedImageUrls.includes(imageUrl))
+      );
+      Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה!');
+    } catch (err: any) {
+      Alert.alert('שגיאה', `מחיקת התמונה נכשלה: ${err.message}`);
+      console.error('Delete process error:', err);
+    }
   };
 
-  // Functions to manage image modal visibility
-  // פונקציות לניהול נראות מודל התמונה
   const openImageModal = (imageUri: string) => {
     setSelectedImage(imageUri);
     setModalVisible(true);
@@ -120,8 +170,6 @@ export default function ProfileScreen() {
     setSelectedImage(null);
   };
 
-  // Function to save user bio
-  // פונקציה לשמירת ביוגרפיה של המשתמש
   const saveBio = async () => {
     try {
       const user = auth.currentUser;
@@ -140,8 +188,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // Initial data fetching on component mount or focus
-  // שליפת נתונים ראשונית בעת טעינת הרכיב או מיקוד
   const init = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -150,11 +196,14 @@ export default function ProfileScreen() {
     }
 
     try {
-      const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: user.uid }),
-      });
+      const [profileRes, galleryData] = await Promise.all([
+        fetch(`${SERVER_URL}/get-user-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: user.uid }),
+        }),
+        fetchGallery(user.uid),
+      ]);
 
       if (profileRes.ok) {
         const data = await profileRes.json();
@@ -162,8 +211,6 @@ export default function ProfileScreen() {
         setUsername(data.username || '');
         if (data.bio) setBio(data.bio);
       }
-
-      const galleryData = await fetchGallery(user.uid);
       setGallery(galleryData);
 
     } catch (err) {
@@ -178,8 +225,6 @@ export default function ProfileScreen() {
   }, [init]);
 
   useFocusEffect(useCallback(() => {
-    // Re-fetch pending requests when screen is focused
-    // שליפה מחדש של בקשות ממתינות כאשר המסך ממוקד
     const fetchRequests = async () => {
       const user = auth.currentUser;
       if (!user) {
@@ -204,14 +249,8 @@ export default function ProfileScreen() {
     init();
   }, [init]));
 
-  // Animation for fading out and logging out
-  // אנימציה לדעיכה והתנתקות
   const fadeOutAndLogout = () => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(async () => {
+    Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(async () => {
       try {
         await auth.signOut();
         router.replace('/Authentication/login');
@@ -222,40 +261,26 @@ export default function ProfileScreen() {
     });
   };
 
-  // Toggle settings panel animation
-  // החלפת מצב פאנל הגדרות
   const toggleSettings = () => {
-    const toValue = showSettings ? 0 : 1;
     Animated.spring(settingsAnim, {
-      toValue,
+      toValue: showSettings ? 0 : 1,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
     }).start();
-    setShowSettings(!showSettings);
-    // Close requests panel if open
-    // סגור פאנל בקשות אם פתוח
-    if (showRequests) {
-      toggleRequests();
-    }
+    setShowSettings(prev => !prev);
+    if (showRequests) toggleRequests();
   };
 
-  // Toggle requests panel animation
-  // החלפת מצב פאנל בקשות
   const toggleRequests = () => {
-    const toValue = showRequests ? 0 : 1;
     Animated.spring(requestsPanelAnim, {
-      toValue,
+      toValue: showRequests ? 0 : 1,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
     }).start();
-    setShowRequests(!showRequests);
-    // Close settings panel if open
-    // סגור פאנל הגדרות אם פתוח
-    if (showSettings) {
-      toggleSettings();
-    }
+    setShowRequests(prev => !prev);
+    if (showSettings) toggleSettings();
   };
 
   if (loading) {
@@ -274,63 +299,31 @@ export default function ProfileScreen() {
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <View style={styles.topNav}>
-          {/* Notification Bell */}
-          {/* פעמון התראות */}
-          <NotificationBell
-            hasNotifications={pendingRequests.length > 0}
-            onPress={toggleRequests}
-          />
-          {/* Settings Button */}
-          {/* כפתור הגדרות */}
+          <NotificationBell hasNotifications={pendingRequests.length > 0} onPress={toggleRequests} />
           <TouchableOpacity onPress={toggleSettings} style={styles.navButton}>
             <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
 
-        {/* Settings Panel */}
-        {/* פאנל הגדרות */}
         <Animated.View style={[styles.settingsPanel, {
           backgroundColor: theme.colors.surface,
-          transform: [{
-            translateY: settingsAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [-200, 0],
-            }),
-          }],
-          opacity: settingsAnim,
-          right: 20,
-          left: 'auto',
+          transform: [{ translateY: settingsAnim.interpolate({ inputRange: [0, 1], outputRange: [-200, 0] }) }],
+          opacity: settingsAnim, right: 20, left: 'auto',
         }]}>
-          <TouchableOpacity style={styles.settingsItem} onPress={() => {
-            toggleTheme();
-            toggleSettings();
-          }}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => { toggleTheme(); toggleSettings(); }}>
             <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
             <Text style={[styles.settingsText, { color: theme.colors.text }]}>
               {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingsItem} onPress={() => {
-            toggleSettings();
-            fadeOutAndLogout();
-          }}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => { toggleSettings(); fadeOutAndLogout(); }}>
             <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-            <Text style={[styles.settingsText, { color: '#FF3B30' }]}>
-              התנתקות
-            </Text>
+            <Text style={[styles.settingsText, { color: '#FF3B30' }]}>התנתקות</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Requests Panel */}
-        {/* פאנל בקשות */}
         <Animated.View style={[styles.requestsPanelAnimated, {
-          transform: [{
-            translateY: requestsPanelAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [-200, 0],
-            }),
-          }],
+          transform: [{ translateY: requestsPanelAnim.interpolate({ inputRange: [0, 1], outputRange: [-200, 0] }) }],
           opacity: requestsPanelAnim,
         }]}>
           <EventRequestsHandler
@@ -340,7 +333,6 @@ export default function ProfileScreen() {
             setPendingRequests={setPendingRequests}
           />
         </Animated.View>
-
 
         <ProfileImage
           profilePic={profilePic}
@@ -368,14 +360,11 @@ export default function ProfileScreen() {
           onImagePress={openImageModal}
         />
 
-        {/* Image Modal */}
-        {/* מודל תמונה */}
         <ImageModal
           visible={modalVisible}
           selectedImage={selectedImage}
           onClose={closeImageModal}
         />
-
       </Animated.View>
     </SafeAreaView>
   );
