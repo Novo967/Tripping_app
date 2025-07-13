@@ -3,7 +3,7 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { BlurView } from 'expo-blur'; // ודא ש-expo-blur מותקן: npm install expo-blur
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -31,6 +31,10 @@ interface UserData {
     country: string;
     city: string;
   } | null;
+  currentLocation?: {
+    country: string;
+    city: string;
+  } | null;
   bio?: string;
   favoriteDestinations?: string[];
   travelStyle?: string;
@@ -49,7 +53,8 @@ const OtherUserProfile = () => {
   });
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+  const modalFlatListRef = useRef<FlatList>(null);
 
   const router = useRouter();
 
@@ -76,6 +81,9 @@ const OtherUserProfile = () => {
             galleryImages: apiData.gallery_images || [],
             location: firestoreData.location && firestoreData.location.city && firestoreData.location.country
               ? firestoreData.location
+              : null,
+            currentLocation: firestoreData.currentLocation && firestoreData.currentLocation.city && firestoreData.currentLocation.country
+              ? firestoreData.currentLocation
               : null,
             bio: firestoreData.bio || '',
             favoriteDestinations: firestoreData.favoriteDestinations || [],
@@ -123,15 +131,24 @@ const OtherUserProfile = () => {
     </View>
   );
 
-  const openImageModal = (imageUri: string) => {
-    setSelectedImage(imageUri);
+  const openImageModal = (imageIndex: number) => {
+    setSelectedImageIndex(imageIndex);
     setModalVisible(true);
   };
 
   const closeImageModal = () => {
     setModalVisible(false);
-    setSelectedImage(null);
+    setSelectedImageIndex(0);
   };
+
+  const renderModalImage = ({ item, index }: { item: string; index: number }) => (
+    <View style={styles.modalImageContainer}>
+      <Image source={{ uri: item }} style={styles.modalImage} resizeMode="contain" />
+      <View style={styles.imageCounter}>
+        <Text style={styles.imageCounterText}>{index + 1} / {userData.galleryImages.length}</Text>
+      </View>
+    </View>
+  );
 
   if (loading) {
     return (
@@ -175,16 +192,26 @@ const OtherUserProfile = () => {
           {userData.isOnline && <View style={styles.onlineBadge} />}
         </View>
 
-
         <Text style={styles.username}>{userData.username}</Text>
 
-        {/* Location */}
+        {/* Current Location */}
+        {(userData.currentLocation?.city && userData.currentLocation?.country &&
+          userData.currentLocation.city !== 'לא זמין' && userData.currentLocation.country !== 'לא זמין') && (
+            <View style={styles.currentLocationContainer}>
+              <Feather name="map-pin" size={16} color="#FF6F00" />
+              <Text style={styles.currentLocationText}>
+                {userData.currentLocation.city}, {userData.currentLocation.country}
+              </Text>
+            </View>
+          )}
+
+        {/* Home Location */}
         {(userData.location?.city && userData.location?.country &&
           userData.location.city !== 'לא זמין' && userData.location.country !== 'לא זמין') && (
             <View style={styles.locationContainer}>
-              <Feather name="map-pin" size={16} color="#666" />
+              <Feather name="home" size={14} color="#666" />
               <Text style={styles.locationText}>
-                {userData.location.city}, {userData.location.country}
+                מ-{userData.location.city}, {userData.location.country}
               </Text>
             </View>
           )}
@@ -245,7 +272,7 @@ const OtherUserProfile = () => {
                   imageIndex={index}
                   profileOwnerId={uid}
                   style={styles.galleryImage}
-                  onPress={() => openImageModal(item)}
+                  onPress={() => openImageModal(index)}
                   showLikeButton={true}
                 />
                 {index === 8 && userData.galleryImages.length > 9 && (
@@ -267,7 +294,7 @@ const OtherUserProfile = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Image Modal */}
+      {/* Enhanced Image Modal with Swipe */}
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -279,16 +306,66 @@ const OtherUserProfile = () => {
           {Platform.OS === 'ios' ? (
             <BlurView style={styles.modalBlur} intensity={80} tint="dark" />
           ) : (
-            <View style={styles.androidBlurFallback} /> // פתרון חלופי לאנדרואיד
+            <View style={styles.androidBlurFallback} />
           )}
 
-          <View style={[styles.modalContent, { backgroundColor: "#FFF" }]}>
-            {selectedImage && <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />}
+          <View style={styles.modalContent}>
+            <FlatList
+              ref={modalFlatListRef}
+              data={userData.galleryImages}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={renderModalImage}
+              initialScrollIndex={selectedImageIndex}
+              getItemLayout={(data, index) => ({
+                length: width,
+                offset: width * index,
+                index,
+              })}
+              onMomentumScrollEnd={(event) => {
+                const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+                setSelectedImageIndex(newIndex);
+              }}
+            />
+            
+            {/* Navigation arrows */}
+            {userData.galleryImages.length > 1 && (
+              <>
+                {selectedImageIndex > 0 && (
+                  <TouchableOpacity
+                    style={[styles.navButton, styles.navButtonRight]}
+                    onPress={() => {
+                      const newIndex = selectedImageIndex - 1;
+                      setSelectedImageIndex(newIndex);
+                      modalFlatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
+                    }}
+                  >
+                    <Feather name="chevron-right" size={24} color="#fff" />
+                  </TouchableOpacity>
+                )}
+                
+                {selectedImageIndex < userData.galleryImages.length - 1 && (
+                  <TouchableOpacity
+                    style={[styles.navButton, styles.navButtonLeft]}
+                    onPress={() => {
+                      const newIndex = selectedImageIndex + 1;
+                      setSelectedImageIndex(newIndex);
+                      modalFlatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
+                    }}
+                  >
+                    <Feather name="chevron-left" size={24} color="#fff" />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+
             <TouchableOpacity
               style={styles.closeButton}
               onPress={closeImageModal}
             >
-              <Ionicons name="close-circle" size={30} color="#000" />
+              <Ionicons name="close-circle" size={30} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -396,13 +473,30 @@ const styles = StyleSheet.create({
     marginTop: 15,
     color: '#333',
   },
-  locationContainer: {
+  currentLocationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  currentLocationText: {
+    fontSize: 14,
+    color: '#FF6F00',
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
   },
   locationText: {
-    fontSize: 16,
+    fontSize: 12,
     color: '#666',
     marginLeft: 6,
   },
@@ -489,7 +583,6 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 12,
   },
-  // Keep all your existing styles, just these two are updated
   moreImagesOverlay: {
     position: 'absolute',
     top: 0,
@@ -541,12 +634,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Modal styles (updated to match Gallery.tsx)
+  // Enhanced Modal styles
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // רקע שחור שקוף יותר
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
   },
   modalBlur: {
     position: 'absolute',
@@ -555,34 +648,72 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  androidBlurFallback: { // פתרון חלופי לאנדרואיד ללא BlurView
+  androidBlurFallback: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)', // רקע כהה אחיד
+    backgroundColor: 'rgba(0,0,0,0.8)',
   },
   modalContent: {
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
+    flex: 1,
+    width: '100%',
     justifyContent: 'center',
-    width: width * 0.8, // התאמה לגודל התמונה ב-Gallery.tsx
-    height: height * 0.45, // התאמה לגודל התמונה ב-Gallery.tsx
+    alignItems: 'center',
     position: 'relative',
-    backgroundColor: 'transparent', // רקע שקוף מאחורי התמונה, הבלור יטפל בזה
+  },
+  modalImageContainer: {
+    width: width,
+    height: height * 0.8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
   modalImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-    borderRadius: 12, // שומר על הפינות המעוגלות
+    width: '90%',
+    height: '90%',
+    borderRadius: 12,
+  },
+  imageCounter: {
+    position: 'absolute',
+    bottom: 50,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  imageCounterText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  navButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -25,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  navButtonLeft: {
+    left: 20,
+  },
+  navButtonRight: {
+    right: 20,
   },
   closeButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 50,
+    right: 20,
     zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 5,
   },
 });
