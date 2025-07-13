@@ -152,11 +152,9 @@ export default function LoginScreen() {
 }
 
 const PRIMARY_COLOR = '#ff6600';
-const SECONDARY_COLOR = '#FF8533';
 const BACKGROUND_COLOR = '#FAFBFC';
 const TEXT_COLOR = '#1A1A1A';
 const GRAY_COLOR = '#6B7280';
-const LIGHT_GRAY = '#F3F4F6';
 
 const styles = StyleSheet.create({
   container: {

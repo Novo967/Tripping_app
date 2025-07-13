@@ -1,5 +1,4 @@
 // app/index.tsx
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
@@ -8,20 +7,23 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
   View
 } from 'react-native';
 // ייבא את PROVIDER_GOOGLE כדי לציין את ספק המפה של גוגל
-import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps'; // <--- שינוי כאן: הוספנו PROVIDER_GOOGLE והסרנו UrlTile
+import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
 import UserMarker from '../../components/UserMarker';
+
+// ייבוא קומפוננטות המודל החדשות
+import EventDetailsModal from '../../IndexServices/EventDetailsModal';
+import UserDetailsModal from '../../IndexServices/UserDetailsModal';
+// ייבוא פונקציית העזר
+import { calculateDistance } from '../../IndexServices/MapUtils';
 
 // הגדרת ממשק (interface) עבור selectedEvent
 interface SelectedEventType {
@@ -38,46 +40,70 @@ interface SelectedEventType {
   approved_users?: string[]; // רשימת UID של משתמשים שאושרו
 }
 
+// הגדרת ממשק (interface) עבור selectedUser
+interface SelectedUserType {
+  uid: string;
+  username: string;
+  latitude: number;
+  longitude: number;
+}
+
 const SERVER_URL = 'https://tripping-app.onrender.com';
 
 export default function HomeScreen() {
+  // מצב עבור אזור המפה הנוכחי
   const [region, setRegion] = useState<Region | null>(null);
-  const [users, setUsers] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
+  // מצב עבור רשימת המשתמשים המוצגים
+  const [users, setUsers] = useState<SelectedUserType[]>([]);
+  // מצב עבור רשימת האירועים המוצגים
+  const [events, setEvents] = useState<SelectedEventType[]>([]);
+  // מצב עבור מרחק התצוגה של המשתמשים והאירועים
   const [displayDistance, setDisplayDistance] = useState(150);
+  // מצב עבור המיקום הנוכחי של המשתמש
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  // מצב עבור המשתמש שנבחר מהמפה
+  const [selectedUser, setSelectedUser] = useState<SelectedUserType | null>(null);
+  // מצב עבור האירוע שנבחר מהמפה
   const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null);
+  // מצב המציין אם המשתמש בוחר מיקום חדש לאירוע
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
+  // מצב המציין אם מודל סינון המרחק גלוי
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
+  // מצב המציין אם הנתונים הראשוניים נטענו
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  // מצב עבור שם המשתמש המחובר כרגע
   const [currentUserUsername, setCurrentUserUsername] = useState('');
 
+  // קבלת אובייקט האותנטיקציה של Firebase
   const auth = getAuth();
-  const user = auth.currentUser; // המשתמש המחובר כרגע
+  // קבלת המשתמש המחובר כרגע
+  const user = auth.currentUser;
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // רדיוס כדור הארץ בק"מ
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
-
-  const fetchUsers = async () => {
+  /**
+   * שולף את כל המשתמשים מהשרת.
+   */
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch(`${SERVER_URL}/get-all-users`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       const data = await res.json();
       setUsers(data.users || []);
     } catch (error) {
       console.error("Error fetching users:", error);
+      Alert.alert('שגיאה', 'לא ניתן לטעון משתמשים.');
     }
-  };
+  }, []);
 
-  const fetchCurrentUserUsername = async () => {
-    if (!user) return;
+  /**
+   * שולף את שם המשתמש המחובר כרגע מהשרת.
+   */
+  const fetchCurrentUserUsername = useCallback(async () => {
+    if (!user) {
+      setCurrentUserUsername('');
+      return;
+    }
     try {
       const res = await fetch(`${SERVER_URL}/get-user-profile`, {
         method: 'POST',
@@ -89,19 +115,23 @@ export default function HomeScreen() {
         setCurrentUserUsername(data.username);
       } else {
         console.error("Error fetching current user username:", data.error);
+        setCurrentUserUsername('');
       }
     } catch (error) {
       console.error("Error fetching current user username:", error);
+      setCurrentUserUsername('');
     }
-  };
+  }, [user]);
 
-  const deletePin = async (pinId: string) => {
+  /**
+   * מוחק אירוע (pin) מהשרת.
+   * @param pinId מזהה האירוע למחיקה
+   */
+  const deletePin = useCallback(async (pinId: string) => {
     try {
       const res = await fetch(`${SERVER_URL}/delete-pin`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: pinId }),
       });
       const data = await res.json();
@@ -110,26 +140,34 @@ export default function HomeScreen() {
         setEvents(prevEvents => prevEvents.filter(event => event.id !== pinId));
       } else {
         console.error(`Error deleting pin ${pinId}:`, data.message);
+        Alert.alert('שגיאה', `לא ניתן למחוק את האירוע: ${data.message}`);
       }
     } catch (error) {
       console.error(`Error deleting pin ${pinId}:`, error);
+      Alert.alert('שגיאה', 'אירעה שגיאה במחיקת האירוע.');
     }
-  };
+  }, []);
 
-  const fetchPins = async () => {
+  /**
+   * שולף את כל האירועים (pins) מהשרת ומטפל במחיקת אירועים שפג תוקפם.
+   */
+  const fetchPins = useCallback(async () => {
     try {
       const res = await fetch(`${SERVER_URL}/get-pins`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       const data = await res.json();
-      
+
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
-      const updatedPins = await Promise.all((data.pins || []).map(async (pin: any) => {
+      const updatedPinsPromises = (data.pins || []).map(async (pin: any) => {
         const eventDate = new Date(pin.event_date);
         eventDate.setHours(0, 0, 0, 0);
 
         const deletionDate = new Date(eventDate);
-        deletionDate.setDate(eventDate.getDate() + 1); 
+        deletionDate.setDate(eventDate.getDate() + 1);
 
         if (todayStart.getTime() >= deletionDate.getTime()) {
           console.log(`Event ${pin.event_title} (${pin.id}) has passed its deletion threshold. Deleting pin.`);
@@ -149,142 +187,105 @@ export default function HomeScreen() {
           event_owner_uid: pin.owner_uid,
           approved_users: pin.approved_users || [],
         };
-      }));
+      });
 
-      setEvents(updatedPins.filter(pin => pin !== null));
+      const results = await Promise.allSettled(updatedPinsPromises);
+      const validPins = results
+        .filter(result => result.status === 'fulfilled' && result.value !== null)
+        .map(result => (result as PromiseFulfilledResult<SelectedEventType>).value);
+
+      setEvents(validPins);
     } catch (error) {
       console.error("Error fetching pins:", error);
+      Alert.alert('שגיאה', 'לא ניתן לטעון אירועים.');
     }
-  };
+  }, [deletePin]);
 
-  const fetchLocation = async () => {
+  /**
+   * שולף את המיקום הנוכחי של המשתמש.
+   */
+  const fetchLocation = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       console.warn('Permission to access location was denied');
+      Alert.alert('הרשאה נדחתה', 'לא ניתנה הרשאה לגישה למיקום. ייתכן שהמפה לא תפעל כראוי.');
       return;
     }
     try {
-      const loc = await Location.getCurrentPositionAsync({});
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
       setRegion({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 });
     } catch (error) {
       console.error("Error fetching current location:", error);
+      Alert.alert('שגיאה', 'לא ניתן לטעון את המיקום הנוכחי.');
     }
-  };
-
-  useEffect(() => {
-    (async () => {
-      await Promise.all([fetchLocation(), fetchUsers(), fetchPins(), fetchCurrentUserUsername()]);
-      setInitialDataLoaded(true);
-    })();
   }, []);
 
+  // אפקט לטעינת נתונים ראשונית בעת טעינת הקומפוננטה
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await Promise.all([fetchLocation(), fetchUsers(), fetchPins(), fetchCurrentUserUsername()]);
+      setInitialDataLoaded(true);
+    };
+    loadInitialData();
+  }, [fetchLocation, fetchUsers, fetchPins, fetchCurrentUserUsername]);
+
+  // אפקט לטעינת נתונים מחדש כאשר המסך מקבל פוקוס
   useFocusEffect(useCallback(() => {
     fetchUsers();
     fetchPins();
     fetchCurrentUserUsername();
-    if (!currentLocation) {
-      fetchLocation(); 
-    }
-  }, [currentLocation]));
+  }, [fetchUsers, fetchPins, fetchCurrentUserUsername]));
 
+  // חישוב אירועים גלויים באמצעות useMemo לאופטימיזציה
   const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;
     return events.filter(ev =>
       calculateDistance(currentLocation.latitude, currentLocation.longitude, ev.latitude, ev.longitude) <= displayDistance
     );
-  }, [events, currentLocation, displayDistance]);
+  }, [events, currentLocation, displayDistance, calculateDistance]);
 
-  const handleAddEventPress = () => {
+  /**
+   * מטפל בלחיצה על כפתור הוספת אירוע ומפעיל בחירת מיקום.
+   */
+  const handleAddEventPress = useCallback(() => {
       setTimeout(() => {
         setIsChoosingLocation(true);
       }, 500);
-  };
+  }, []);
 
-  const handleCancelLocationSelection = () => {
+  /**
+   * מטפל בביטול בחירת מיקום חדש לאירוע.
+   */
+  const handleCancelLocationSelection = useCallback(() => {
     setIsChoosingLocation(false);
-  };
+  }, []);
 
-  const handleDistanceFilterPress = () => {
+  /**
+   * מטפל בלחיצה על כפתור סינון מרחק ומציג את המודל.
+   */
+  const handleDistanceFilterPress = useCallback(() => {
     setDistanceModalVisible(true);
-  };
+  }, []);
 
-  const handleSendRequest = async () => {
-    if (!user || !selectedEvent || !currentUserUsername) {
-      Alert.alert('שגיאה', 'לא ניתן לשלוח בקשה כרגע. נתונים חסרים.');
-      return;
-    }
-
-    if (user.uid === selectedEvent.event_owner_uid) {
-      Alert.alert('שגיאה', 'אינך יכול לשלוח בקשה לאירוע שאתה מנהל.');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${SERVER_URL}/send-event-request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sender_uid: user.uid,
-          sender_username: currentUserUsername,
-          receiver_uid: selectedEvent.event_owner_uid,
-          event_id: selectedEvent.id,
-          event_title: selectedEvent.event_title,
-        }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        Alert.alert('הצלחה', 'הבקשה נשלחה למנהל האירוע!');
-      } else {
-        Alert.alert('שגיאה', result.error || 'שליחת הבקשה נכשלה.');
-      }
-    } catch (error) {
-      console.error('Error sending request:', error);
-      Alert.alert('שגיאה', 'אירעה שגיאה בשליחת הבקשה.');
-    } finally {
-      setSelectedEvent(null);
-    }
-  };
-
-  const handleOpenGroupChat = (eventTitle: string) => {
-    if (eventTitle) {
-      setSelectedEvent(null);
+  /**
+   * פותח צ'אט פרטי עם משתמש אחר.
+   * @param targetUserUid ה-UID של המשתמש השני
+   * @param targetUsername שם המשתמש של המשתמש השני
+   */
+  const handleOpenPrivateChat = useCallback((targetUserUid: string, targetUsername: string) => {
+    if (user && targetUserUid && targetUsername) {
+      setSelectedUser(null); // סגור את מודל המשתמש
       router.push({
-        pathname: '/Chats/GroupChatModal',
-        params: { eventTitle: eventTitle }
+        pathname: '/Chats/chatModal',
+        params: { targetUserUid: targetUserUid, targetUsername: targetUsername }
       });
-    }
-  };
-
-  const renderEventActionButton = () => {
-    if (!user || !selectedEvent) return null;
-
-    const isOwner = user.uid === selectedEvent.event_owner_uid;
-    const isApproved = selectedEvent.approved_users?.includes(user.uid);
-
-    if (isOwner || isApproved) {
-      return (
-        <TouchableOpacity
-          style={styles.chatButton}
-          onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
-        >
-          <Text style={styles.chatButtonText}>פתח צאט קבוצתי</Text>
-          <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      );
     } else {
-      return (
-        <TouchableOpacity
-          style={styles.requestButton}
-          onPress={handleSendRequest}
-        >
-          <Ionicons name="mail-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.requestButtonText}>שלח בקשה למנהל האירוע</Text>
-        </TouchableOpacity>
-      );
+      Alert.alert('שגיאה', 'לא ניתן לפתוח צ\'אט. נתונים חסרים.');
     }
-  };
+  }, [user]);
 
+  // הצגת מחוון טעינה אם הנתונים הראשוניים עדיין לא נטענו
   if (!initialDataLoaded || !region) {
     return (
       <View style={styles.centered}>
@@ -298,10 +299,11 @@ export default function HomeScreen() {
     <View style={{ flex: 1 }}>
       <MapView
         // הגדרת ספק המפה להיות Google Maps
-        provider={PROVIDER_GOOGLE} // <--- שינוי חשוב: זה מה שמפעיל את גוגל מפות
+        provider={PROVIDER_GOOGLE}
         style={{ flex: 1 }}
         region={region}
         onPress={(e) => {
+          // אם המשתמש בוחר מיקום חדש לאירוע
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             router.push({
@@ -310,20 +312,17 @@ export default function HomeScreen() {
             });
             setIsChoosingLocation(false);
           }
-          // סגור מודלים פתוחים
-          setSelectedUser(null);
-          setSelectedEvent(null);
+          // סגירת מודלים צריכה להיות מטופלת בתוך המודלים עצמם
         }}
       >
-        {/* רכיב ה-UrlTile הוסר, כי הוא מיועד למפות אריחים כמו OpenStreetMap */}
-        {/* <UrlTile urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} flipY={false} /> */}
-        
+        {/* רנדור מרקרי אירועים גלויים */}
         {visibleEvents.map(event => (
           <EventMarker
             key={event.id}
             event={event}
             onPress={(id) => {
-              setSelectedUser(null); 
+              setSelectedUser(null); // סגור מודל משתמש אם פתוח
+              // שלוף פרטי אירוע ספציפי
               fetch(`${SERVER_URL}/get-pin?id=${id}`)
                 .then(res => res.json())
                 .then(data => {
@@ -352,16 +351,18 @@ export default function HomeScreen() {
             }}
           />
         ))}
+        {/* רנדור מרקרי משתמשים גלויים */}
         {users.filter(u =>
           currentLocation && calculateDistance(currentLocation.latitude, currentLocation.longitude, u.latitude, u.longitude) <= displayDistance
-        ).map(user => (
-          <UserMarker key={user.uid} user={user} onPress={(u) => {
-            setSelectedEvent(null);
-            setSelectedUser(u);
+        ).map(userMarker => (
+          <UserMarker key={userMarker.uid} user={userMarker} onPress={(u) => {
+            setSelectedEvent(null); // סגור מודל אירוע אם פתוח
+            setSelectedUser(u); // הצג מודל משתמש
           }} />
         ))}
       </MapView>
-      
+
+      {/* כפתורי סינון והוספת אירוע */}
       <FilterButton
         displayDistance={displayDistance}
         onDistanceFilterPress={handleDistanceFilterPress}
@@ -369,63 +370,32 @@ export default function HomeScreen() {
         isChoosingLocation={isChoosingLocation}
       />
 
+      {/* סלקטור מיקום חדש לאירוע */}
       <LocationSelector
         visible={isChoosingLocation}
         onCancel={handleCancelLocationSelection}
       />
 
-      {selectedEvent && (
-        <Modal visible={true} animationType="fade" transparent onRequestClose={() => setSelectedEvent(null)}>
-          <TouchableWithoutFeedback onPress={() => setSelectedEvent(null)}>
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalBox}>
-                <Text style={styles.modalTitle}>{selectedEvent.event_title}</Text>
-                <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL')}</Text>
-                <Text style={styles.modalAuthor}>מאת: {selectedEvent.username}</Text>
+      {/* מודל פרטי אירוע נבחר */}
+      <EventDetailsModal
+        visible={!!selectedEvent}
+        selectedEvent={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        user={user}
+        currentUserUsername={currentUserUsername}
+        SERVER_URL={SERVER_URL}
+      />
 
-                {renderEventActionButton()}
+      {/* מודל פרטי משתמש נבחר */}
+      <UserDetailsModal
+        visible={!!selectedUser}
+        selectedUser={selectedUser}
+        onClose={() => setSelectedUser(null)}
+        currentUserUid={user?.uid}
+        onOpenPrivateChat={handleOpenPrivateChat}
+      />
 
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-      )}
-      
-      {selectedUser && (
-        <Modal visible={true} animationType="fade" transparent onRequestClose={() => setSelectedUser(null)}>
-          <TouchableWithoutFeedback onPress={() => setSelectedUser(null)}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback>
-                <View style={styles.modalBox}>
-                  <Text style={styles.modalTitle}> {selectedUser.username}</Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setSelectedUser(null);
-                      if (selectedUser.uid === user?.uid) {
-                        router.push({ pathname: '/profile' }); // או הנתיב המדויק לפרופיל המשתמש העצמי שלך
-                      } else {
-                        router.push({ pathname: '/ProfileServices/OtherUserProfile', params: { uid: selectedUser.uid } });
-                      }
-                    }}
-                    style={{
-                      marginTop: 18,
-                      backgroundColor: '#FF6F00',
-                      paddingVertical: 12,
-                      paddingHorizontal: 20,
-                      borderRadius: 8,
-                    }}
-                  >
-                    <Text style={{ color: 'white', fontWeight: '600', fontSize: 16 }}>
-                      צפה בפרופיל
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-      )}
-
+      {/* מודל סינון מרחק */}
       <DistanceFilterButton
         displayDistance={displayDistance}
         setDisplayDistance={setDisplayDistance}
@@ -437,83 +407,14 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  modalOverlay: {
+  centered: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
-  modalBox: {
-    backgroundColor: 'white',
-    padding: 24,
-    borderRadius: 14,
-    width: 300,
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#000',
-    textAlign: 'center',
-  },
-  modalDate: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  modalAuthor: {
-    fontSize: 15,
-    color: '#555',
-    textAlign: 'center',
-  },
-  requestButton: {
-    backgroundColor: '#FF6F00',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  requestButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  chatButton: {
-    backgroundColor: '#FF6F00',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  chatButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
+  // הסגנונות עבור modalOverlay, modalBox, modalTitle, modalDate, modalAuthor,
+  // requestButton, requestButtonText, chatButton, chatButtonText,
+  // profileButton, profileButtonText, sendMessageButton, sendMessageButtonText
+  // הועברו לקומפוננטות המודל הספציפיות
 });
