@@ -11,7 +11,6 @@ export default function AppEntry() {
   const [isAuthChecked, setIsAuthChecked] = useState(false);
 
   useEffect(() => {
-    // Show splash for 3 seconds
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
     }, 5000);
