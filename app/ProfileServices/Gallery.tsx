@@ -1,9 +1,8 @@
-// app/ProfileServices/Gallery.tsx - Enhanced Version
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { doc, getDoc } from 'firebase/firestore'; // תוודא שזה קיים
+import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,17 +16,24 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { auth, db } from '../../firebaseConfig';
+import { auth, db } from '../../firebaseConfig'; // וודא שזה הנתיב הנכון
 import { useTheme } from '../ProfileServices/ThemeContext';
+
+// ייבוא Firebase Storage
+import { deleteObject, getStorage, ref } from 'firebase/storage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GALLERY_IMAGE_SIZE = (SCREEN_WIDTH - 32 - 4) / 3; // 16px margin on each side, 2px gap
+const SERVER_URL = 'https://tripping-app.onrender.com'; // השרת שלך עדיין ישמש לניהול ה-URLים
+
+// אתחל את Firebase Storage
+const storage = getStorage();
 
 type Props = {
   gallery: string[];
   onAddImage: (uri: string) => void;
   onDeleteImages: (deletedImageUrls: string[]) => void;
-  onImagePress: (imageUri: string) => void; // הוסף את השורה הזו
+  onImagePress: (imageUri: string) => void;
 };
 
 export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePress }: Props) {
@@ -36,14 +42,18 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [longPressActive, setLongPressActive] = useState(false);
   const [likeCounts, setLikeCounts] = useState<number[]>([]);
-  
+
   useEffect(() => {
     const fetchLikesForGallery = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
       const promises = gallery.map(async (_, index) => {
-        const docId = `${user.uid}_${index}`;
+        // לוודא שה-docId תואם לאיך שאתה שומר לייקים עבור כל תמונה
+        // אם ה-likes משויכים ל-URL ספציפי, עדיף להשתמש ב-URL כחלק מה-ID או כ-query
+        // כרגע זה מבוסס על אינדקס, וזה עלול להיות בעייתי אם סדר התמונות משתנה
+        // אולי כדאי לשקול לשמור את ה-image ID/URL ב-Firestore במקום Index
+        const docId = `${user.uid}_${index}`; // לשנות את זה ל-ID ייחודי של התמונה אם קיים
         const docRef = doc(db, 'imageLikes', docId);
         const snap = await getDoc(docRef);
         if (snap.exists()) {
@@ -83,6 +93,8 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
 
       if (!result.canceled && result.assets.length > 0) {
         const uri = result.assets[0].uri;
+        // קורא ל-onAddImage שמועבר מ-profile.tsx
+        // onAddImage כבר מטפלת בהעלאה ל-Firebase Storage ובשמירת ה-URL בשרת ה-Render
         await onAddImage(uri);
       }
     } catch (error) {
@@ -93,14 +105,38 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
     }
   };
 
-  const deleteImageFromServer = async (imageUrl: string) => {
+  /**
+   * מוחק קובץ מ-Firebase Storage.
+   * @param fileUrl ה-Download URL של הקובץ למחיקה.
+   */
+  const deleteFileFromFirebaseStorage = async (fileUrl: string) => {
+    try {
+      const fileRef = ref(storage, fileUrl);
+      await deleteObject(fileRef);
+      console.log(`Successfully deleted ${fileUrl} from Firebase Storage.`);
+    } catch (error) {
+      console.error(`Error deleting ${fileUrl} from Firebase Storage:`, error);
+      // ייתכן שהקובץ כבר לא קיים, אין צורך להציג שגיאה קריטית למשתמש
+      // אם תרצה לטפל בשגיאה ספציפית (כמו קובץ לא קיים), תוכל לבדוק את ה-error.code
+    }
+  };
+
+  /**
+   * מוחק רשומה של תמונה ממסד הנתונים בשרת וגם את הקובץ מ-Firebase Storage.
+   * @param imageUrl ה-Download URL של התמונה למחיקה.
+   */
+  const deleteImageRecordFromServer = async (imageUrl: string) => {
     const user = auth.currentUser;
     if (!user) {
       throw new Error('משתמש לא מחובר');
     }
 
     try {
-      const response = await fetch(`https://tripping-app.onrender.com/delete-image`, {
+      // 1. נסה למחוק את הקובץ מ-Firebase Storage
+      await deleteFileFromFirebaseStorage(imageUrl);
+
+      // 2. שלח בקשה לשרת שלך למחוק את רשומת ה-URL ממסד הנתונים
+      const response = await fetch(`${SERVER_URL}/delete-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
@@ -108,10 +144,12 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`מחיקת תמונה נכשלה: ${errorText}`);
+        throw new Error(`מחיקת רשומת תמונה מהשרת נכשלה: ${errorText}`);
       }
+      console.log(`Successfully deleted image record for ${imageUrl} from server.`);
     } catch (error) {
-      throw error;
+      console.error('שגיאה בתהליך מחיקת תמונה:', error);
+      throw error; // זרוק את השגיאה הלאה כדי ש-handleDeleteSelected יוכל לטפל בה
     }
   };
 
@@ -125,7 +163,6 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
       }
       setSelectedImages(newSelected);
     } else {
-      // השתמש ב-onImagePress שמועבר כפרופ
       onImagePress(gallery[index]);
     }
   };
@@ -140,9 +177,14 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
   };
 
   const handleDeleteSelected = async () => {
+    if (selectedImages.size === 0) {
+      Alert.alert('שגיאה', 'יש לבחור תמונות למחיקה.');
+      return;
+    }
+
     Alert.alert(
       'מחיקת תמונות',
-      `האם אתה בטוח שתרצה למחוק ${selectedImages.size} תמונות?`,
+      `האם אתה בטוח שתרצה למחוק ${selectedImages.size} תמונות? פעולה זו הינה בלתי הפיכה.`,
       [
         { text: 'ביטול', style: 'cancel' },
         {
@@ -152,21 +194,25 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
             const toDeleteUrls: string[] = [];
             const deletePromises: Promise<void>[] = [];
 
+            // הכנס את כל ה-URLs של התמונות שנבחרו למחיקה
             for (const index of Array.from(selectedImages)) {
               const imageUrl = gallery[index];
               if (imageUrl) {
                 toDeleteUrls.push(imageUrl);
-                deletePromises.push(deleteImageFromServer(imageUrl));
+                // הוסף את המחיקה ל-Promises
+                deletePromises.push(deleteImageRecordFromServer(imageUrl));
               }
             }
 
             try {
-              await Promise.all(deletePromises)
+              // המתן שכל פעולות המחיקה יסתיימו
+              await Promise.all(deletePromises);
 
-              onDeleteImages(toDeleteUrls);
+              // עדכן את הגלריה המקומית ואת המצב
+              onDeleteImages(toDeleteUrls); // קורא לפונקציה מ-profile.tsx
               setSelectedImages(new Set());
               setLongPressActive(false);
-              Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה');
+              Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה!');
 
             } catch (error) {
               console.error('שגיאה במחיקת תמונות:', error);
@@ -219,11 +265,11 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
           <View style={styles.imageStats}>
             <View style={styles.statItem}>
               <Ionicons name="heart" size={12} color="white" />
-                <Text style={styles.statText}>
-                  {likeCounts[index] !== undefined ? likeCounts[index] : 0}
-                </Text>
+              <Text style={styles.statText}>
+                {likeCounts[index] !== undefined ? likeCounts[index] : 0}
+              </Text>
             </View>
-            
+
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -262,8 +308,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
             {uploading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              // רק אייקון פלוס
-              <Ionicons name="add" size={20} color="white" /> // הגדלתי את גודל האייקון
+              <Ionicons name="add" size={20} color="white" />
             )}
           </TouchableOpacity>
         )}
@@ -313,8 +358,8 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
       <FlatList
         data={gallery}
         keyExtractor={(_, index) => index.toString()}
-        numColumns={3} // תמיד 3 עמודות לרשת
-        key={'grid'} // key קבוע למצב רשת
+        numColumns={3}
+        key={'grid'}
         renderItem={renderGridItem}
         contentContainerStyle={styles.flatListContent}
         showsVerticalScrollIndicator={false}
@@ -361,7 +406,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerRight: {
-    minWidth: 50, // הוקטן כי הכפתור קטן יותר
+    minWidth: 50,
     alignItems: 'flex-end',
   },
   viewModeButton: {
@@ -373,14 +418,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addButton: {
-    // מותאם לכפתור אייקון בלבד
-    padding: 8, // ריפוד עדין יותר
-    borderRadius: 20, // עגול יותר
+    padding: 8,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addButtonText: {
-    // הוסר, אין טקסט
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
