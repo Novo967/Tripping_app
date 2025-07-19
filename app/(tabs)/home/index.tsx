@@ -11,37 +11,32 @@ import {
   Text,
   View
 } from 'react-native';
-// ייבא את PROVIDER_GOOGLE כדי לציין את ספק המפה של גוגל
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
-import UserMarker from '../../components/UserMarker'; // ודא שהייבוא נכון
+import UserMarker from '../../components/UserMarker';
 
-// ייבוא קומפוננטות המודל החדשות
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
+import { calculateDistance } from '../../IndexServices/MapUtils';
 import MyLocationButton from '../../IndexServices/MyLocationButton';
 import UserDetailsModal from '../../IndexServices/UserDetailsModal';
-// ייבוא פונקציית העזר
-import { calculateDistance } from '../../IndexServices/MapUtils';
 
-// הגדרת ממשק (interface) עבור selectedEvent
 interface SelectedEventType {
-  id: string; // מזהה האירוע
+  id: string;
   latitude: number;
   longitude: number;
   event_date: string;
-  username: string; // שם המשתמש של מנהל האירוע
+  username: string;
   event_title: string;
   event_type: string;
   description?: string;
   location?: string;
-  event_owner_uid: string; // UID של מנהל האירוע
-  approved_users?: string[]; // רשימת UID של משתמשים שאושרו
+  event_owner_uid: string;
+  approved_users?: string[];
 }
 
-// הגדרת ממשק (interface) עבור selectedUser
 interface SelectedUserType {
   uid: string;
   username: string;
@@ -52,40 +47,23 @@ interface SelectedUserType {
 const SERVER_URL = 'https://tripping-app.onrender.com';
 
 export default function HomeScreen() {
-  // רפרנס למפה
   const mapRef = useRef<MapView>(null);
   
-  // מצב עבור אזור המפה הנוכחי
   const [region, setRegion] = useState<Region | null>(null);
-  // מצב עבור רשימת המשתמשים המוצגים
   const [users, setUsers] = useState<SelectedUserType[]>([]);
-  // מצב עבור רשימת האירועים המוצגים
   const [events, setEvents] = useState<SelectedEventType[]>([]);
-  // מצב עבור מרחק התצוגה של המשתמשים והאירועים
   const [displayDistance, setDisplayDistance] = useState(150);
-  // מצב עבור המיקום הנוכחי של המשתמש
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  // מצב עבור המשתמש שנבחר מהמפה
   const [selectedUser, setSelectedUser] = useState<SelectedUserType | null>(null);
-  // מצב עבור האירוע שנבחר מהמפה
   const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null);
-  // מצב המציין אם המשתמש בוחר מיקום חדש לאירוע
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
-  // מצב המציין אם מודל סינון המרחק גלוי
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
-  // מצב המציין אם הנתונים הראשוניים נטענו
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  // מצב עבור שם המשתמש המחובר כרגע
   const [currentUserUsername, setCurrentUserUsername] = useState('');
 
-  // קבלת אובייקט האותנטיקציה של Firebase
   const auth = getAuth();
-  // קבלת המשתמש המחובר כרגע
   const user = auth.currentUser;
 
-  /**
-   * שולף את כל המשתמשים מהשרת.
-   */
   const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch(`${SERVER_URL}/get-all-users`);
@@ -100,9 +78,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  /**
-   * שולף את שם המשתמש המחובר כרגע מהשרת.
-   */
   const fetchCurrentUserUsername = useCallback(async () => {
     if (!user) {
       setCurrentUserUsername('');
@@ -127,10 +102,6 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  /**
-   * מוחק אירוע (pin) מהשרת.
-   * @param pinId מזהה האירוע למחיקה
-   */
   const deletePin = useCallback(async (pinId: string) => {
     try {
       const res = await fetch(`${SERVER_URL}/delete-pin`, {
@@ -152,9 +123,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  /**
-   * שולף את כל האירועים (pins) מהשרת ומטפל במחיקת אירועים שפג תוקפם.
-   */
   const fetchPins = useCallback(async () => {
     try {
       const res = await fetch(`${SERVER_URL}/get-pins`);
@@ -205,9 +173,6 @@ export default function HomeScreen() {
     }
   }, [deletePin]);
 
-  /**
-   * שולף את המיקום הנוכחי של המשתמש.
-   */
   const fetchLocation = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -225,7 +190,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // אפקט לטעינת נתונים ראשונית בעת טעינת הקומפוננטה
   useEffect(() => {
     const loadInitialData = async () => {
       await Promise.all([fetchLocation(), fetchUsers(), fetchPins(), fetchCurrentUserUsername()]);
@@ -234,14 +198,12 @@ export default function HomeScreen() {
     loadInitialData();
   }, [fetchLocation, fetchUsers, fetchPins, fetchCurrentUserUsername]);
 
-  // אפקט לטעינת נתונים מחדש כאשר המסך מקבל פוקוס
   useFocusEffect(useCallback(() => {
     fetchUsers();
     fetchPins();
     fetchCurrentUserUsername();
   }, [fetchUsers, fetchPins, fetchCurrentUserUsername]));
 
-  // חישוב אירועים גלויים באמצעות useMemo לאופטימיזציה
   const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;
     return events.filter(ev =>
@@ -249,37 +211,24 @@ export default function HomeScreen() {
     );
   }, [events, currentLocation, displayDistance, calculateDistance]);
 
-  /**
-   * מטפל בלחיצה על כפתור הוספת אירוע ומפעיל בחירת מיקום.
-   */
   const handleAddEventPress = useCallback(() => {
       setTimeout(() => {
         setIsChoosingLocation(true);
       }, 500);
   }, []);
 
-  /**
-   * מטפל בביטול בחירת מיקום חדש לאירוע.
-   */
   const handleCancelLocationSelection = useCallback(() => {
     setIsChoosingLocation(false);
   }, []);
 
-  /**
-   * מטפל בלחיצה על כפתור סינון מרחק ומציג את המודל.
-   */
   const handleDistanceFilterPress = useCallback(() => {
     setDistanceModalVisible(true);
   }, []);
 
-  /**
-   * מטפל בעדכון המיקום מלחצן המיקום ומזיז את המפה למיקום החדש.
-   */
   const handleLocationUpdate = useCallback((location: { latitude: number; longitude: number }) => {
     console.log("Updating location:", location);
     setCurrentLocation(location);
     
-    // עדכון המפה באנימציה
     const newRegion = {
       latitude: location.latitude,
       longitude: location.longitude,
@@ -289,20 +238,14 @@ export default function HomeScreen() {
     
     setRegion(newRegion);
     
-    // אנימציה חלקה למיקום החדש
     if (mapRef.current) {
       mapRef.current.animateToRegion(newRegion, 1000);
     }
   }, []);
 
-  /**
-   * פותח צ'אט פרטי עם משתמש אחר.
-   * @param targetUserUid ה-UID של המשתמש השני
-   * @param targetUsername שם המשתמש של המשתמש השני
-   */
   const handleOpenPrivateChat = useCallback((targetUserUid: string, targetUsername: string) => {
     if (user && targetUserUid && targetUsername) {
-      setSelectedUser(null); // סגור את מודל המשתמש
+      setSelectedUser(null);
       router.push({
         pathname: '/Chats/chatModal',
         params: { targetUserUid: targetUserUid, targetUsername: targetUsername }
@@ -312,7 +255,6 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  // הצגת מחוון טעינה אם הנתונים הראשוניים עדיין לא נטענו
   if (!initialDataLoaded || !region) {
     return (
       <View style={styles.centered}>
@@ -326,18 +268,15 @@ export default function HomeScreen() {
     <View style={{ flex: 1 }}>
       <MapView
         ref={mapRef}
-        // הגדרת ספק המפה להיות Google Maps
         provider={PROVIDER_GOOGLE}
         style={{ flex: 1 }}
         region={region}
-        // הוספת סימון מיקום המשתמש
         showsUserLocation={true} // מציג את הנקודה הכחולה המובנית של המפה
         showsMyLocationButton={false} // מבטל את הכפתור הפנימי כי יש לנו כפתור מותאם אישית
         followsUserLocation={false} // מונע מעקב אוטומטי כדי שהמפה לא תזוז כל הזמן
         userLocationPriority="high" // דיוק גבוה למיקום המשתמש
         userLocationUpdateInterval={5000} // עדכון כל 5 שניות
         onPress={(e) => {
-          // אם המשתמש בוחר מיקום חדש לאירוע
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             router.push({
@@ -346,7 +285,6 @@ export default function HomeScreen() {
             });
             setIsChoosingLocation(false);
           }
-          // סגירת מודלים צריכה להיות מטופלת בתוך המודלים עצמם
         }}
         onUserLocationChange={(event) => {
           const coordinate = event.nativeEvent.coordinate;
@@ -356,14 +294,12 @@ export default function HomeScreen() {
           }
         }}
       >
-        {/* רנדור מרקרי אירועים גלויים */}
         {visibleEvents.map(event => (
           <EventMarker
             key={event.id}
             event={event}
             onPress={(id) => {
-              setSelectedUser(null); // סגור מודל משתמש אם פתוח
-              // שלוף פרטי אירוע ספציפי
+              setSelectedUser(null);
               fetch(`${SERVER_URL}/get-pin?id=${id}`)
                 .then(res => res.json())
                 .then(data => {
@@ -392,9 +328,9 @@ export default function HomeScreen() {
             }}
           />
         ))}
-        {/* רנדור מרקרי משתמשים גלויים (למעט המשתמש הנוכחי) */}
+        {/* רנדור מרקרי משתמשים אחרים בלבד */}
         {users.filter(u =>
-          u.uid !== user?.uid && // מסנן החוצה את המשתמש הנוכחי כדי למנוע כפילות עם הנקודה המובנית
+          u.uid !== user?.uid && // מסנן החוצה את המשתמש הנוכחי
           currentLocation && calculateDistance(currentLocation.latitude, currentLocation.longitude, u.latitude, u.longitude) <= displayDistance
         ).map(userMarker => (
           <UserMarker 
@@ -402,15 +338,13 @@ export default function HomeScreen() {
             user={userMarker} 
             currentUserUid={user?.uid}
             onPress={(u) => {
-              setSelectedEvent(null); // סגור מודל אירוע אם פתוח
-              setSelectedUser(u); // הצג מודל משתמש
+              setSelectedEvent(null);
+              setSelectedUser(u);
             }} 
           />
         ))}
-        {/* **הוסר: קטע הקוד של ה-UserMarker המותאם אישית עבור המשתמש הנוכחי** */}
       </MapView>
 
-      {/* כפתורי סינון והוספת אירוע */}
       <FilterButton
         displayDistance={displayDistance}
         onDistanceFilterPress={handleDistanceFilterPress}
@@ -418,16 +352,13 @@ export default function HomeScreen() {
         isChoosingLocation={isChoosingLocation}
       />
 
-      {/* לחצן המיקום */}
       <MyLocationButton onLocationUpdate={handleLocationUpdate} />
 
-      {/* סלקטור מיקום חדש לאירוע */}
       <LocationSelector
         visible={isChoosingLocation}
         onCancel={handleCancelLocationSelection}
       />
 
-      {/* מודל פרטי אירוע נבחר */}
       <EventDetailsModal
         visible={!!selectedEvent}
         selectedEvent={selectedEvent}
@@ -437,7 +368,6 @@ export default function HomeScreen() {
         SERVER_URL={SERVER_URL}
       />
 
-      {/* מודל פרטי משתמש נבחר */}
       <UserDetailsModal
         visible={!!selectedUser}
         selectedUser={selectedUser}
@@ -446,7 +376,6 @@ export default function HomeScreen() {
         onOpenPrivateChat={handleOpenPrivateChat}
       />
 
-      {/* מודל סינון מרחק */}
       <DistanceFilterButton
         displayDistance={displayDistance}
         setDisplayDistance={setDisplayDistance}
