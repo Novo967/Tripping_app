@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, View } from 'react-native'; // Added ActivityIndicator
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
 interface UserMarkerProps {
@@ -11,43 +11,45 @@ interface UserMarkerProps {
     profile_image?: string;
     username?: string;
   };
+  currentUserUid?: string; // UID של המשתמש הנוכחי
   onPress: (user: any) => void;
 }
 
-const UserMarker: React.FC<UserMarkerProps> = ({ user, onPress }) => {
-  // shouldTrackViewChanges מתחיל ב-true כדי לאפשר למפה לצייר את המרקר עם התמונה ברגע שהיא זמינה.
+const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }) => {
   const [shouldTrackViewChanges, setShouldTrackViewChanges] = useState(true);
-  const [isImageLoading, setIsImageLoading] = useState(false); // מצב חדש לניהול טעינת תמונה
+  const [isImageLoading, setIsImageLoading] = useState(false);
+
+  // בדיקה אם זה המשתמש הנוכחי (לא רלוונטי יותר עבור רינדור המרקר שלו)
+  const isCurrentUser = user.uid === currentUserUid;
 
   useEffect(() => {
-    if (user.profile_image) {
-      // אם יש תמונת פרופיל, נתחיל לעקוב ונסמן שהתמונה בטעינה
-      setIsImageLoading(true);
-      setShouldTrackViewChanges(true); // ודא שמתחילים לעקוב
-
-      // לא צריך setTimeout כאן, כי onLoadEnd/onError יטפלו בזה.
-      // אם התמונה נטענת מהר מהקאש, onLoadEnd יקרה כמעט מיידית.
-    } else {
-      // אם אין תמונת פרופיל, התוכן סטטי, אז נפסיק לעקוב אחרי עיכוב קצר
-      // זה מבטיח שהאייקון יופיע בלי ריצוד.
+    // אם אין תמונה, או אם זה המשתמש הנוכחי (שאינו מרונדר יותר על ידי מרקר זה)
+    if (!user.profile_image) {
       const timer = setTimeout(() => {
         setShouldTrackViewChanges(false);
-      }, 100); // עיכוב קצרצר (100ms) מספיק לרינדור אייקון סטטי
-      return () => clearTimeout(timer); // ניקוי הטיימר
+      }, 100);
+      return () => clearTimeout(timer);
+    } else { // This block handles users with profile images
+      setIsImageLoading(true);
+      setShouldTrackViewChanges(true); // עקוב אחר שינויים בתצוגה עד שהתמונה נטענת
     }
-  }, [user.profile_image]); // תלוי רק בשינוי תמונת הפרופיל
+  }, [user.profile_image]);
 
   const handleImageLoadEnd = () => {
-    // התמונה נטענה בהצלחה, אפשר להפסיק לעקוב.
-    setIsImageLoading(false); // סימון שהתמונה סיימה להיטען
+    setIsImageLoading(false);
+    setShouldTrackViewChanges(false); // Stop tracking after image loads
   };
 
   const handleImageError = (e: any) => {
     console.warn(`Error loading image for user ${user.uid}:`, e.nativeEvent.error);
-    // גם אם יש שגיאה, נפסיק לעקוב כדי למנוע ריצוד מיותר.
-    // אפשר להגדיר כאן גם fall-back לאייקון ברירת המחדל אם רוצים.
-    setIsImageLoading(false); // סימון שהטעינה הסתיימה בשגיאה
+    setIsImageLoading(false);
+    setShouldTrackViewChanges(false); // Stop tracking on error
   };
+
+  // אם זה המשתמש הנוכחי, לא נרנדר לו מרקר
+  if (isCurrentUser) {
+    return null;
+  }
 
   return (
     <Marker
@@ -59,7 +61,6 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, onPress }) => {
     >
       {user.profile_image ? (
         <View style={styles.imageContainer}>
-          {/* מציגים אינדיקטור טעינה אם התמונה עדיין בטעינה */}
           {isImageLoading && (
             <ActivityIndicator size="small" color="#FF6F00" style={StyleSheet.absoluteFillObject} />
           )}
@@ -69,7 +70,6 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, onPress }) => {
             resizeMode="cover"
             onLoadEnd={handleImageLoadEnd}
             onError={handleImageError}
-            // opacity: isImageLoading ? 0 : 1 יאפשר טעינה חלקה יותר (התמונה "תופיע" ברגע שהיא מוכנה)
           />
         </View>
       ) : (
@@ -99,10 +99,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
-   imageContainer: {
-    width: '100%', // התמונה תתפוס את כל הקונטיינר
-    height: '100%',
+  imageContainer: {
+    width: 36, // Ensure container has dimensions to match profileMarker
+    height: 36, //
+    borderRadius: 25, // Match border radius of profileMarker
+    overflow: 'hidden', // Clip content to border radius
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  // סגנונות עבור העיגול הכחול של המשתמש הנוכחי - **הוסרו לחלוטין**
 });
 
 export default React.memo(UserMarker);

@@ -1,4 +1,4 @@
-// app/index.tsx
+// app/(tabs)/home/index.tsx
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
@@ -17,7 +17,7 @@ import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
-import UserMarker from '../../components/UserMarker';
+import UserMarker from '../../components/UserMarker'; // ודא שהייבוא נכון
 
 // ייבוא קומפוננטות המודל החדשות
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
@@ -330,6 +330,12 @@ export default function HomeScreen() {
         provider={PROVIDER_GOOGLE}
         style={{ flex: 1 }}
         region={region}
+        // הוספת סימון מיקום המשתמש
+        showsUserLocation={true} // מציג את הנקודה הכחולה המובנית של המפה
+        showsMyLocationButton={false} // מבטל את הכפתור הפנימי כי יש לנו כפתור מותאם אישית
+        followsUserLocation={false} // מונע מעקב אוטומטי כדי שהמפה לא תזוז כל הזמן
+        userLocationPriority="high" // דיוק גבוה למיקום המשתמש
+        userLocationUpdateInterval={5000} // עדכון כל 5 שניות
         onPress={(e) => {
           // אם המשתמש בוחר מיקום חדש לאירוע
           if (isChoosingLocation) {
@@ -341,6 +347,13 @@ export default function HomeScreen() {
             setIsChoosingLocation(false);
           }
           // סגירת מודלים צריכה להיות מטופלת בתוך המודלים עצמם
+        }}
+        onUserLocationChange={(event) => {
+          const coordinate = event.nativeEvent.coordinate;
+          if (coordinate) {
+            const { latitude, longitude } = coordinate;
+            setCurrentLocation({ latitude, longitude });
+          }
         }}
       >
         {/* רנדור מרקרי אירועים גלויים */}
@@ -379,15 +392,22 @@ export default function HomeScreen() {
             }}
           />
         ))}
-        {/* רנדור מרקרי משתמשים גלויים */}
+        {/* רנדור מרקרי משתמשים גלויים (למעט המשתמש הנוכחי) */}
         {users.filter(u =>
+          u.uid !== user?.uid && // מסנן החוצה את המשתמש הנוכחי כדי למנוע כפילות עם הנקודה המובנית
           currentLocation && calculateDistance(currentLocation.latitude, currentLocation.longitude, u.latitude, u.longitude) <= displayDistance
         ).map(userMarker => (
-          <UserMarker key={userMarker.uid} user={userMarker} onPress={(u) => {
-            setSelectedEvent(null); // סגור מודל אירוע אם פתוח
-            setSelectedUser(u); // הצג מודל משתמש
-          }} />
+          <UserMarker 
+            key={userMarker.uid} 
+            user={userMarker} 
+            currentUserUid={user?.uid}
+            onPress={(u) => {
+              setSelectedEvent(null); // סגור מודל אירוע אם פתוח
+              setSelectedUser(u); // הצג מודל משתמש
+            }} 
+          />
         ))}
+        {/* **הוסר: קטע הקוד של ה-UserMarker המותאם אישית עבור המשתמש הנוכחי** */}
       </MapView>
 
       {/* כפתורי סינון והוספת אירוע */}
