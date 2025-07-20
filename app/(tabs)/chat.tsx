@@ -16,14 +16,14 @@ import {
   Dimensions,
   FlatList,
   Image,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../firebaseConfig';
 
 // Set moment locale to Hebrew
@@ -47,6 +47,7 @@ const ChatsList = () => {
   const [filteredChats, setFilteredChats] = useState<ChatItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const insets = useSafeAreaInsets();
 
   // useRef to keep track of active listeners for cleanup
   const unsubscribeListeners = useRef<(() => void)[]>([]);
@@ -288,18 +289,18 @@ const ChatsList = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
         <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
         <View style={styles.loadingContent}>
           <ActivityIndicator size="large" color="#FF6F00" />
           <Text style={styles.loadingText}>טוען צאטים...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>הצאטים שלך</Text>
@@ -337,7 +338,7 @@ const ChatsList = () => {
           />
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
