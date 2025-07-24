@@ -16,6 +16,8 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Platform // Added Platform to handle OS-specific styles
+  ,
   StatusBar,
   StyleSheet,
   Text,
@@ -23,7 +25,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../firebaseConfig';
 
 // Set moment locale to Hebrew
@@ -47,7 +49,7 @@ const ChatsList = () => {
   const [filteredChats, setFilteredChats] = useState<ChatItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets(); // Already correctly using useSafeAreaInsets
 
   // useRef to keep track of active listeners for cleanup
   const unsubscribeListeners = useRef<(() => void)[]>([]);
@@ -271,7 +273,6 @@ const ChatsList = () => {
             style={styles.avatar}
           />
         )}
-        
       </View>
 
       <View style={styles.textContainer}>
@@ -289,19 +290,28 @@ const ChatsList = () => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
+      // Changed to SafeAreaView for consistent behavior
+      <SafeAreaView style={styles.loadingContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
         <View style={styles.loadingContent}>
           <ActivityIndicator size="large" color="#FF6F00" />
           <Text style={styles.loadingText}>טוען צאטים...</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    // Changed to SafeAreaView to correctly handle safe areas
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
+      {/*
+        The header component already has padding based on `paddingTop: 16`.
+        Since `SafeAreaView` adds its own padding, we need to adjust the header's paddingTop.
+        We can set `edges={['top']}` on SafeAreaView and handle bottom padding for the list.
+        Or, more simply, remove the `paddingTop` from `styles.container` and `styles.loadingContainer`
+        and let `SafeAreaView` handle it automatically.
+      */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>הצאטים שלך</Text>
         <Text style={styles.headerSubtitle}>התחבר עם חברים למסע</Text>
@@ -338,13 +348,14 @@ const ChatsList = () => {
           />
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 export default ChatsList;
 
 const styles = StyleSheet.create({
+  // Main container should take full space and SafeAreaView will handle insets
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
@@ -352,9 +363,11 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+    justifyContent: 'center', // Added for centering content in loading state
+    alignItems: 'center',    // Added for centering content in loading state
   },
   loadingContent: {
-    flex: 1,
+    // These styles moved from loadingContainer to here for clarity
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -367,7 +380,8 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#FF6F00',
     paddingHorizontal: 24,
-    paddingTop: 16,
+    // Removed paddingTop and used insets in the component's render method
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, // Add padding top for Android StatusBar
     paddingBottom: 24,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,

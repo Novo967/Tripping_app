@@ -10,14 +10,16 @@ import {
   Animated,
   Dimensions,
   Platform,
-  SafeAreaView,
+  // SafeAreaView, // ❌ נסיר את זה כי נשתמש בזה של safe-area-context
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-import { app, auth } from '../../firebaseConfig'; // ייבוא firebaseApp
+// ✅ ייבוא SafeAreaView ו-useSafeAreaInsets מ-react-native-safe-area-context
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { app, auth } from '../../firebaseConfig';
 
 import Bio from '../ProfileServices/bio';
 import EventRequestsHandler from '../ProfileServices/EventRequestsHandler';
@@ -29,7 +31,7 @@ import { useTheme } from '../ProfileServices/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 const SERVER_URL = 'https://tripping-app.onrender.com';
-const storage = getStorage(app); // אתחול ה-storage instance פעם אחת
+const storage = getStorage(app);
 
 // פונקציית עזר להעלאת תמונה ל-Firebase Storage
 const uploadToFirebase = async (uri: string, path: string): Promise<string> => {
@@ -70,6 +72,9 @@ export default function ProfileScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const settingsAnim = useRef(new Animated.Value(0)).current;
   const requestsPanelAnim = useRef(new Animated.Value(0)).current;
+
+  // ✅ שימוש ב-useSafeAreaInsets כדי לקבל את הריפודים
+  const insets = useSafeAreaInsets();
 
   const fetchGallery = async (uid: string): Promise<string[]> => {
     try {
@@ -137,7 +142,7 @@ export default function ProfileScreen() {
     try {
       for (const imageUrl of deletedImageUrls) {
         await deleteFromFirebase(imageUrl); // שימוש בפונקציית העזר
-        
+
         const serverResponse = await fetch(`${SERVER_URL}/delete-image`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -285,7 +290,10 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
+      // ✅ שימוש ב-SafeAreaView של safe-area-context
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        {/* ✅ ה-StatusBar כאן יהיה קבוע לכל מסך הטעינה */}
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.text }]}>טוען פרופיל...</Text>
@@ -295,9 +303,19 @@ export default function ProfileScreen() {
   }
 
   return (
+    // ✅ שימוש ב-SafeAreaView של safe-area-context
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      {/* ✅ ה-StatusBar כאן יהיה קבוע לכל מסך הפרופיל */}
+      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
+      
+      {/* עוטפים את כל התוכן ב-Animated.View.
+        חשוב לוודא שה-paddingTop שנוצר על ידי ה-SafeAreaView
+        לא יגרום לקיצוץ של רכיבי ה-topNav או האנימציות.
+        מכיוון ש-topNav כבר מקבל paddingBottom ו-paddingHorizontal,
+        ונראה שה-settingsPanel וה-requestsPanelAnimated הם `position: 'absolute'`,
+        ה-SafeAreaView אמור לדחוף את כל התוכן באופן אוטומטי.
+      */}
+      <Animated.View style={[styles.contentWrapper, { opacity: fadeAnim }]}>
         <View style={styles.topNav}>
           <NotificationBell hasNotifications={pendingRequests.length > 0} onPress={toggleRequests} />
           <TouchableOpacity onPress={toggleSettings} style={styles.navButton}>
@@ -305,10 +323,18 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ✅ עדכון מיקום ה-top של ה-settingsPanel וה-requestsPanelAnimated
+           כדי לקחת בחשבון את ה-SafeArea העליון (statusBar).
+           הערך 20 כאן הוא דוגמה, ייתכן שתצטרך להתאים אותו.
+           אפשר גם להשתמש ב-insets.top ישירות.
+        */}
         <Animated.View style={[styles.settingsPanel, {
           backgroundColor: theme.colors.surface,
           transform: [{ translateY: settingsAnim.interpolate({ inputRange: [0, 1], outputRange: [-200, 0] }) }],
-          opacity: settingsAnim, right: 20, left: 'auto',
+          opacity: settingsAnim,
+          right: 20,
+          left: 'auto',
+          top: insets.top + (Platform.OS === 'ios' ? 50 : 60), // ✅ התאמה ל-StatusBar והכפתורים למעלה
         }]}>
           <TouchableOpacity style={styles.settingsItem} onPress={() => { toggleTheme(); toggleSettings(); }}>
             <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
@@ -325,6 +351,7 @@ export default function ProfileScreen() {
         <Animated.View style={[styles.requestsPanelAnimated, {
           transform: [{ translateY: requestsPanelAnim.interpolate({ inputRange: [0, 1], outputRange: [-200, 0] }) }],
           opacity: requestsPanelAnim,
+          top: insets.top + (Platform.OS === 'ios' ? 50 : 60), // ✅ התאמה ל-StatusBar והכפתורים למעלה
         }]}>
           <EventRequestsHandler
             isVisible={showRequests}
@@ -374,6 +401,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // ✅ עטיפה לתוכן הראשי בתוך ה-SafeAreaView, כדי לאפשר ל-Animated.View לטפל באטימות
+  contentWrapper: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -389,7 +420,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+    // ✅ הסרת paddingTop כאן, ה-SafeAreaView מטפל בזה.
+    // אם תרצה ריפוד נוסף *מתחת* לאזור הבטוח, תוכל להוסיף אותו.
     paddingBottom: 10,
   },
   navButton: {
@@ -402,7 +434,7 @@ const styles = StyleSheet.create({
   },
   settingsPanel: {
     position: 'absolute',
-    top: 80,
+    // top: 80, // ✅ יטופל באמצעות חישוב עם insets.top
     right: 20,
     left: 20,
     zIndex: 15,
@@ -416,7 +448,7 @@ const styles = StyleSheet.create({
   },
   requestsPanelAnimated: {
     position: 'absolute',
-    top: 80,
+    // top: 80, // ✅ יטופל באמצעות חישוב עם insets.top
     left: 20,
     right: 20,
     zIndex: 15,
