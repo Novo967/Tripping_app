@@ -22,7 +22,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
@@ -31,6 +30,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+// ✅ ייבוא SafeAreaView ו-useSafeAreaInsets מ-react-native-safe-area-context
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../firebaseConfig';
 
 interface Message {
@@ -56,6 +57,9 @@ const ChatModal = () => {
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
+
+  // ✅ שימוש ב-useSafeAreaInsets כדי לקבל את הריפודים
+  const insets = useSafeAreaInsets();
 
   const chatId =
     currentUid && otherUserId ? [currentUid, otherUserId].sort().join('_') : '';
@@ -208,16 +212,31 @@ const ChatModal = () => {
     );
   };
 
-  // חישוב דינמי של גובה ההאדר והסטטוס בר עבור iOS
-  // גובה הסטטוס בר מחושב אוטומטית ע"י SafeAreaView, אבל אם יש לך StatusBar ידני עם backgroundColor הוא עשוי להשפיע.
-  // ההאדר הוא 68 פיקסלים (paddingVertical 12 * 2 + גובה התוכן בערך 44).
-  // נוסיף קצת בטיחות לאופסט
-  const keyboardVerticalOffset = Platform.OS === 'ios' ? 68 + 20 : 0; // 68 זה גובה ההאדר, 20 זה עוד קצת בטיחות
+  // ✅ חישוב דינמי של גובה ה-KeyboardAvoidingView offset
+  // ה-headerPaddingTop הוא הריפוד העליון של ההאדר, ששווה ל-insets.top
+  // גובה ההאדר עצמו הוא סכום של paddingVertical 12 * 2 + גובה התוכן (בסביבות 44px לאוואטאר) = 68px.
+  // לכן, ה-offset צריך להיות גובה ההאדר + גובה ה-StatusBar (שמטופל ע"י insets.top)
+  const headerHeight = 12 + 12 + 44; // paddingVertical * 2 + avatar height approx
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + headerHeight : 0;
+  // הערה: יש לוודא שאין לך paddingBottom ל-KeyboardAvoidingView עצמו,
+  // כי אז הוא יפעל נגד ה-insets.bottom.
 
   return (
+    // ✅ עטיפה ב-SafeAreaView של react-native-safe-area-context
     <SafeAreaView style={styles.container}>
+      {/* ✅ הגדרת ה-StatusBar צריכה להיות עקבית. 
+           ה-backgroundColor של ה-StatusBar צריך להתאים ל-backgroundColor של ה-header.
+           זה ימנע "קפיצה" או רקע לבן מתחת לסטטוס בר.
+      */}
       <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
-      <View style={styles.header}>
+      
+      {/* ה-Header לא צריך padding-top משלו אם ה-SafeAreaView מכיל אותו ודוחף אותו למטה,
+        אבל הוא צריך padding-top כדי להישאר בתוך המסגרת של ה-SafeArea.
+        הדרך הטובה ביותר היא לתת ל-header padding-top השווה ל-insets.top.
+        אפשר גם להוסיף את ה-header בתוך ה-KeyboardAvoidingView,
+        אבל במקרה של צ'אט עדיף שההאדר יהיה קבוע למעלה וה-KeyboardAvoidingView יטפל רק באזור התוכן והקלט.
+      */}
+      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'ios' ? 0 : 10) }]}>
         <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -236,10 +255,13 @@ const ChatModal = () => {
       <KeyboardAvoidingView
         style={styles.flexContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset} // השתמש בערך המחושב
+        // ✅ ה-offset צריך לכלול את גובה ההאדר בנוסף ל-insets.top
+        keyboardVerticalOffset={keyboardVerticalOffset} 
       >
         {messages.length === 0 ? (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={styles.emptyStateTouchable}>
+          // אין צורך ב-TouchableWithoutFeedback נוסף עם סטייל emptyStateTouchable/flatListTouchable
+          // ה-FlatList/View כבר תופסים את השטח.
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.emptyState}>
               <Ionicons name="chatbubble-outline" size={60} color="#E0E0E0" />
               <Text style={styles.emptyStateTitle}>התחל שיחה</Text>
@@ -247,7 +269,7 @@ const ChatModal = () => {
             </View>
           </TouchableWithoutFeedback>
         ) : (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={styles.flatListTouchable}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -269,7 +291,7 @@ const ChatModal = () => {
               activeOpacity={0.8}
               disabled={!input.trim()}
             >
-              <Ionicons name="send" size={20} color={input.trim() ? "#FFFFFF" : "#CCC"} style={{ transform: [{ scaleX: -1 }] }} />
+              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
             </TouchableOpacity>
             <TextInput
               style={styles.input}
@@ -301,12 +323,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   flexContainer: {
-    flex: 1
+    flex: 1,
   },
   header: {
     backgroundColor: '#FF6F00',
     paddingHorizontal: 16,
-    paddingVertical: 12, // 12 + 12 = 24px פאדינג אנכי
+    paddingVertical: 12, // כבר קיים.
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#FF6F00',
@@ -317,6 +339,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    // ✅ הסרת padding top ספציפי לפלטפורמה מכאן.
+    // ה-paddingTop הדינמי יוגדר ישירות כסטייל מותנה בקומפוננטה.
   },
   backButton: {
     padding: 8,
@@ -334,7 +358,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   avatar: {
-    width: 44, // גובה התוכן בערך 44px
+    width: 44,
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
@@ -473,14 +497,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 48,
+    // ✅ הריפוד התחתון של ה-SafeAreaView יטפל ב-notch
+    paddingBottom: 24, 
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
   },
   inputContainer: {
     flexDirection: 'row',
