@@ -1,17 +1,17 @@
-// app/components/FilterButton.tsx
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface FilterButtonProps {
   displayDistance: number;
   onDistanceFilterPress: () => void;
+  onEventFilterPress: () => void;
   onAddEventPress: () => void;
   isChoosingLocation: boolean;
 }
@@ -19,6 +19,7 @@ interface FilterButtonProps {
 export default function FilterButton({
   displayDistance,
   onDistanceFilterPress,
+  onEventFilterPress,
   onAddEventPress,
   isChoosingLocation
 }: FilterButtonProps) {
@@ -39,6 +40,11 @@ export default function FilterButton({
 
   const handleDistanceFilterPress = () => {
     onDistanceFilterPress();
+    toggleFilterMenu();
+  };
+
+  const handleEventFilterPress = () => {
+    onEventFilterPress();
     toggleFilterMenu();
   };
 
@@ -77,6 +83,15 @@ export default function FilterButton({
           
           <TouchableOpacity 
             style={styles.menuItemContainer} 
+            onPress={handleEventFilterPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="filter" size={18} color="#FF6F00" style={styles.menuIcon} />
+            <Text style={styles.menuItemText}>סוגי אירועים</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.menuItemContainer, styles.lastMenuItem]} 
             onPress={handleAddEventPress}
             activeOpacity={0.7}
           >
@@ -131,6 +146,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#f2f2f2',
+  },
+  lastMenuItem: {
+    borderBottomWidth: 0,
   },
   menuItemText: {
     fontSize: 17,
