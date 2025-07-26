@@ -18,6 +18,8 @@ import {
   Image,
   Platform // Added Platform to handle OS-specific styles
   ,
+
+
   StatusBar,
   StyleSheet,
   Text,
@@ -113,7 +115,6 @@ const ChatsList = () => {
                 return resolve(null);
               }
               const userData = await response.json();
-
               const newChatItem: ChatItem = {
                 chatId,
                 otherUserId,

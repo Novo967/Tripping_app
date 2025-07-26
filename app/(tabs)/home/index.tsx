@@ -55,8 +55,8 @@ export default function HomeScreen() {
   const [events, setEvents] = useState<SelectedEventType[]>([]);
   const [displayDistance, setDisplayDistance] = useState(150);
   const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([
-    'hiking', 'camping', 'beach', 'party', 'food', 'sports', 
-    'culture', 'adventure', 'nature', 'photography', 'nightlife', 'other'
+    'hiking', 'trip', 'camping', 'beach', 'party', 'food', 'sport',  
+    'culture', 'nature', 'nightlife'
   ]); // ברירת מחדל - כל הסוגים נבחרים
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<SelectedUserType | null>(null);

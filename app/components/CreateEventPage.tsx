@@ -13,12 +13,13 @@ import {
   StatusBar // ייבוא StatusBar לטיפול בגובה הסטטוס בר
   ,
 
+
   StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
 // Define a type for the allowed event types כדי למנוע את שגיאת ה-TypeScript
-type EventType = 'trip' | 'hiking' | 'camping' | 'beach' | 'party' | 'sport';
+type EventType = 'hiking' | 'trip' | 'camping' | 'beach' | 'party' | 'food' | 'sport' | 'culture' | 'nature' | 'nightlife';
 
 export default function CreateEventPage() {
   const { latitude, longitude } = useLocalSearchParams();
@@ -86,7 +87,7 @@ export default function CreateEventPage() {
       });
       if (response.ok) {
         Alert.alert('הצלחה', 'האירוע נוצר!', [
-          { text: 'אוקיי', onPress: () => router.replace('/') }
+          { text: 'אוקיי', onPress: () => router.replace('/home') }
         ]);
       } else {
         const errorData = await response.json();
@@ -108,11 +109,18 @@ export default function CreateEventPage() {
     camping: 'קמפינג',
     beach: 'חוף',
     party: 'מסיבה',
-    sport: 'ספורט'
+    food: 'אוכל', // סוג חדש
+    sport: 'ספורט',
+    culture: 'תרבות', // סוג חדש
+    nature: 'טבע', // סוג חדש
+    nightlife: 'חיי לילה', // סוג חדש
   };
 
   // יצירת מערך סוגי האירועים עם הטיפוס הנכון
-  const eventTypesArray: EventType[] = ['trip', 'hiking', 'camping', 'beach', 'party', 'sport'];
+  const eventTypesArray: EventType[] = [
+    'hiking', 'trip', 'camping', 'beach', 'party', 'food', 'sport',
+    'culture', 'nature', 'nightlife'
+  ];
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -166,7 +174,12 @@ export default function CreateEventPage() {
                   type === 'camping' ? 'bonfire' :
                   type === 'beach' ? 'water' :
                   type === 'party' ? 'happy' :
-                  'fitness'
+                  type === 'food' ? 'fast-food' : // אייקון לסוג 'food'
+                  type === 'sport' ? 'fitness' :
+                  type === 'culture' ? 'school' : // אייקון לסוג 'culture'
+                  type === 'nature' ? 'leaf' : // אייקון לסוג 'nature'
+                  type === 'nightlife' ? 'wine' : // אייקון לסוג 'nightlife'
+                  'help-circle' // אייקון ברירת מחדל אם אין התאמה
                 }
                 size={20}
                 color={eventType === type ? 'white' : '#FF6F00'}

@@ -49,7 +49,7 @@ const ChatModal = () => {
     otherUsername: string;
     otherUserImage: string;
   }>();
-
+   console.log('ChatModal - otherUserImage received:', otherUserImage);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);

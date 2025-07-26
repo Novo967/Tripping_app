@@ -23,6 +23,18 @@ type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile
 
 const { width, height } = Dimensions.get('window');
 
+// הגדרת קבועים עבור שוליים ומרווחים
+const GALLERY_OUTER_HORIZONTAL_MARGIN = 40; // marginHorizontal של ה-section שמכיל את הגלריה
+const GALLERY_INNER_ITEM_SPACING = 8; // רווח פנימי בין התמונות עצמן (לכל צד)
+const NUM_COLUMNS = 3;
+
+// חישוב רוחב של פריט בודד בגלריה
+// רוחב התוכן הפנימי של הסקשן: width - (2 * GALLERY_OUTER_HORIZONTAL_MARGIN)
+// סך כל המרווחים הפנימיים בין התמונות בשורה: (NUM_COLUMNS - 1) * GALLERY_INNER_ITEM_SPACING
+const availableWidthForImages = width - (2 * GALLERY_OUTER_HORIZONTAL_MARGIN);
+const itemWidth = (availableWidthForImages - (NUM_COLUMNS - 1) * GALLERY_INNER_ITEM_SPACING) / NUM_COLUMNS;
+
+
 interface UserData {
   username: string;
   profileImage: string;
@@ -262,11 +274,15 @@ const OtherUserProfile = () => {
           <FlatList
             data={userData.galleryImages.slice(0, 9)}
             keyExtractor={(item, index) => index.toString()}
-            numColumns={3}
+            numColumns={NUM_COLUMNS}
             scrollEnabled={false}
             contentContainerStyle={styles.galleryContainer}
             renderItem={({ item, index }) => (
-              <View style={styles.galleryImageContainer}>
+              <View style={[
+                styles.galleryImageContainer,
+                // הוספנו תנאי שמוסיף marginRight רק לתמונות שאינן האחרונה בשורה
+                (index + 1) % NUM_COLUMNS !== 0 ? { marginRight: GALLERY_INNER_ITEM_SPACING } : null
+              ]}>
                 <LikeableImage
                   imageUri={item}
                   imageIndex={index}
@@ -329,7 +345,7 @@ const OtherUserProfile = () => {
                 setSelectedImageIndex(newIndex);
               }}
             />
-            
+
             {/* Navigation arrows */}
             {userData.galleryImages.length > 1 && (
               <>
@@ -345,7 +361,7 @@ const OtherUserProfile = () => {
                     <Feather name="chevron-right" size={24} color="#fff" />
                   </TouchableOpacity>
                 )}
-                
+
                 {selectedImageIndex < userData.galleryImages.length - 1 && (
                   <TouchableOpacity
                     style={[styles.navButton, styles.navButtonLeft]}
@@ -567,16 +583,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   galleryContainer: {
+    // מפעילים flexWrap כדי לאפשר לשלוש תמונות להיות באותה שורה
+    // ומבטיחים שspace-between עובד
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between', // מפזר את התמונות באופן שווה בשורה
     paddingTop: 5,
   },
   galleryImageContainer: {
     position: 'relative',
-    marginBottom: 8,
-    marginRight: 8,
-    width: (width - 20 * 2 - 8 * 2) / 3,
-    height: (width - 20 * 2 - 8 * 2) / 3,
+    marginBottom: GALLERY_INNER_ITEM_SPACING, // מרווח אנכי בין שורות
+    width: itemWidth, // משתמשים ברוחב המחושב
+    height: itemWidth, // תמונות מרובעות
     borderRadius: 12,
     overflow: 'hidden',
+    // ה-marginRight יוסף באופן דינמי ב-renderItem
   },
   galleryImage: {
     width: '100%',
