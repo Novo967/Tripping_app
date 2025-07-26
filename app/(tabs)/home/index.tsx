@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
+import EventFilterButton from '../../MapButtons/EventFilterButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
@@ -53,11 +54,16 @@ export default function HomeScreen() {
   const [users, setUsers] = useState<SelectedUserType[]>([]);
   const [events, setEvents] = useState<SelectedEventType[]>([]);
   const [displayDistance, setDisplayDistance] = useState(150);
+  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([
+    'hiking', 'camping', 'beach', 'party', 'food', 'sports', 
+    'culture', 'adventure', 'nature', 'photography', 'nightlife', 'other'
+  ]); // ברירת מחדל - כל הסוגים נבחרים
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<SelectedUserType | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null);
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
+  const [eventFilterModalVisible, setEventFilterModalVisible] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [currentUserUsername, setCurrentUserUsername] = useState('');
 
@@ -206,10 +212,21 @@ export default function HomeScreen() {
 
   const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;
-    return events.filter(ev =>
-      calculateDistance(currentLocation.latitude, currentLocation.longitude, ev.latitude, ev.longitude) <= displayDistance
-    );
-  }, [events, currentLocation, displayDistance, calculateDistance]);
+    return events.filter(ev => {
+      // סינון לפי מרחק
+      const withinDistance = calculateDistance(
+        currentLocation.latitude, 
+        currentLocation.longitude, 
+        ev.latitude, 
+        ev.longitude
+      ) <= displayDistance;
+      
+      // סינון לפי סוג אירוע
+      const eventTypeMatches = selectedEventTypes.includes(ev.event_type);
+      
+      return withinDistance && eventTypeMatches;
+    });
+  }, [events, currentLocation, displayDistance, selectedEventTypes, calculateDistance]);
 
   const handleAddEventPress = useCallback(() => {
       setTimeout(() => {
@@ -223,6 +240,10 @@ export default function HomeScreen() {
 
   const handleDistanceFilterPress = useCallback(() => {
     setDistanceModalVisible(true);
+  }, []);
+
+  const handleEventFilterPress = useCallback(() => {
+    setEventFilterModalVisible(true);
   }, []);
 
   const handleLocationUpdate = useCallback((location: { latitude: number; longitude: number }) => {
@@ -348,6 +369,7 @@ export default function HomeScreen() {
       <FilterButton
         displayDistance={displayDistance}
         onDistanceFilterPress={handleDistanceFilterPress}
+        onEventFilterPress={handleEventFilterPress}
         onAddEventPress={handleAddEventPress}
         isChoosingLocation={isChoosingLocation}
       />
@@ -381,6 +403,13 @@ export default function HomeScreen() {
         setDisplayDistance={setDisplayDistance}
         visible={distanceModalVisible}
         setVisible={setDistanceModalVisible}
+      />
+
+      <EventFilterButton
+        selectedEventTypes={selectedEventTypes}
+        setSelectedEventTypes={setSelectedEventTypes}
+        visible={eventFilterModalVisible}
+        setVisible={setEventFilterModalVisible}
       />
     </View>
   );
