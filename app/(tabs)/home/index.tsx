@@ -388,6 +388,7 @@ export default function HomeScreen() {
         user={user}
         currentUserUsername={currentUserUsername}
         SERVER_URL={SERVER_URL}
+        userLocation={currentLocation} 
       />
 
       <UserDetailsModal
