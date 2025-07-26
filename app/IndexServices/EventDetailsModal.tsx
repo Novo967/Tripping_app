@@ -26,6 +26,7 @@ interface EventDetailsModalProps {
   user: any; // המשתמש המחובר כרגע
   currentUserUsername: string; // שם המשתמש המחובר
   SERVER_URL: string; // כתובת השרת
+  userLocation: { latitude: number; longitude: number } | null; // הוספה חדשה
 }
 
 /**
@@ -39,7 +40,37 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
   user,
   currentUserUsername,
   SERVER_URL,
+  userLocation, // הוספה חדשה
 }) => {
+
+  /**
+   * פונקציה לחישוב מרחק בין שתי נקודות על פני כדור הארץ (Haversine formula).
+   */
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of Earth in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance; // Distance in kilometers
+  };
+
+  const eventDistance = React.useMemo(() => {
+    if (userLocation && selectedEvent) {
+      const dist = calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        selectedEvent.latitude,
+        selectedEvent.longitude
+      );
+      return dist.toFixed(2); // Keep 2 decimal places
+    }
+    return null;
+  }, [userLocation, selectedEvent]);
 
   /**
    * שולח בקשה להצטרפות לאירוע.
@@ -138,6 +169,9 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             <Text style={styles.modalTitle}>{selectedEvent.event_title}</Text>
             <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL')}</Text>
             <Text style={styles.modalAuthor}>מאת: {selectedEvent.username}</Text>
+            {eventDistance && ( // הצגת המרחק
+              <Text style={styles.modalDistance}>מרחק ממיקומך: {eventDistance} ק"מ</Text>
+            )}
 
             {renderEventActionButton()}
 
@@ -183,7 +217,15 @@ const styles = StyleSheet.create({
   modalAuthor: {
     fontSize: 15,
     color: '#555',
+    marginBottom: 5, // נוסף מרווח תחתון
     textAlign: 'center',
+  },
+  modalDistance: { // סגנון חדש למרחק
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   requestButton: {
     backgroundColor: '#FF6F00',
