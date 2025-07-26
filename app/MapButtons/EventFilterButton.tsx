@@ -1,11 +1,11 @@
 import React from 'react';
 import {
-    Modal,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 
 interface Props {
@@ -17,18 +17,16 @@ interface Props {
 
 // רשימת סוגי האירועים הזמינים - ניתן להתאים לפי הצרכים
 const EVENT_TYPES = [
-  { id: 'hiking', name: 'טיול רגלי', emoji: '🥾' },
+  { id: 'hiking', name: 'הליכה', emoji: '👟' },
+  { id: 'trip', name: 'טיול', emoji: '🥾' },
   { id: 'camping', name: 'קמפינג', emoji: '⛺' },
   { id: 'beach', name: 'ים וחוף', emoji: '🏖️' },
   { id: 'party', name: 'מסיבה', emoji: '🎉' },
   { id: 'food', name: 'אוכל ושתייה', emoji: '🍕' },
-  { id: 'sports', name: 'ספורט', emoji: '⚽' },
+  { id: 'sport', name: 'ספורט', emoji: '⚽' },
   { id: 'culture', name: 'תרבות ומוזיקה', emoji: '🎭' },
-  { id: 'adventure', name: 'הרפתקאות', emoji: '🏃‍♂️' },
   { id: 'nature', name: 'טבע', emoji: '🌲' },
-  { id: 'photography', name: 'צילום', emoji: '📸' },
   { id: 'nightlife', name: 'חיי לילה', emoji: '🌙' },
-  { id: 'other', name: 'אחר', emoji: '📌' }
 ];
 
 export default function EventFilterButton({ 
