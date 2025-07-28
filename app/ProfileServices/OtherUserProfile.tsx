@@ -1,6 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
-import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
@@ -26,8 +25,8 @@ type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile
 
 const { width, height } = Dimensions.get('window');
 const PROFILE_IMAGE_SIZE = 120;
-const GALLERY_MARGIN = 16;
-const GALLERY_SPACING = 2;
+const GALLERY_MARGIN = 24; // Increased margin for more spacing
+const GALLERY_SPACING = 12; // Increased spacing between items
 const GALLERY_COLUMNS = 3;
 const BOTTOM_BUTTON_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
 
@@ -64,7 +63,7 @@ const OtherUserProfile = () => {
   });
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const modalFlatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -131,16 +130,19 @@ const OtherUserProfile = () => {
 
   const closeImageModal = () => {
     setModalVisible(false);
-    setSelectedImageIndex(0);
+    setSelectedImageIndex(null);
   };
 
   const renderGalleryImage = ({ item, index }: { item: string; index: number }) => (
     <TouchableOpacity
       style={[
         styles.galleryItem,
-        { marginLeft: (index + 1) % GALLERY_COLUMNS === 0 ? 0 : GALLERY_SPACING }
+        {
+          marginLeft: (index + 1) % GALLERY_COLUMNS === 0 ? 0 : GALLERY_SPACING,
+          marginBottom: GALLERY_SPACING
+        }
       ]}
-      onPress={() => openImageModal(index)}
+      onPress={() => openImageModal(userData.galleryImages.slice(0, 9).length - 1 - index)}
     >
       <LikeableImage
         imageUri={item}
@@ -177,16 +179,23 @@ const OtherUserProfile = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
+
       {/* Header */}
       <View style={styles.header}>
+        {userData.isOnline && (
+          <View style={styles.onlineIndicator}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.onlineText}>פעיל עכשיו</Text>
+          </View>
+        )}
+
         <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(tabs)/home')}>
           <Feather name="arrow-right" size={24} color="#333" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: BOTTOM_BUTTON_HEIGHT + 20 }]}
       >
         {/* Profile Section - Centered */}
@@ -203,7 +212,7 @@ const OtherUserProfile = () => {
           </View>
 
           <Text style={styles.username}>{userData.username}</Text>
-          
+
           {/* Location Info */}
           <View style={styles.locationContainer}>
             {userData.currentLocation?.city && userData.currentLocation?.country && (
@@ -246,7 +255,7 @@ const OtherUserProfile = () => {
                 <Text style={styles.travelCardText}>{userData.travelStyle}</Text>
               </View>
             )}
-            
+
             {userData.favoriteDestinations && userData.favoriteDestinations.length > 0 && (
               <View style={styles.travelCard}>
                 <Feather name="heart" size={18} color="#FF6F00" />
@@ -267,8 +276,8 @@ const OtherUserProfile = () => {
               numColumns={GALLERY_COLUMNS}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item, index }) => renderGalleryImage({ 
-                item, 
+              renderItem={({ item, index }) => renderGalleryImage({
+                item,
                 index: userData.galleryImages.slice(0, 9).length - 1 - index // Adjust index for reversed array
               })}
               contentContainerStyle={styles.galleryContent}
@@ -293,70 +302,15 @@ const OtherUserProfile = () => {
         animationType="fade"
         onRequestClose={closeImageModal}
       >
-        <View style={styles.modalOverlay}>
-          {Platform.OS === 'ios' ? (
-            <BlurView style={styles.modalBlur} intensity={80} tint="dark" />
-          ) : (
-            <View style={styles.androidBlurFallback} />
-          )}
-
-          <View style={styles.modalContent}>
-            <FlatList
-              ref={modalFlatListRef}
-              data={userData.galleryImages}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={renderModalImage}
-              initialScrollIndex={selectedImageIndex}
-              getItemLayout={(data, index) => ({
-                length: width,
-                offset: width * index,
-                index,
-              })}
-              onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
-                setSelectedImageIndex(newIndex);
-              }}
+        <TouchableOpacity style={styles.modalOverlay} onPress={closeImageModal}>
+          {selectedImageIndex !== null && (
+            <Image
+              source={{ uri: userData.galleryImages[selectedImageIndex] }}
+              style={styles.expandedImage}
+              resizeMode="contain"
             />
-
-            {/* Navigation arrows */}
-            {userData.galleryImages.length > 1 && (
-              <>
-                {selectedImageIndex > 0 && (
-                  <TouchableOpacity
-                    style={[styles.navButton, styles.navButtonRight]}
-                    onPress={() => {
-                      const newIndex = selectedImageIndex - 1;
-                      setSelectedImageIndex(newIndex);
-                      modalFlatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
-                    }}
-                  >
-                    <Feather name="chevron-right" size={24} color="#fff" />
-                  </TouchableOpacity>
-                )}
-
-                {selectedImageIndex < userData.galleryImages.length - 1 && (
-                  <TouchableOpacity
-                    style={[styles.navButton, styles.navButtonLeft]}
-                    onPress={() => {
-                      const newIndex = selectedImageIndex + 1;
-                      setSelectedImageIndex(newIndex);
-                      modalFlatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
-                    }}
-                  >
-                    <Feather name="chevron-left" size={24} color="#fff" />
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-
-            <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
-              <Ionicons name="close-circle" size={32} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
+          )}
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -368,6 +322,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  modalImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -383,15 +342,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     paddingVertical: 4,
     backgroundColor: 'white',
   },
   backButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: '#f8f9fa',
     marginLeft: 310,
+    backgroundColor: '#f8f9fa',
+  },
+  onlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+    marginRight: 6,
+  },
+  onlineText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
   },
   scrollContent: {
     flexGrow: 1,
@@ -501,8 +480,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   galleryContainer: {
-    paddingHorizontal: GALLERY_MARGIN,
-    marginBottom: 20,
+    paddingHorizontal: GALLERY_MARGIN, // Uses the updated GALLERY_MARGIN
+    marginBottom: 32,
   },
   galleryContent: {
     paddingTop: 0,
@@ -511,9 +490,8 @@ const styles = StyleSheet.create({
     transform: [{ scaleX: -1 }], // Flip for RTL
   },
   galleryItem: {
-    width: galleryItemSize,
-    height: galleryItemSize,
-    marginBottom: GALLERY_SPACING,
+    width: galleryItemSize, // Uses the updated galleryItemSize
+    height: galleryItemSize, // Uses the updated galleryItemSize
     position: 'relative',
     transform: [{ scaleX: -1 }], // Flip back individual items
   },
@@ -575,79 +553,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
   },
-  modalBlur: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  androidBlurFallback: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-  },
-  modalContent: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  modalImageContainer: {
-    width: width,
-    height: height * 0.8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+  expandedImage: {
+    width: '90%',
+    height: '90%',
+    borderRadius: 10,
   },
   modalImage: {
     width: '90%',
     height: '90%',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   imageCounter: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 30,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   imageCounterText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  navButton: {
-    position: 'absolute',
-    top: '50%',
-    marginTop: -25,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 25,
-    width: 50,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  navButtonLeft: {
-    left: 20,
-  },
-  navButtonRight: {
-    right: 20,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 30,
-    right: 20,
-    zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 25,
-    padding: 8,
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 });
