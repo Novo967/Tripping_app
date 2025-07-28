@@ -16,10 +16,7 @@ import {
   Dimensions,
   FlatList,
   Image,
-  Platform // Added Platform to handle OS-specific styles
-  ,
-
-
+  Platform, // Added Platform to handle OS-specific styles
   StatusBar,
   StyleSheet,
   Text,
@@ -78,7 +75,6 @@ const ChatsList = () => {
     unsubscribeListeners.current = [];
 
     const loadAndListenToChats = async () => {
-      const allChatItems: ChatItem[] = [];
       const chatMap = new Map<string, ChatItem>(); // To easily update existing chats
 
       // --- Private Chats Listener ---
@@ -267,12 +263,16 @@ const ChatsList = () => {
             <Ionicons name="people" size={24} color="#FF6F00" />
           </View>
         ) : (
-          <Image
-            source={{
-              uri: item.otherUserImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png'
-            }}
-            style={styles.avatar}
-          />
+          <>
+            {/* ✅ זו שורת הלוג החדשה! */}
+            {console.log(`[ChatsList] Image URI for ${item.otherUsername}: ${item.otherUserImage || 'No Image'}`)}
+            <Image
+              source={{
+                uri: item.otherUserImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png'
+              }}
+              style={styles.avatar}
+            />
+          </>
         )}
       </View>
 
@@ -291,7 +291,6 @@ const ChatsList = () => {
 
   if (loading) {
     return (
-      // Changed to SafeAreaView for consistent behavior
       <SafeAreaView style={styles.loadingContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
         <View style={styles.loadingContent}>
@@ -303,16 +302,8 @@ const ChatsList = () => {
   }
 
   return (
-    // Changed to SafeAreaView to correctly handle safe areas
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
-      {/*
-        The header component already has padding based on `paddingTop: 16`.
-        Since `SafeAreaView` adds its own padding, we need to adjust the header's paddingTop.
-        We can set `edges={['top']}` on SafeAreaView and handle bottom padding for the list.
-        Or, more simply, remove the `paddingTop` from `styles.container` and `styles.loadingContainer`
-        and let `SafeAreaView` handle it automatically.
-      */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>הצאטים שלך</Text>
         <Text style={styles.headerSubtitle}>התחבר עם חברים למסע</Text>

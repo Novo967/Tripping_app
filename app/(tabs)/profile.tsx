@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { doc, getFirestore, updateDoc } from 'firebase/firestore'; // ✅ ייבוא Firestore
+import { doc, getDoc, getFirestore, updateDoc } from 'firebase/firestore'; // ✅ ייבוא getDoc // ✅ ייבוא Firestore ו-updateDoc
 import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -98,11 +98,31 @@ export default function ProfileScreen() {
 
     try {
       const pathSegment = isProfilePic ? 'profile_images' : 'gallery_images';
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.jpg`;
+      // השם קובץ יכלול UID כדי לוודא יוניקיות אם יועלו מספר תמונות פרופיל
+      // למרות שבפועל אנחנו תמיד נעדכן את ה-URL ב-Firestore.
+      const fileName = `${user.uid}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.jpg`;
       const storagePath = `${pathSegment}/${user.uid}/${fileName}`;
 
       const firebaseImageUrl = await uploadToFirebase(uri, storagePath);
 
+      // ✅ התווסף: עדכון Firestore עבור תמונת פרופיל
+      if (isProfilePic) {
+        const userDocRef = doc(db, 'users', user.uid);
+        // לפני עדכון, בוא ננסה למחוק את התמונה הקודמת אם קיימת
+        if (profilePic) {
+          try {
+            await deleteFromFirebase(profilePic);
+          } catch (deleteError) {
+            console.warn("Failed to delete old profile pic from storage:", deleteError);
+          }
+        }
+        await updateDoc(userDocRef, {
+          profile_image: firebaseImageUrl, // שמירת ה-URL המלא של תמונת הפרופיל
+        });
+        console.log("Profile image URL saved to Firestore:", firebaseImageUrl);
+      }
+
+      // שליחה גם לשרת הבאקנד שלך
       const serverResponse = await fetch(`${SERVER_URL}/upload-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,10 +137,14 @@ export default function ProfileScreen() {
       if (serverResponse.ok) {
         if (isProfilePic) {
           setProfilePic(firebaseImageUrl);
+          Alert.alert('הצלחה', 'תמונת הפרופיל עודכנה בהצלחה!');
         } else {
           setGallery(prev => [...prev, firebaseImageUrl]);
+          Alert.alert('הצלחה', 'התמונה עלתה לגלריה בהצלחה!');
         }
       } else {
+        // אם השרת נכשל, ייתכן שנרצה לבטל את עדכון Firestore שבוצע קודם
+        // אך זה הופך את הלוגיקה למורכבת. עדיף להבטיח את הצלחת השרת.
         throw new Error(result.error || 'Upload to server failed');
       }
     } catch (err: any) {
@@ -211,25 +235,37 @@ export default function ProfileScreen() {
     }
 
     try {
-      const [profileRes, galleryData] = await Promise.all([
-        fetch(`${SERVER_URL}/get-user-profile`, {
+      // ✅ שינוי: נקרא את נתוני הפרופיל כולל תמונת הפרופיל ישירות מ-Firestore
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef); // ✅ ייבוא getDoc
+
+      let profileDataFromFirestore: any = {};
+      if (userDocSnap.exists()) {
+        profileDataFromFirestore = userDocSnap.data();
+        setProfilePic(profileDataFromFirestore.profile_image || null); // קריאת ה-URL מ-Firestore
+        setUsername(profileDataFromFirestore.username || '');
+        if (profileDataFromFirestore.bio) setBio(profileDataFromFirestore.bio);
+      } else {
+        console.warn("User document not found in Firestore for UID:", user.uid);
+        // Fallback: נסה לקרוא מהשרת אם לא נמצא ב-Firestore
+        const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid: user.uid }),
-        }),
-        fetchGallery(user.uid),
-      ]);
-
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        setProfilePic(data.profile_image || null);
-        setUsername(data.username || '');
-        if (data.bio) setBio(data.bio);
+        });
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          setProfilePic(data.profile_image || null);
+          setUsername(data.username || '');
+          if (data.bio) setBio(data.bio);
+        }
       }
+
+      const galleryData = await fetchGallery(user.uid);
       setGallery(galleryData);
 
     } catch (err) {
-      console.error(err);
+      console.error("Error during profile initialization:", err);
     } finally {
       setLoading(false);
     }
@@ -453,4 +489,5 @@ const styles = StyleSheet.create({
     marginRight: 12,
     textAlign: 'right',
   },
+  // Add other styles as needed
 });

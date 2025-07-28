@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage'; // ✅ ייבוא Firebase Storage
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
@@ -30,9 +31,12 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-// ✅ ייבוא SafeAreaView ו-useSafeAreaInsets מ-react-native-safe-area-context
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { db } from '../../firebaseConfig';
+import { db } from '../../firebaseConfig'; // ודא ש-db מיובא כרגיל
+
+// ✅ ייבוא ה-storage מ-firebaseConfig
+import { app } from '../../firebaseConfig'; // ייתכן שתצטרך לייצא את app מ-firebaseConfig
+const storage = getStorage(app); // ✅ קבלת רפרנס ל-Firebase Storage
 
 interface Message {
   id: string;
@@ -44,12 +48,16 @@ interface Message {
 }
 
 const ChatModal = () => {
-  const { otherUserId, otherUsername, otherUserImage } = useLocalSearchParams<{
+  const { otherUserId, otherUsername } = useLocalSearchParams<{
     otherUserId: string;
     otherUsername: string;
-    otherUserImage: string;
+    // ✅ הסרנו את otherUserImage מפרמטרי ה-useLocalSearchParams
+    // otherUserImage: string;
   }>();
-   console.log('ChatModal - otherUserImage received:', otherUserImage);
+
+  // ✅ State חדש לשמירת ה-URL של תמונת הפרופיל
+  const [otherUserProfileImage, setOtherUserProfileImage] = useState<string | null>(null);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
@@ -58,12 +66,57 @@ const ChatModal = () => {
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
 
-  // ✅ שימוש ב-useSafeAreaInsets כדי לקבל את הריפודים
   const insets = useSafeAreaInsets();
 
   const chatId =
     currentUid && otherUserId ? [currentUid, otherUserId].sort().join('_') : '';
 
+  // ✅ useEffect חדש לטעינת תמונת הפרופיל
+  useEffect(() => {
+    const fetchProfileImage = async () => {
+      if (!otherUserId) return;
+
+      try {
+        // נתיב נפוץ לתמונות פרופיל הוא 'profile_images/{uid}/profile.jpg'
+        // או השם המלא של הקובץ כפי שנשמר.
+        // בהנחה ששם הקובץ הוא יוניק ID (כמו Timestamp_filename.jpg)
+        // עדיף לשמור את שם הקובץ המלא בדאטהבייס (למשל, ב-Firestore של המשתמש).
+        // לצורך הדוגמה, נניח שהתמונה שמורה תחת הנתיב הנפוץ 'profile_images/{uid}/latest_profile_image.jpg'
+        // אם אתה שומר את ה-URL המלא בדאטהבייס של המשתמש, קרא אותו משם.
+
+        // דרך אמינה יותר: קבל את ה-URL מה-Firestore של המשתמש
+        const userDocRef = doc(db, 'users', otherUserId); // נניח שיש לך קולקציית 'users'
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          if (userData && userData.profile_image) { // נניח ששדה זה קיים
+            setOtherUserProfileImage(userData.profile_image);
+            console.log('ChatModal - Profile image fetched from Firestore:', userData.profile_image);
+            return;
+          }
+        }
+        
+        // אם לא נמצא ב-Firestore, נסה לחפש בנתיב כללי ב-Storage (פחות מומלץ, אבל אפשרי כ-fallback)
+        // זה ידרוש לדעת את שם הקובץ הספציפי, מה שקשה יותר בלי לשמור אותו.
+        // דוגמה: נניח שכל משתמש שומר את התמונה שלו בנתיב: `profile_images/${otherUserId}/profile.jpg`
+        // const imageRef = ref(storage, `profile_images/${otherUserId}/profile.jpg`);
+        // const url = await getDownloadURL(imageRef);
+        // setOtherUserProfileImage(url);
+        // console.log('ChatModal - Profile image fetched from Storage:', url);
+
+      } catch (error) {
+        console.error('ChatModal - Failed to fetch other user profile image:', error);
+        // Fallback למקרה של שגיאה או תמונה לא קיימת
+        setOtherUserProfileImage('https://cdn-icons-png.flaticon.com/512/1946/1946429.png'); // תמונת placeholder
+      }
+    };
+
+    fetchProfileImage();
+  }, [otherUserId]); // טען מחדש כשה-otherUserId משתנה
+
+
+  // שאר ה-useEffect לצאטים נשאר כרגיל
   useEffect(() => {
     if (!chatId) return;
     const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -212,37 +265,26 @@ const ChatModal = () => {
     );
   };
 
-  // ✅ חישוב דינמי של גובה ה-KeyboardAvoidingView offset
-  // ה-headerPaddingTop הוא הריפוד העליון של ההאדר, ששווה ל-insets.top
-  // גובה ההאדר עצמו הוא סכום של paddingVertical 12 * 2 + גובה התוכן (בסביבות 44px לאוואטאר) = 68px.
-  // לכן, ה-offset צריך להיות גובה ההאדר + גובה ה-StatusBar (שמטופל ע"י insets.top)
-  const headerHeight = 12 + 12 + 44; // paddingVertical * 2 + avatar height approx
+  const headerHeight = 12 + 12 + 44;
   const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + headerHeight : 0;
-  // הערה: יש לוודא שאין לך paddingBottom ל-KeyboardAvoidingView עצמו,
-  // כי אז הוא יפעל נגד ה-insets.bottom.
 
   return (
-    // ✅ עטיפה ב-SafeAreaView של react-native-safe-area-context
     <SafeAreaView style={styles.container}>
-      {/* ✅ הגדרת ה-StatusBar צריכה להיות עקבית. 
-           ה-backgroundColor של ה-StatusBar צריך להתאים ל-backgroundColor של ה-header.
-           זה ימנע "קפיצה" או רקע לבן מתחת לסטטוס בר.
-      */}
       <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
       
-      {/* ה-Header לא צריך padding-top משלו אם ה-SafeAreaView מכיל אותו ודוחף אותו למטה,
-        אבל הוא צריך padding-top כדי להישאר בתוך המסגרת של ה-SafeArea.
-        הדרך הטובה ביותר היא לתת ל-header padding-top השווה ל-insets.top.
-        אפשר גם להוסיף את ה-header בתוך ה-KeyboardAvoidingView,
-        אבל במקרה של צ'אט עדיף שההאדר יהיה קבוע למעלה וה-KeyboardAvoidingView יטפל רק באזור התוכן והקלט.
-      */}
       <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'ios' ? 0 : 10) }]}>
         <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.userInfo} onPress={handleUserProfilePress} activeOpacity={0.7}>
           <View style={styles.avatarContainer}>
-            <Image source={{ uri: otherUserImage || 'https://via.placeholder.com/50' }} style={styles.avatar} />
+            {/* ✅ השתמש ב-otherUserProfileImage שהושג מ-Firebase */}
+            <Image
+              source={{
+                uri: otherUserProfileImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png', // Fallback placeholder
+              }}
+              style={styles.avatar}
+            />
             <View style={styles.onlineIndicator} />
           </View>
           <View style={styles.userTextInfo}>
@@ -255,12 +297,9 @@ const ChatModal = () => {
       <KeyboardAvoidingView
         style={styles.flexContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        // ✅ ה-offset צריך לכלול את גובה ההאדר בנוסף ל-insets.top
         keyboardVerticalOffset={keyboardVerticalOffset} 
       >
         {messages.length === 0 ? (
-          // אין צורך ב-TouchableWithoutFeedback נוסף עם סטייל emptyStateTouchable/flatListTouchable
-          // ה-FlatList/View כבר תופסים את השטח.
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.emptyState}>
               <Ionicons name="chatbubble-outline" size={60} color="#E0E0E0" />
@@ -328,7 +367,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#FF6F00',
     paddingHorizontal: 16,
-    paddingVertical: 12, // כבר קיים.
+    paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#FF6F00',
@@ -339,8 +378,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    // ✅ הסרת padding top ספציפי לפלטפורמה מכאן.
-    // ה-paddingTop הדינמי יוגדר ישירות כסטייל מותנה בקומפוננטה.
   },
   backButton: {
     padding: 8,
@@ -497,7 +534,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    // ✅ הריפוד התחתון של ה-SafeAreaView יטפל ב-notch
     paddingBottom: 24, 
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
