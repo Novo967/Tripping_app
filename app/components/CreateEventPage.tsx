@@ -14,12 +14,13 @@ import {
   ,
 
 
+
   StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
 // Define a type for the allowed event types כדי למנוע את שגיאת ה-TypeScript
-type EventType = 'hiking' | 'trip' | 'camping' | 'beach' | 'party' | 'food' | 'sport' | 'culture' | 'nature' | 'nightlife';
+type EventType = 'trip' | 'camping' | 'beach' | 'party' | 'food' | 'sport' | 'culture' | 'nature' | 'nightlife';
 
 export default function CreateEventPage() {
   const { latitude, longitude } = useLocalSearchParams();
@@ -105,7 +106,6 @@ export default function CreateEventPage() {
   // Explicitly define the type for typeLabels כדי למנוע את שגיאת ה-TypeScript
   const typeLabels: Record<EventType, string> = {
     trip: 'טיול',
-    hiking: 'הליכה',
     camping: 'קמפינג',
     beach: 'חוף',
     party: 'מסיבה',
@@ -118,7 +118,7 @@ export default function CreateEventPage() {
 
   // יצירת מערך סוגי האירועים עם הטיפוס הנכון
   const eventTypesArray: EventType[] = [
-    'hiking', 'trip', 'camping', 'beach', 'party', 'food', 'sport',
+     'trip', 'camping', 'beach', 'party', 'food', 'sport',
     'culture', 'nature', 'nightlife'
   ];
 
@@ -170,7 +170,6 @@ export default function CreateEventPage() {
                 name={
                   // לוגיקה לבחירת אייקון מ-Ionicons
                   type === 'trip' ? 'car' :
-                  type === 'hiking' ? 'walk' :
                   type === 'camping' ? 'bonfire' :
                   type === 'beach' ? 'water' :
                   type === 'party' ? 'happy' :
