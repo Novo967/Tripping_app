@@ -1,11 +1,11 @@
 import React from 'react';
 import {
-  Modal,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Modal,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 
 interface Props {
@@ -17,7 +17,6 @@ interface Props {
 
 // רשימת סוגי האירועים הזמינים - ניתן להתאים לפי הצרכים
 const EVENT_TYPES = [
-  { id: 'hiking', name: 'הליכה', emoji: '👟' },
   { id: 'trip', name: 'טיול', emoji: '🥾' },
   { id: 'camping', name: 'קמפינג', emoji: '⛺' },
   { id: 'beach', name: 'ים וחוף', emoji: '🏖️' },
@@ -78,7 +77,7 @@ export default function EventFilterButton({
           <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>בחר סוגי אירועים</Text>
           
           {/* כפתורים לבחירת הכל/ניקוי הכל */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 }}>
+          <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', width: '100%', marginBottom: 20 }}>
             <TouchableOpacity
               onPress={selectAll}
               style={{ 
@@ -86,11 +85,13 @@ export default function EventFilterButton({
                 padding: 8, 
                 borderRadius: 6, 
                 flex: 1, 
-                marginRight: 10 
+                marginRight: 5 
               }}
             >
               <Text style={{ color: 'white', fontWeight: '600', textAlign: 'center' }}>בחר הכל</Text>
             </TouchableOpacity>
+            
+            <View style={{ width: 12 }} /> {/* Spacer between buttons */}
             
             <TouchableOpacity
               onPress={clearAll}
@@ -99,7 +100,7 @@ export default function EventFilterButton({
                 padding: 8, 
                 borderRadius: 6, 
                 flex: 1,
-                marginLeft: 10 
+                marginLeft: 5 
               }}
             >
               <Text style={{ color: '#333', fontWeight: '600', textAlign: 'center' }}>נקה הכל</Text>
