@@ -1,7 +1,7 @@
-// profile.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { doc, getFirestore, updateDoc } from 'firebase/firestore'; // ✅ ייבוא Firestore
 import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -10,14 +10,12 @@ import {
   Animated,
   Dimensions,
   Platform,
-  // SafeAreaView, // ❌ נסיר את זה כי נשתמש בזה של safe-area-context
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-// ✅ ייבוא SafeAreaView ו-useSafeAreaInsets מ-react-native-safe-area-context
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, auth } from '../../firebaseConfig';
 
@@ -32,6 +30,7 @@ import { useTheme } from '../ProfileServices/ThemeContext';
 const { width, height } = Dimensions.get('window');
 const SERVER_URL = 'https://tripping-app.onrender.com';
 const storage = getStorage(app);
+const db = getFirestore(app); // ✅ יצירת מופע של Firestore
 
 // פונקציית עזר להעלאת תמונה ל-Firebase Storage
 const uploadToFirebase = async (uri: string, path: string): Promise<string> => {
@@ -73,7 +72,6 @@ export default function ProfileScreen() {
   const settingsAnim = useRef(new Animated.Value(0)).current;
   const requestsPanelAnim = useRef(new Animated.Value(0)).current;
 
-  // ✅ שימוש ב-useSafeAreaInsets כדי לקבל את הריפודים
   const insets = useSafeAreaInsets();
 
   const fetchGallery = async (uid: string): Promise<string[]> => {
@@ -122,7 +120,6 @@ export default function ProfileScreen() {
         } else {
           setGallery(prev => [...prev, firebaseImageUrl]);
         }
-        // ✅ הוסר Alert.alert להודעת הצלחה
       } else {
         throw new Error(result.error || 'Upload to server failed');
       }
@@ -141,7 +138,7 @@ export default function ProfileScreen() {
 
     try {
       for (const imageUrl of deletedImageUrls) {
-        await deleteFromFirebase(imageUrl); // שימוש בפונקציית העזר
+        await deleteFromFirebase(imageUrl);
 
         const serverResponse = await fetch(`${SERVER_URL}/delete-image`, {
           method: 'POST',
@@ -180,16 +177,29 @@ export default function ProfileScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
-      await fetch(`${SERVER_URL}/update-user-profile`, {
+      // ✅ עדכון הביו בבקאנד שלך
+      const serverRes = await fetch(`${SERVER_URL}/update-user-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: user.uid, bio }),
       });
 
+      if (!serverRes.ok) {
+        const errorText = await serverRes.text();
+        throw new Error(`Failed to update bio on server: ${serverRes.status} ${errorText}`);
+      }
+
+      // ✅ עדכון הביו ב-Firebase Firestore
+      const userDocRef = doc(db, 'users', user.uid); // נניח שיש לך קולקציה בשם 'users' ומסמכים עם ה-UID של המשתמשים
+      await updateDoc(userDocRef, {
+        bio: bio,
+      });
+
       setIsEditingBio(false);
-    } catch (error) {
-      Alert.alert('שגיאה', 'לא הצלחנו לשמור את הביוגרפיה.');
-      console.log(error);
+      Alert.alert('הצלחה', 'הביוגרפיה נשמרה בהצלחה!'); // ✅ הוספת הודעת הצלחה למשתמש
+    } catch (error: any) {
+      Alert.alert('שגיאה', `לא הצלחנו לשמור את הביוגרפיה: ${error.message}`);
+      console.error('Save Bio Error:', error);
     }
   };
 
@@ -290,9 +300,7 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      // ✅ שימוש ב-SafeAreaView של safe-area-context
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* ✅ ה-StatusBar כאן יהיה קבוע לכל מסך הטעינה */}
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -303,18 +311,9 @@ export default function ProfileScreen() {
   }
 
   return (
-    // ✅ שימוש ב-SafeAreaView של safe-area-context
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* ✅ ה-StatusBar כאן יהיה קבוע לכל מסך הפרופיל */}
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
       
-      {/* עוטפים את כל התוכן ב-Animated.View.
-        חשוב לוודא שה-paddingTop שנוצר על ידי ה-SafeAreaView
-        לא יגרום לקיצוץ של רכיבי ה-topNav או האנימציות.
-        מכיוון ש-topNav כבר מקבל paddingBottom ו-paddingHorizontal,
-        ונראה שה-settingsPanel וה-requestsPanelAnimated הם `position: 'absolute'`,
-        ה-SafeAreaView אמור לדחוף את כל התוכן באופן אוטומטי.
-      */}
       <Animated.View style={[styles.contentWrapper, { opacity: fadeAnim }]}>
         <View style={styles.topNav}>
           <NotificationBell hasNotifications={pendingRequests.length > 0} onPress={toggleRequests} />
@@ -323,18 +322,13 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ✅ עדכון מיקום ה-top של ה-settingsPanel וה-requestsPanelAnimated
-           כדי לקחת בחשבון את ה-SafeArea העליון (statusBar).
-           הערך 20 כאן הוא דוגמה, ייתכן שתצטרך להתאים אותו.
-           אפשר גם להשתמש ב-insets.top ישירות.
-        */}
         <Animated.View style={[styles.settingsPanel, {
           backgroundColor: theme.colors.surface,
           transform: [{ translateY: settingsAnim.interpolate({ inputRange: [0, 1], outputRange: [-200, 0] }) }],
           opacity: settingsAnim,
           right: 20,
           left: 'auto',
-          top: insets.top + (Platform.OS === 'ios' ? 50 : 60), // ✅ התאמה ל-StatusBar והכפתורים למעלה
+          top: insets.top + (Platform.OS === 'ios' ? 50 : 60),
         }]}>
           <TouchableOpacity style={styles.settingsItem} onPress={() => { toggleTheme(); toggleSettings(); }}>
             <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
@@ -351,7 +345,7 @@ export default function ProfileScreen() {
         <Animated.View style={[styles.requestsPanelAnimated, {
           transform: [{ translateY: requestsPanelAnim.interpolate({ inputRange: [0, 1], outputRange: [-200, 0] }) }],
           opacity: requestsPanelAnim,
-          top: insets.top + (Platform.OS === 'ios' ? 50 : 60), // ✅ התאמה ל-StatusBar והכפתורים למעלה
+          top: insets.top + (Platform.OS === 'ios' ? 50 : 60),
         }]}>
           <EventRequestsHandler
             isVisible={showRequests}
@@ -401,7 +395,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // ✅ עטיפה לתוכן הראשי בתוך ה-SafeAreaView, כדי לאפשר ל-Animated.View לטפל באטימות
   contentWrapper: {
     flex: 1,
   },
@@ -420,8 +413,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    // ✅ הסרת paddingTop כאן, ה-SafeAreaView מטפל בזה.
-    // אם תרצה ריפוד נוסף *מתחת* לאזור הבטוח, תוכל להוסיף אותו.
     paddingBottom: 10,
   },
   navButton: {
@@ -434,7 +425,6 @@ const styles = StyleSheet.create({
   },
   settingsPanel: {
     position: 'absolute',
-    // top: 80, // ✅ יטופל באמצעות חישוב עם insets.top
     right: 20,
     left: 20,
     zIndex: 15,
@@ -448,7 +438,6 @@ const styles = StyleSheet.create({
   },
   requestsPanelAnimated: {
     position: 'absolute',
-    // top: 80, // ✅ יטופל באמצעות חישוב עם insets.top
     left: 20,
     right: 20,
     zIndex: 15,
