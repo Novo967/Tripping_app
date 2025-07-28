@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
-import { BlurView } from 'expo-blur'; // ודא ש-expo-blur מותקן: npm install expo-blur
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
@@ -10,7 +10,9 @@ import {
   Image,
   Modal,
   Platform,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,21 +21,17 @@ import {
 import { db } from '../../firebaseConfig';
 import { LikeableImage } from '../components/LikeableImage';
 import { RootStackParamList } from '../types';
+
 type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile'>;
 
 const { width, height } = Dimensions.get('window');
+const PROFILE_IMAGE_SIZE = 120;
+const GALLERY_MARGIN = 16;
+const GALLERY_SPACING = 2;
+const GALLERY_COLUMNS = 3;
+const BOTTOM_BUTTON_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
 
-// הגדרת קבועים עבור שוליים ומרווחים
-const GALLERY_OUTER_HORIZONTAL_MARGIN = 40; // marginHorizontal של ה-section שמכיל את הגלריה
-const GALLERY_INNER_ITEM_SPACING = 8; // רווח פנימי בין התמונות עצמן (לכל צד)
-const NUM_COLUMNS = 3;
-
-// חישוב רוחב של פריט בודד בגלריה
-// רוחב התוכן הפנימי של הסקשן: width - (2 * GALLERY_OUTER_HORIZONTAL_MARGIN)
-// סך כל המרווחים הפנימיים בין התמונות בשורה: (NUM_COLUMNS - 1) * GALLERY_INNER_ITEM_SPACING
-const availableWidthForImages = width - (2 * GALLERY_OUTER_HORIZONTAL_MARGIN);
-const itemWidth = (availableWidthForImages - (NUM_COLUMNS - 1) * GALLERY_INNER_ITEM_SPACING) / NUM_COLUMNS;
-
+const galleryItemSize = (width - GALLERY_MARGIN * 2 - GALLERY_SPACING * (GALLERY_COLUMNS - 1)) / GALLERY_COLUMNS;
 
 interface UserData {
   username: string;
@@ -57,6 +55,7 @@ interface UserData {
 const OtherUserProfile = () => {
   const route = useRoute<OtherUserProfileRouteProp>();
   const { uid } = route.params;
+  const router = useRouter();
 
   const [userData, setUserData] = useState<UserData>({
     username: '',
@@ -68,25 +67,19 @@ const OtherUserProfile = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const modalFlatListRef = useRef<FlatList>(null);
 
-  const router = useRouter();
-
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
 
-        // Fetch from API
         const res = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${uid}`);
         const apiData = await res.json();
 
-        // Fetch from Firestore
         const userDocRef = doc(db, 'users', uid);
         const userSnap = await getDoc(userDocRef);
 
         if (userSnap.exists()) {
           const firestoreData = userSnap.data();
-          const profileImageUrl = apiData.profile_image || '';
-          console.log('Profile Image URI:', profileImageUrl);
           setUserData({
             username: firestoreData.username || '',
             profileImage: apiData.profile_image || '',
@@ -103,8 +96,6 @@ const OtherUserProfile = () => {
             joinDate: firestoreData.joinDate || '',
             isOnline: firestoreData.isOnline || false,
           });
-        } else {
-          console.warn('No such user in Firestore!');
         }
       } catch (error) {
         console.error('Error loading user profile:', error);
@@ -133,16 +124,6 @@ const OtherUserProfile = () => {
     return `הצטרף ${date.getFullYear()}`;
   };
 
-  const InfoCard = ({ icon, title, content }: { icon: string, title: string, content: string }) => (
-    <View style={styles.infoCard}>
-      <Feather name={icon as any} size={20} color="#FF6F00" />
-      <View style={styles.infoContent}>
-        <Text style={styles.infoTitle}>{title}</Text>
-        <Text style={styles.infoText}>{content}</Text>
-      </View>
-    </View>
-  );
-
   const openImageModal = (imageIndex: number) => {
     setSelectedImageIndex(imageIndex);
     setModalVisible(true);
@@ -152,6 +133,29 @@ const OtherUserProfile = () => {
     setModalVisible(false);
     setSelectedImageIndex(0);
   };
+
+  const renderGalleryImage = ({ item, index }: { item: string; index: number }) => (
+    <TouchableOpacity
+      style={[
+        styles.galleryItem,
+        { marginLeft: (index + 1) % GALLERY_COLUMNS === 0 ? 0 : GALLERY_SPACING }
+      ]}
+      onPress={() => openImageModal(index)}
+    >
+      <LikeableImage
+        imageUri={item}
+        imageIndex={index}
+        profileOwnerId={uid}
+        style={styles.galleryImage}
+        showLikeButton={true}
+      />
+      {index === 8 && userData.galleryImages.length > 9 && (
+        <View style={styles.moreImagesOverlay}>
+          <Text style={styles.moreImagesText}>+{userData.galleryImages.length - 9}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
 
   const renderModalImage = ({ item, index }: { item: string; index: number }) => (
     <View style={styles.modalImageContainer}>
@@ -164,153 +168,125 @@ const OtherUserProfile = () => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
+      <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>טוען פרופיל...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      
       {/* Header */}
       <View style={styles.header}>
-        <View style={{ flex: 1, alignItems: 'flex-end' }}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(tabs)/home')}>
-            <Feather name="arrow-right" size={22} color="#FF6F00" />
-          </TouchableOpacity>
-        </View>
-
-        {userData.isOnline && (
-          <View style={styles.onlineIndicator}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>פעיל עכשיו</Text>
-          </View>
-        )}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(tabs)/home')}>
+          <Feather name="arrow-right" size={24} color="#333" />
+        </TouchableOpacity>
       </View>
 
-      {/* Profile Section */}
-      <View style={styles.profileSection}>
-        <View style={styles.profileImageContainer}>
-          {userData.profileImage ? (
-            <Image
-              source={{ uri: userData.profileImage }}
-              style={styles.profileImage}
-            />
-          ) : (
-            <View style={styles.defaultProfileIcon}>
-              <Ionicons name="person" size={50} color="#FF6F00" />
-            </View>
-          )}
-          {userData.isOnline && <View style={styles.onlineBadge} />}
-        </View>
-
-        <Text style={styles.username}>{userData.username}</Text>
-
-        {/* Current Location */}
-        {(userData.currentLocation?.city && userData.currentLocation?.country &&
-          userData.currentLocation.city !== 'לא זמין' && userData.currentLocation.country !== 'לא זמין') && (
-            <View style={styles.currentLocationContainer}>
-              <Feather name="map-pin" size={16} color="#FF6F00" />
-              <Text style={styles.currentLocationText}>
-                {userData.currentLocation.city}, {userData.currentLocation.country}
-              </Text>
-            </View>
-          )}
-
-        {/* Home Location */}
-        {(userData.location?.city && userData.location?.country &&
-          userData.location.city !== 'לא זמין' && userData.location.country !== 'לא זמין') && (
-            <View style={styles.locationContainer}>
-              <Feather name="home" size={14} color="#666" />
-              <Text style={styles.locationText}>
-                מ-{userData.location.city}, {userData.location.country}
-              </Text>
-            </View>
-          )}
-
-        {userData.joinDate && (
-          <Text style={styles.joinDate}>{formatJoinDate(userData.joinDate)}</Text>
-        )}
-      </View>
-
-      {/* Bio Section */}
-      {userData.bio && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>אודות</Text>
-          <Text style={styles.bioText}>{userData.bio}</Text>
-        </View>
-      )}
-
-      {/* Travel Info */}
-      {(userData.travelStyle || (userData.favoriteDestinations && userData.favoriteDestinations.length > 0)) && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>פרטי נסיעות</Text>
-
-          {userData.travelStyle && (
-            <InfoCard
-              icon="compass"
-              title="סגנון נסיעה"
-              content={userData.travelStyle}
-            />
-          )}
-
-          {userData.favoriteDestinations && userData.favoriteDestinations.length > 0 && (
-            <InfoCard
-              icon="heart"
-              title="יעדים מועדפים"
-              content={userData.favoriteDestinations.join(', ')}
-            />
-          )}
-        </View>
-      )}
-
-      {/* Gallery Section */}
-      {userData.galleryImages.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.galleryHeader}>
-            <Text style={styles.sectionTitle}>גלריית תמונות</Text>
-            <Text style={styles.imageCount}>{userData.galleryImages.length} תמונות</Text>
-          </View>
-          <FlatList
-            data={userData.galleryImages.slice(0, 9)}
-            keyExtractor={(item, index) => index.toString()}
-            numColumns={NUM_COLUMNS}
-            scrollEnabled={false}
-            contentContainerStyle={styles.galleryContainer}
-            renderItem={({ item, index }) => (
-              <View style={[
-                styles.galleryImageContainer,
-                // הוספנו תנאי שמוסיף marginRight רק לתמונות שאינן האחרונה בשורה
-                (index + 1) % NUM_COLUMNS !== 0 ? { marginRight: GALLERY_INNER_ITEM_SPACING } : null
-              ]}>
-                <LikeableImage
-                  imageUri={item}
-                  imageIndex={index}
-                  profileOwnerId={uid}
-                  style={styles.galleryImage}
-                  onPress={() => openImageModal(index)}
-                  showLikeButton={true}
-                />
-                {index === 8 && userData.galleryImages.length > 9 && (
-                  <View style={styles.moreImagesOverlay}>
-                    <Text style={styles.moreImagesText}>+{userData.galleryImages.length - 9}</Text>
-                  </View>
-                )}
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: BOTTOM_BUTTON_HEIGHT + 20 }]}
+      >
+        {/* Profile Section - Centered */}
+        <View style={styles.profileSection}>
+          <View style={styles.profileImageContainer}>
+            {userData.profileImage ? (
+              <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.defaultProfileIcon}>
+                <Ionicons name="person" size={60} color="#FF6F00" />
               </View>
             )}
-          />
-        </View>
-      )}
+            {userData.isOnline && <View style={styles.onlineBadge} />}
+          </View>
 
-      {/* Message Button */}
-      <View style={styles.buttonContainer}>
+          <Text style={styles.username}>{userData.username}</Text>
+          
+          {/* Location Info */}
+          <View style={styles.locationContainer}>
+            {userData.currentLocation?.city && userData.currentLocation?.country && (
+              <View style={styles.currentLocationRow}>
+                <Feather name="map-pin" size={16} color="#FF6F00" />
+                <Text style={styles.currentLocationText}>
+                  {userData.currentLocation.city}, {userData.currentLocation.country}
+                </Text>
+              </View>
+            )}
+
+            {userData.location?.city && userData.location?.country && (
+              <View style={styles.homeLocationRow}>
+                <Feather name="home" size={14} color="#999" />
+                <Text style={styles.homeLocationText}>
+                  מ-{userData.location.city}, {userData.location.country}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {userData.joinDate && (
+            <Text style={styles.joinDate}>{formatJoinDate(userData.joinDate)}</Text>
+          )}
+        </View>
+
+        {/* Bio */}
+        {userData.bio && (
+          <View style={styles.bioContainer}>
+            <Text style={styles.bioText}>{userData.bio}</Text>
+          </View>
+        )}
+
+        {/* Travel Info */}
+        {(userData.travelStyle || (userData.favoriteDestinations && userData.favoriteDestinations.length > 0)) && (
+          <View style={styles.travelInfoContainer}>
+            {userData.travelStyle && (
+              <View style={styles.travelCard}>
+                <Feather name="compass" size={18} color="#FF6F00" />
+                <Text style={styles.travelCardText}>{userData.travelStyle}</Text>
+              </View>
+            )}
+            
+            {userData.favoriteDestinations && userData.favoriteDestinations.length > 0 && (
+              <View style={styles.travelCard}>
+                <Feather name="heart" size={18} color="#FF6F00" />
+                <Text style={styles.travelCardText} numberOfLines={2}>
+                  {userData.favoriteDestinations.join(', ')}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Gallery with RTL support */}
+        {userData.galleryImages.length > 0 && (
+          <View style={styles.galleryContainer}>
+            <FlatList
+              data={userData.galleryImages.slice(0, 9).reverse()} // Reverse for RTL
+              keyExtractor={(item, index) => index.toString()}
+              numColumns={GALLERY_COLUMNS}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item, index }) => renderGalleryImage({ 
+                item, 
+                index: userData.galleryImages.slice(0, 9).length - 1 - index // Adjust index for reversed array
+              })}
+              contentContainerStyle={styles.galleryContent}
+              style={styles.galleryList}
+            />
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Floating Message Button */}
+      <View style={styles.floatingButtonContainer}>
         <TouchableOpacity style={styles.messageButton} onPress={handleSendMessage}>
-          <Feather name="message-circle" size={20} color="white" style={styles.buttonIcon} />
+          <Feather name="message-circle" size={20} color="white" />
           <Text style={styles.messageButtonText}>שלח הודעה</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Enhanced Image Modal with Swipe */}
+      {/* Image Modal */}
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -318,7 +294,6 @@ const OtherUserProfile = () => {
         onRequestClose={closeImageModal}
       >
         <View style={styles.modalOverlay}>
-          {/* Blur effect for the background */}
           {Platform.OS === 'ios' ? (
             <BlurView style={styles.modalBlur} intensity={80} tint="dark" />
           ) : (
@@ -377,17 +352,13 @@ const OtherUserProfile = () => {
               </>
             )}
 
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={closeImageModal}
-            >
-              <Ionicons name="close-circle" size={30} color="#fff" />
+            <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
+              <Ionicons name="close-circle" size={32} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
-    </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -396,11 +367,13 @@ export default OtherUserProfile;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'white',
   },
   loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'white',
   },
   loadingText: {
     fontSize: 16,
@@ -410,199 +383,144 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 45,
-    paddingHorizontal: 20,
-    paddingBottom: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'white',
   },
   backButton: {
-    backgroundColor: 'white',
     padding: 8,
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: '#f8f9fa',
+    marginLeft: 310,
   },
-  onlineIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4CAF50',
-    marginRight: 6,
-  },
-  onlineText: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: '600',
+  scrollContent: {
+    flexGrow: 1,
   },
   profileSection: {
     alignItems: 'center',
     paddingVertical: 30,
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingHorizontal: 20,
   },
   profileImageContainer: {
     position: 'relative',
+    marginBottom: 16,
   },
   profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
+    width: PROFILE_IMAGE_SIZE,
+    height: PROFILE_IMAGE_SIZE,
+    borderRadius: PROFILE_IMAGE_SIZE / 2,
+    borderWidth: 3,
     borderColor: '#FF6F00',
+  },
+  defaultProfileIcon: {
+    width: PROFILE_IMAGE_SIZE,
+    height: PROFILE_IMAGE_SIZE,
+    borderRadius: PROFILE_IMAGE_SIZE / 2,
+    backgroundColor: '#FFF3E0',
+    borderWidth: 3,
+    borderColor: '#FF6F00',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   onlineBadge: {
     position: 'absolute',
-    bottom: 5,
-    right: 5,
+    bottom: 8,
+    right: 8,
     width: 24,
     height: 24,
     borderRadius: 12,
     backgroundColor: '#4CAF50',
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: 'white',
   },
   username: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginTop: 15,
     color: '#333',
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  currentLocationContainer: {
+  locationContainer: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  currentLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
+    marginBottom: 6,
   },
   currentLocationText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#FF6F00',
     marginLeft: 6,
     fontWeight: '600',
   },
-  locationContainer: {
+  homeLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
   },
-  locationText: {
-    fontSize: 12,
-    color: '#666',
+  homeLocationText: {
+    fontSize: 14,
+    color: '#999',
     marginLeft: 6,
   },
   joinDate: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#999',
-    marginTop: 4,
+    textAlign: 'center',
   },
-  section: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginTop: 15,
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
+  bioContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   bioText: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 24,
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 22,
+    textAlign: 'center',
   },
-  infoCard: {
+  travelInfoContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  travelCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFF8F0',
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingHorizontal: 15,
-    backgroundColor: '#f8f9fa',
     borderRadius: 12,
-    marginBottom: 10,
+    marginBottom: 8,
+    borderRightWidth: 3,
+    borderRightColor: '#FF6F00',
   },
-  infoContent: {
-    marginLeft: 12,
+  travelCardText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 10,
     flex: 1,
   },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  galleryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  imageCount: {
-    fontSize: 14,
-    color: '#FF6F00',
-    fontWeight: '600',
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
   galleryContainer: {
-    // מפעילים flexWrap כדי לאפשר לשלוש תמונות להיות באותה שורה
-    // ומבטיחים שspace-between עובד
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between', // מפזר את התמונות באופן שווה בשורה
-    paddingTop: 5,
+    paddingHorizontal: GALLERY_MARGIN,
+    marginBottom: 20,
   },
-  galleryImageContainer: {
+  galleryContent: {
+    paddingTop: 0,
+  },
+  galleryList: {
+    transform: [{ scaleX: -1 }], // Flip for RTL
+  },
+  galleryItem: {
+    width: galleryItemSize,
+    height: galleryItemSize,
+    marginBottom: GALLERY_SPACING,
     position: 'relative',
-    marginBottom: GALLERY_INNER_ITEM_SPACING, // מרווח אנכי בין שורות
-    width: itemWidth, // משתמשים ברוחב המחושב
-    height: itemWidth, // תמונות מרובעות
-    borderRadius: 12,
-    overflow: 'hidden',
-    // ה-marginRight יוסף באופן דינמי ב-renderItem
+    transform: [{ scaleX: -1 }], // Flip back individual items
   },
   galleryImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+    borderRadius: 8,
   },
   moreImagesOverlay: {
     position: 'absolute',
@@ -611,25 +529,31 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 12,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   moreImagesText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
-  buttonContainer: {
+  floatingButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 20,
-    paddingVertical: 30,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingTop: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(10px)',
   },
   messageButton: {
     flexDirection: 'row',
     backgroundColor: '#FF6F00',
     paddingVertical: 16,
-    paddingHorizontal: 30,
-    borderRadius: 30,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#FF6F00',
@@ -638,24 +562,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  buttonIcon: {
-    marginRight: 8,
-  },
   messageButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
+    marginLeft: 8,
   },
-  defaultProfileIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#FF6F00',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  // Enhanced Modal styles
+  // Modal styles
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -675,7 +588,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
   },
   modalContent: {
     flex: 1,
@@ -700,7 +613,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 50,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -714,7 +627,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     marginTop: -25,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     borderRadius: 25,
     width: 50,
     height: 50,
@@ -730,11 +643,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 50,
+    top: Platform.OS === 'ios' ? 50 : 30,
     right: 20,
     zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 20,
-    padding: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 25,
+    padding: 8,
   },
 });
