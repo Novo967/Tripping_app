@@ -189,7 +189,7 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
                 <Image
                   source={{
                     uri: selectedProfile.profileImage || 
-                         `https://placehold.co/100x100/FF6F00/FFFFFF?text=${selectedProfile.username.charAt(0)}`
+                         `https://placehold.co/100x100/3A8DFF/FFFFFF?text=${selectedProfile.username.charAt(0)}`
                   }}
                   style={styles.profileImage}
                 />
@@ -242,7 +242,7 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
             pendingRequests.map((request) => (
               <View key={request.id} style={[styles.requestCard, { backgroundColor: theme.colors.background }]}>
                 <Image
-                  source={{ uri: `https://placehold.co/50x50/FF6F00/FFFFFF?text=${request.sender_username.charAt(0)}` }}
+                  source={{ uri: `https://placehold.co/50x50/3A8DFF/FFFFFF?text=${request.sender_username.charAt(0)}` }}
                   style={styles.requestSenderImage}
                 />
                 <View style={styles.requestTextContent}>
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginLeft: 15,
     borderWidth: 1,
-    borderColor: '#FF6F00',
+    borderColor: '#3A8DFF',
   },
   requestTextContent: {
     flex: 1,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     marginBottom: 10,
     borderWidth: 3,
-    borderColor: '#FF6F00',
+    borderColor: '#3A8DFF',
   },
   profileUsername: {
     fontSize: 24,

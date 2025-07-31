@@ -3,6 +3,7 @@ import {
   ActivityIndicator // Import ActivityIndicator for loading circle
   ,
 
+
   Animated,
   Dimensions,
   StatusBar,
@@ -141,7 +142,7 @@ export default function SplashScreen() {
           },
         ]}
       >
-        <ActivityIndicator size="large" color="#FF6F00" />
+        <ActivityIndicator size="large" color="#3A8DFF" />
         <Text style={styles.loadingText}>Loading...</Text>
       </Animated.View>
     </View>
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
   mainLogo: {
     fontSize: 80, // Larger font size for main logo
     fontWeight: '900', // Bolder font weight
-    color: '#FF6F00', // Orange color for the logo
+    color: '#3A8DFF', // Orange color for the logo
     letterSpacing: 15, // Increased letter spacing
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.1)', // Subtle text shadow
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
   letterText: {
     fontSize: 20, // Reduced size for smaller screens
     fontWeight: 'bold',
-    color: '#FF6F00', // Orange for initials
+    color: '#3A8DFF', // Orange for initials
     // Removed marginRight as it's now part of the same Text component
   },
   wordText: {

@@ -26,8 +26,8 @@ interface Theme {
 const lightTheme: Theme = {
   isDark: false,
   colors: {
-    primary: '#FF6F00',
-    secondary: '#FFA726',
+    primary: '#3A8DFF',
+    secondary: '#1A3F78',
     background: '#FAFAFA',
     surface: '#FFFFFF',
     text: '#212121',

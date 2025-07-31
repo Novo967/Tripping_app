@@ -62,7 +62,7 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }
       {user.profile_image ? (
         <View style={styles.imageContainer}>
           {isImageLoading && (
-            <ActivityIndicator size="small" color="#FF6F00" style={StyleSheet.absoluteFillObject} />
+            <ActivityIndicator size="small" color="#3A8DFF" style={StyleSheet.absoluteFillObject} />
           )}
           <Image
             source={{ uri: user.profile_image }}
@@ -74,7 +74,7 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }
         </View>
       ) : (
         <View style={styles.defaultMarkerIcon}>
-          <Ionicons name="person" size={24} color="#FF6F00" />
+          <Ionicons name="person" size={24} color="#3A8DFF" />
         </View>
       )}
     </Marker>

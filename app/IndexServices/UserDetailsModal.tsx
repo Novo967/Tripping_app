@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', // ממורכזים
   },
   profileButton: {
-    backgroundColor: '#FF6F00', // צבע כתום
+    backgroundColor: '#3A8DFF', // צבע כתום
     paddingVertical: 14, // ריפוד גדול יותר
     paddingHorizontal: 25,
     borderRadius: 10, // פינות מעוגלות יותר

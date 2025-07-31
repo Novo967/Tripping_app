@@ -151,7 +151,7 @@ export default function LoginScreen() {
   );
 }
 
-const PRIMARY_COLOR = '#ff6600';
+const PRIMARY_COLOR = '#3A8DFF';
 const BACKGROUND_COLOR = '#FAFBFC';
 const TEXT_COLOR = '#1A1A1A';
 const GRAY_COLOR = '#6B7280';

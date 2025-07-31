@@ -260,7 +260,7 @@ const ChatsList = () => {
       <View style={styles.avatarContainer}>
         {item.isGroup ? (
           <View style={styles.groupIcon}>
-            <Ionicons name="people" size={24} color="#FF6F00" />
+            <Ionicons name="people" size={24} color="#3A8DFF" />
           </View>
         ) : (
           <>
@@ -285,16 +285,16 @@ const ChatsList = () => {
           {item.lastMessage || 'התחל שיחה חדשה'}
         </Text>
       </View>
-      <Ionicons name="chevron-back" size={20} color="#FF6F00" />
+      <Ionicons name="chevron-back" size={20} color="#3A8DFF" />
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
+        <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
         <View style={styles.loadingContent}>
-          <ActivityIndicator size="large" color="#FF6F00" />
+          <ActivityIndicator size="large" color="#3A8DFF" />
           <Text style={styles.loadingText}>טוען צאטים...</Text>
         </View>
       </SafeAreaView>
@@ -303,7 +303,7 @@ const ChatsList = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
+      <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>הצאטים שלך</Text>
         <Text style={styles.headerSubtitle}>התחבר עם חברים למסע</Text>
@@ -370,14 +370,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   header: {
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     paddingHorizontal: 24,
     // Removed paddingTop and used insets in the component's render method
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, // Add padding top for Android StatusBar
     paddingBottom: 24,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    shadowColor: '#FF6F00',
+    shadowColor: '#3A8DFF',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 3,
-    borderColor: '#FF6F00',
+    borderColor: '#3A8DFF',
   },
   textContainer: {
     flex: 1,
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#FF6F00',
+    borderColor: '#3A8DFF',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

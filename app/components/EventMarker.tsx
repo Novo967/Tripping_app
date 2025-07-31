@@ -18,7 +18,7 @@ interface EventMarkerProps {
 const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
   const color = getEventColor(event.type || ''); // Still use the color from markerUtils if needed for other elements
   const icon = getEventIcon(event.type || '');
-  const iconColor = '#FF6F00'; // The desired color for the icon
+  const iconColor = '#3A8DFF'; // The desired color for the icon
 
   return (
     <Marker
