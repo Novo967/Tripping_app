@@ -274,6 +274,35 @@ export default function RegisterScreen() {
           <Text style={styles.subtitle}>צרו חשבון חדש והתחילו את ההרפתקה שלכם</Text>
         </View>
 
+        {/* כפתור התחברות עם גוגל - ממוקם ראשון */}
+        <TouchableOpacity
+          style={[
+            styles.googleButton,
+            isLoading && styles.googleButtonDisabled,
+          ]}
+          onPress={() => {
+            if (request && !isLoading) {
+              setIsLoading(true);
+              promptAsync();
+            } else if (!request) {
+              Alert.alert('שגיאה', 'התחברות לגוגל אינה זמינה כרגע. אנא נסה שוב מאוחר יותר.');
+            }
+          }}
+          disabled={isLoading || !request}
+          activeOpacity={0.8}
+        >
+          <View style={styles.googleButtonContent}>
+            <Text style={styles.googleIcon}>Google</Text> 
+          </View>
+        </TouchableOpacity>
+
+        {/* מפריד בין התחברות עם גוגל להרשמה רגילה */}
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>או</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
         <View style={styles.formContainer}>
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>שם משתמש</Text>
@@ -378,27 +407,7 @@ export default function RegisterScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* כפתור התחברות עם גוגל */}
-        <TouchableOpacity
-          style={[
-            styles.googleButton,
-            isLoading && styles.googleButtonDisabled,
-          ]}
-          onPress={() => {
-            if (request && !isLoading) {
-              setIsLoading(true);
-              promptAsync();
-            } else if (!request) {
-              Alert.alert('שגיאה', 'התחברות לגוגל אינה זמינה כרגע. אנא נסה שוב מאוחר יותר.');
-            }
-          }}
-          disabled={isLoading || !request}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.googleButtonText}>התחבר עם גוגל</Text>
-        </TouchableOpacity>
-
+        
         {isLoading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={PRIMARY_COLOR} />
@@ -407,12 +416,8 @@ export default function RegisterScreen() {
         )}
 
         <View style={styles.footerContainer}>
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>או</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
+          {/* המפריד והקישור להתחברות קיימים כבר בתוך ה-footerContainer.
+              העברנו את המפריד הראשון למעלה כדי להפריד את כפתור גוגל. */}
           <TouchableOpacity
             onPress={() => router.push('/Authentication/login')}
             style={styles.loginLink}
@@ -654,17 +659,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+    marginBottom: 0, // Adjusted to reduce space before divider
   },
   googleButtonDisabled: {
     backgroundColor: '#A0A0A0',
     shadowOpacity: 0,
     elevation: 0,
   },
-  googleButtonText: {
+  googleButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleIcon: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 20, // Adjust size as needed
+    fontWeight: 'bold',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
