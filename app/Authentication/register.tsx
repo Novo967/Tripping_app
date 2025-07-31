@@ -267,7 +267,7 @@ export default function RegisterScreen() {
       >
         <View style={styles.headerContainer}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logo}>Triping</Text>
+            <Text style={styles.logo}>Trek</Text>
             <View style={styles.logoUnderline} />
           </View>
           <Text style={styles.welcomeText}>הצטרפו אלינו</Text>
