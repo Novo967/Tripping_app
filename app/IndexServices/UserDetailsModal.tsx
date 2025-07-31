@@ -17,7 +17,7 @@ interface UserDetailsModalProps {
   selectedUser: SelectedUserType | null;
   onClose: () => void;
   currentUserUid: string | null | undefined; // UID של המשתמש המחובר
-  onOpenPrivateChat: (targetUserUid: string, targetUsername: string) => void;
+  // onOpenPrivateChat: (targetUserUid: string, targetUsername: string) => void; // הפונקציה הזו כבר לא בשימוש ישיר במודל
 }
 
 /**
@@ -29,7 +29,7 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   selectedUser,
   onClose,
   currentUserUid,
-  onOpenPrivateChat,
+  // onOpenPrivateChat, // הפונקציה הזו כבר לא בשימוש ישיר במודל
 }) => {
 
   if (!selectedUser) return null; // לוודא שיש משתמש נבחר לפני הצגה
@@ -62,7 +62,17 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
               {/* כפתור שליחת הודעה */}
               {currentUserUid && selectedUser.uid !== currentUserUid && (
                 <TouchableOpacity
-                  onPress={() => onOpenPrivateChat(selectedUser.uid, selectedUser.username)}
+                  onPress={() => {
+                    onClose(); // סגור את המודל לפני פתיחת הצ'אט
+                    router.push({
+                      pathname: '/Chats/chatModal',
+                      params: {
+                        otherUserId: selectedUser.uid,
+                        otherUsername: selectedUser.username,
+                        // otherUserImage: '', // אם יש לך תמונת משתמש, הוסף אותה לכאן
+                      },
+                    });
+                  }}
                   style={styles.sendMessageButton}
                 >
                   <Text style={styles.sendMessageButtonText}>שלח הודעה</Text>
