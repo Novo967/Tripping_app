@@ -2,10 +2,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface LocationSelectorProps {
@@ -26,7 +26,7 @@ export default function LocationSelector({ visible, onCancel }: LocationSelector
             onPress={onCancel}
             activeOpacity={0.7}
           >
-            <Ionicons name="close" size={18} color="#FF6F00" />
+            <Ionicons name="close" size={18} color="#3A8DFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -43,12 +43,12 @@ const styles = StyleSheet.create({
     zIndex: 15,
   },
   locationIndicator: {
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     elevation: 8,
-    shadowColor: '#FF6F00',
+    shadowColor: '#3A8DFF',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

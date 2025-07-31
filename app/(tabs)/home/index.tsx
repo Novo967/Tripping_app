@@ -8,6 +8,7 @@ import {
   doc, // ייבוא doc עבור fetchCurrentUserUsername
   getDoc // ייבוא getDoc עבור fetchCurrentUserUsername
   ,
+
   getDocs,
   getFirestore,
   query
@@ -326,7 +327,7 @@ export default function HomeScreen() {
   if (!initialDataLoaded || !region) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6F00" />
+        <ActivityIndicator size="large" color="#3A8DFF" />
         <Text style={{ marginTop: 10, fontSize: 16 }}>📡 טוען מפה...</Text>
       </View>
     );

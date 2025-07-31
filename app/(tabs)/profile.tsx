@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   settingsItem: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   settingsText: {
     fontSize: 16,

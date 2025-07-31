@@ -196,7 +196,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               )}
               {eventDistance && (
                 <View style={styles.detailRow}>
-                  <Ionicons name="navigate-outline" size={18} color="#FF6F00" style={styles.detailIcon} />
+                  <Ionicons name="navigate-outline" size={18} color="#3A8DFF" style={styles.detailIcon} />
                   <Text style={styles.modalDistance}>מרחק ממיקומך:</Text>
                   <Text style={styles.modalDistance}><Text style={styles.distanceValue}>{eventDistance} ק"מ</Text></Text>
                 </View>
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   distanceValue: {
-    color: '#FF6F00',
+    color: '#3A8DFF',
     fontWeight: 'bold',
   },
   descriptionContainer: {
@@ -360,10 +360,10 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   requestButton: {
-    backgroundColor: '#FF6F00', // כתום ראשי
+    backgroundColor: '#3A8DFF', // כתום ראשי
   },
   chatButton: {
-    backgroundColor: '#FFA726', // כתום בהיר יותר לצ'אט
+    backgroundColor: '#3A8DFF', // כתום בהיר יותר לצ'אט
   },
   actionButtonText: {
     color: '#FFFFFF',

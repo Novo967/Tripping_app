@@ -270,7 +270,7 @@ const ChatModal = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
+      <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
       
       <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'ios' ? 0 : 10) }]}>
         <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
@@ -345,7 +345,7 @@ const ChatModal = () => {
               maxLength={500}
             />
             <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} activeOpacity={0.7}>
-              <Ionicons name="camera" size={24} color="#FF6F00" />
+              <Ionicons name="camera" size={24} color="#3A8DFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -365,12 +365,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    shadowColor: '#FF6F00',
+    shadowColor: '#3A8DFF',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   myMessage: {
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     borderBottomRightRadius: 8,
   },
   theirMessage: {
@@ -577,11 +577,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,
-    shadowColor: '#FF6F00',
+    shadowColor: '#3A8DFF',
     shadowOffset: {
       width: 0,
       height: 2,

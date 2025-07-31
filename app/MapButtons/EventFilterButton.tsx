@@ -1,11 +1,11 @@
 import React from 'react';
 import {
-    Modal,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 
 interface Props {
@@ -81,7 +81,7 @@ export default function EventFilterButton({
             <TouchableOpacity
               onPress={selectAll}
               style={{ 
-                backgroundColor: '#FF6F00', 
+                backgroundColor: '#3A8DFF', 
                 padding: 8, 
                 borderRadius: 6, 
                 flex: 1, 
@@ -123,7 +123,7 @@ export default function EventFilterButton({
                     backgroundColor: isSelected ? '#FFF3E0' : '#F5F5F5',
                     borderRadius: 10,
                     borderWidth: isSelected ? 2 : 1,
-                    borderColor: isSelected ? '#FF6F00' : '#E0E0E0'
+                    borderColor: isSelected ? '#3A8DFF' : '#E0E0E0'
                   }}
                 >
                   {/* תיבת סימון */}
@@ -132,8 +132,8 @@ export default function EventFilterButton({
                     height: 24,
                     borderRadius: 4,
                     borderWidth: 2,
-                    borderColor: isSelected ? '#FF6F00' : '#D0D0D0',
-                    backgroundColor: isSelected ? '#FF6F00' : 'transparent',
+                    borderColor: isSelected ? '#3A8DFF' : '#D0D0D0',
+                    backgroundColor: isSelected ? '#3A8DFF' : 'transparent',
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: 12 // RTL: marginRight instead of marginLeft
@@ -148,7 +148,7 @@ export default function EventFilterButton({
                   <Text style={{ 
                     fontSize: 16, 
                     fontWeight: isSelected ? 'bold' : 'normal',
-                    color: isSelected ? '#FF6F00' : '#333',
+                    color: isSelected ? '#3A8DFF' : '#333',
                     flex: 1,
                     textAlign: 'right', // RTL
                   }}>
@@ -173,7 +173,7 @@ export default function EventFilterButton({
           <TouchableOpacity
             onPress={() => setVisible(false)}
             style={{ 
-              backgroundColor: '#FF6F00', 
+              backgroundColor: '#3A8DFF', 
               padding: 12, 
               borderRadius: 8, 
               minWidth: 100,

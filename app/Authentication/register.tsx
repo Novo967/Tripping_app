@@ -428,7 +428,7 @@ export default function RegisterScreen() {
   );
 }
 
-const PRIMARY_COLOR = '#ff6600';
+const PRIMARY_COLOR = '#3A8DFF';
 const SECONDARY_COLOR = '#FF8533';
 const BACKGROUND_COLOR = '#FAFBFC';
 const TEXT_COLOR = '#1A1A1A';

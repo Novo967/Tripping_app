@@ -11,7 +11,7 @@ export default function Layout() {
       <Tabs
         screenOptions={({ route }) => ({
           unmountOnBlur: false,
-          tabBarActiveTintColor: '#FF6F00',
+          tabBarActiveTintColor: '#3A8DFF',
           tabBarInactiveTintColor: 'black', // שינוי ל-string 'black'
           tabBarStyle: {
             backgroundColor: 'white',

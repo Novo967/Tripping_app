@@ -205,7 +205,7 @@ const OtherUserProfile = () => {
               <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
             ) : (
               <View style={styles.defaultProfileIcon}>
-                <Ionicons name="person" size={60} color="#FF6F00" />
+                <Ionicons name="person" size={60} color="#3A8DFF" />
               </View>
             )}
             {userData.isOnline && <View style={styles.onlineBadge} />}
@@ -217,7 +217,7 @@ const OtherUserProfile = () => {
           <View style={styles.locationContainer}>
             {userData.currentLocation?.city && userData.currentLocation?.country && (
               <View style={styles.currentLocationRow}>
-                <Feather name="map-pin" size={16} color="#FF6F00" />
+                <Feather name="map-pin" size={16} color="#3A8DFF" />
                 <Text style={styles.currentLocationText}>
                   {userData.currentLocation.city}, {userData.currentLocation.country}
                 </Text>
@@ -251,14 +251,14 @@ const OtherUserProfile = () => {
           <View style={styles.travelInfoContainer}>
             {userData.travelStyle && (
               <View style={styles.travelCard}>
-                <Feather name="compass" size={18} color="#FF6F00" />
+                <Feather name="compass" size={18} color="#3A8DFF" />
                 <Text style={styles.travelCardText}>{userData.travelStyle}</Text>
               </View>
             )}
 
             {userData.favoriteDestinations && userData.favoriteDestinations.length > 0 && (
               <View style={styles.travelCard}>
-                <Feather name="heart" size={18} color="#FF6F00" />
+                <Feather name="heart" size={18} color="#3A8DFF" />
                 <Text style={styles.travelCardText} numberOfLines={2}>
                   {userData.favoriteDestinations.join(', ')}
                 </Text>
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     height: PROFILE_IMAGE_SIZE,
     borderRadius: PROFILE_IMAGE_SIZE / 2,
     borderWidth: 3,
-    borderColor: '#FF6F00',
+    borderColor: '#3A8DFF',
   },
   defaultProfileIcon: {
     width: PROFILE_IMAGE_SIZE,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     borderRadius: PROFILE_IMAGE_SIZE / 2,
     backgroundColor: '#FFF3E0',
     borderWidth: 3,
-    borderColor: '#FF6F00',
+    borderColor: '#3A8DFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   },
   currentLocationText: {
     fontSize: 16,
-    color: '#FF6F00',
+    color: '#3A8DFF',
     marginLeft: 6,
     fontWeight: '600',
   },
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
     borderRightWidth: 3,
-    borderRightColor: '#FF6F00',
+    borderRightColor: '#3A8DFF',
   },
   travelCardText: {
     fontSize: 14,
@@ -529,12 +529,12 @@ const styles = StyleSheet.create({
   },
   messageButton: {
     flexDirection: 'row',
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     paddingVertical: 16,
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF6F00',
+    shadowColor: '#3A8DFF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

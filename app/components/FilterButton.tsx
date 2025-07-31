@@ -77,7 +77,7 @@ export default function FilterButton({
             onPress={handleDistanceFilterPress}
             activeOpacity={0.7}
           >
-            <Ionicons name="resize" size={18} color="#FF6F00" style={styles.menuIcon} />
+            <Ionicons name="resize" size={18} color="#3A8DFF" style={styles.menuIcon} />
             <Text style={styles.menuItemText}>מרחק תצוגה ({displayDistance} קמ)</Text>
           </TouchableOpacity>
           
@@ -86,7 +86,7 @@ export default function FilterButton({
             onPress={handleEventFilterPress}
             activeOpacity={0.7}
           >
-            <Ionicons name="filter" size={18} color="#FF6F00" style={styles.menuIcon} />
+            <Ionicons name="filter" size={18} color="#3A8DFF" style={styles.menuIcon} />
             <Text style={styles.menuItemText}>סוגי אירועים</Text>
           </TouchableOpacity>
           
@@ -95,7 +95,7 @@ export default function FilterButton({
             onPress={handleAddEventPress}
             activeOpacity={0.7}
           >
-            <Ionicons name="add-circle-outline" size={18} color="#FF6F00" style={styles.menuIcon} />
+            <Ionicons name="add-circle-outline" size={18} color="#3A8DFF" style={styles.menuIcon} />
             <Text style={styles.menuItemText}>בחר במפה להוספת אירוע</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -112,14 +112,14 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   filterButton: {
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     width: 52,
     height: 52,
     borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
-    shadowColor: '#FF6F00',
+    shadowColor: '#3A8DFF',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,

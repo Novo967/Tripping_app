@@ -263,7 +263,7 @@ const GroupChatModal = () => {
   if (!eventTitle || typeof eventTitle !== 'string') {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
+        <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
         <View style={styles.errorContainer}>
           <View style={styles.errorIcon}>
             <Ionicons name="alert-circle-outline" size={60} color="#E0E0E0" />
@@ -283,7 +283,7 @@ const GroupChatModal = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6F00" />
+      <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -309,7 +309,7 @@ const GroupChatModal = () => {
             ) : (
               // If groupImage is null, render Ionicons people icon
               <View style={[styles.groupIcon, styles.groupIconPlaceholder]}>
-                <Ionicons name="people" size={24} color="#FF6F00" />
+                <Ionicons name="people" size={24} color="#3A8DFF" />
               </View>
             )}
             <View style={styles.onlineIndicator} />
@@ -383,7 +383,7 @@ const GroupChatModal = () => {
             />
 
             <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} activeOpacity={0.7}>
-              <Ionicons name="camera" size={24} color="#FF6F00" />
+              <Ionicons name="camera" size={24} color="#3A8DFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -403,12 +403,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     paddingHorizontal: 16,
     paddingVertical: 12, // 12 + 12 = 24px פאדינג אנכי
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    shadowColor: '#FF6F00',
+    shadowColor: '#3A8DFF',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   myMessage: {
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     borderBottomRightRadius: 8,
   },
   theirMessage: {
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   senderName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FF6F00',
+    color: '#3A8DFF',
     marginBottom: 4,
     textAlign: 'right',
   },
@@ -642,11 +642,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,
-    shadowColor: '#FF6F00',
+    shadowColor: '#3A8DFF',
     shadowOffset: {
       width: 0,
       height: 2,

@@ -15,5 +15,5 @@ export const getEventIcon = (type: string): string => {
 export const getEventColor = (type: string): string => {
   // This function can now be used for other purposes if you need a dynamic color
   // For the icon itself, we are using a fixed color in EventMarker.tsx
-  return '#FF6F00'; // This color is currently used as the fixed icon color in EventMarker.tsx
+  return '#3A8DFF'; // This color is currently used as the fixed icon color in EventMarker.tsx
 };

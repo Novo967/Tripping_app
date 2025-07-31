@@ -37,14 +37,14 @@ export default function DistanceFilterButton({ displayDistance, setDisplayDistan
           right: 0
         }}>
           <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>בחר מרחק להצגה</Text>
-          <Text style={{ fontSize: 24, color: '#FF6F00', marginBottom: 20 }}>{displayDistance} קמ</Text>
+          <Text style={{ fontSize: 24, color: '#3A8DFF', marginBottom: 20 }}>{displayDistance} קמ</Text>
           <Slider
             minimumValue={1}
             maximumValue={250}
             value={displayDistance}
             onValueChange={setDisplayDistance}
             step={1}
-            minimumTrackTintColor="#FF6F00"
+            minimumTrackTintColor="#3A8DFF"
             maximumTrackTintColor="#d3d3d3"
             style={{ width: '100%' }}
           />
@@ -54,7 +54,7 @@ export default function DistanceFilterButton({ displayDistance, setDisplayDistan
           </View>
           <TouchableOpacity
             onPress={() => setVisible(false)}
-            style={{ marginTop: 20, backgroundColor: '#FF6F00', padding: 12, borderRadius: 8, minWidth: 100 }}
+            style={{ marginTop: 20, backgroundColor: '#3A8DFF', padding: 12, borderRadius: 8, minWidth: 100 }}
           >
             <Text style={{ color: 'white', fontWeight: '600', textAlign: 'center' }}>שמור</Text>
           </TouchableOpacity>

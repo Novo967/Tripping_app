@@ -188,7 +188,7 @@ export default function CreateEventPage() {
           zoomEnabled={false}
         >
           <Marker coordinate={{ latitude: parseFloat(latitude as string), longitude: parseFloat(longitude as string) }}>
-            <View style={styles.customMarker}><Ionicons name="location" size={30} color="#FF6F00" /></View>
+            <View style={styles.customMarker}><Ionicons name="location" size={30} color="#3A8DFF" /></View>
           </Marker>
         </MapView>
 
@@ -224,7 +224,7 @@ export default function CreateEventPage() {
                   'help-circle'
                 }
                 size={20}
-                color={eventType === type ? 'white' : '#FF6F00'}
+                color={eventType === type ? 'white' : '#3A8DFF'}
               />
               <Text style={[styles.typeText, { color: eventType === type ? 'white' : '#333' }]}>{typeLabels[type]}</Text>
             </TouchableOpacity>
@@ -232,7 +232,7 @@ export default function CreateEventPage() {
         </ScrollView>
 
         <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
-          <Ionicons name="calendar" size={20} color="#FF6F00" />
+          <Ionicons name="calendar" size={20} color="#3A8DFF" />
           <Text style={styles.dateText}>{eventDate.toLocaleDateString('he-IL')}</Text>
         </TouchableOpacity>
 
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 24) + 10) : Constants.statusBarHeight + 10,
     paddingBottom: 10,
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -319,8 +319,8 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   typeSelected: {
-    backgroundColor: '#FF6F00',
-    borderColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
+    borderColor: '#3A8DFF',
   },
   typeText: { marginLeft: 8, fontSize: 15, fontWeight: '500' },
   dateButton: {
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   },
   dateText: { marginRight: 10, fontSize: 16, color: '#333', fontWeight: '500' },
   createButton: {
-    backgroundColor: '#FF6F00',
+    backgroundColor: '#3A8DFF',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',

@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   button: {
-    backgroundColor: '#ff6600da',
+    backgroundColor: '#3A8DFF',
     borderRadius: 25,
     width: 40,
     height: 40,
