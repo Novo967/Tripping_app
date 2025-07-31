@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
 import { router, useLocalSearchParams } from 'expo-router';
-import { getAuth } from 'firebase/auth'; // Only need getAuth, no signIn functions here
+import { getAuth } from 'firebase/auth';
 import { addDoc, collection, getFirestore } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
@@ -17,15 +17,10 @@ import {
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
-// Import the 'app' instance from your firebaseConfig.js
-// ייבוא מופע ה-'app' מקובץ ה-firebaseConfig.js שלך
-import { app } from '../../firebaseConfig'; // Adjust path as needed
+import { app } from '../../firebaseConfig';
 
-// Define a type for the allowed event types
-type EventType = 'trip' | 'camping' | 'beach' | 'party' | 'food' | 'sport' | 'culture' | 'nature' | 'nightlife';
-
-// No Canvas-specific global variables needed here
-// אין צורך במשתנים גלובליים ספציפיים ל-Canvas כאן
+// Define event types according to your requirements
+type EventType = 'trip' | 'party' | 'attraction' | 'food' | 'nightlife' | 'beach' | 'sport' | 'other';
 
 export default function CreateEventPage() {
   const { latitude, longitude } = useLocalSearchParams();
@@ -38,21 +33,14 @@ export default function CreateEventPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Directly get Firebase instances from the imported 'app'
-  // קבלת מופעי Firebase ישירות מתוך ה-'app' המיובא
   const db = getFirestore(app);
   const auth = getAuth(app);
 
-  // No need for isAuthReady state or complex useEffect for authentication
-  // אין צורך במצב isAuthReady או ב-useEffect מורכב לאימות
-
   useEffect(() => {
-    // Perform reverse geocoding when component mounts and location params are available
-    // בצע גיאו-קידוד הפוך כשהקומפוננטה נטענת ופרמטרי המיקום זמינים
     if (latitude && longitude) {
       reverseGeocode();
     }
-  }, [latitude, longitude]); // Depend on location params
+  }, [latitude, longitude]);
 
   const reverseGeocode = async () => {
     try {
@@ -83,8 +71,6 @@ export default function CreateEventPage() {
       return;
     }
 
-    // Get the current user's UID directly from the auth instance
-    // קבל את ה-UID של המשתמש הנוכחי ישירות ממופע האימות
     const userId = auth.currentUser?.uid;
 
     if (!userId) {
@@ -94,7 +80,6 @@ export default function CreateEventPage() {
 
     setIsLoading(true);
     try {
-      // Data to be sent to your backend (if it still handles some logic)
       const backendPayload = {
         owner_uid: userId,
         username: auth.currentUser?.displayName || 'משתמש',
@@ -107,7 +92,6 @@ export default function CreateEventPage() {
         location: eventLocation,
       };
 
-      // Call your existing backend API
       const response = await fetch('https://tripping-app.onrender.com/add-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,7 +99,6 @@ export default function CreateEventPage() {
       });
 
       if (response.ok) {
-        // If backend call is successful, add to Firestore
         const pinData = {
           owner_uid: userId,
           username: auth.currentUser?.displayName || 'משתמש',
@@ -130,8 +113,6 @@ export default function CreateEventPage() {
           created_at: new Date().toISOString(),
         };
 
-        // Use a simple 'pins' collection path for a standard Firebase project
-        // השתמש בנתיב אוסף פשוט 'pins' עבור פרויקט Firebase סטנדרטי
         await addDoc(collection(db, 'pins'), pinData);
 
         Alert.alert('הצלחה', 'האירוע נוצר בהצלחה ונוסף לפיירסטור!', [
@@ -150,21 +131,36 @@ export default function CreateEventPage() {
     }
   };
 
+  // Updated event types with Hebrew labels and appropriate icons
   const typeLabels: Record<EventType, string> = {
     trip: 'טיול',
-    camping: 'קמפינג',
-    beach: 'חוף',
     party: 'מסיבה',
+    attraction: 'אטרקציה',
     food: 'אוכל',
-    sport: 'ספורט',
-    culture: 'תרבות',
-    nature: 'טבע',
     nightlife: 'חיי לילה',
+    beach: 'ים/בריכה',
+    sport: 'ספורט',
+    other: 'אחר',
   };
 
+  // Icon mapping for each event type
+  const getEventIcon = (type: EventType): keyof typeof Ionicons.glyphMap => {
+    const iconMap: Record<EventType, keyof typeof Ionicons.glyphMap> = {
+      trip: 'car',
+      party: 'musical-notes',
+      attraction: 'star',
+      food: 'restaurant',
+      nightlife: 'wine',
+      beach: 'water',
+      sport: 'fitness',
+      other: 'ellipsis-horizontal-circle',
+    };
+    return iconMap[type];
+  };
+
+  // Event types array in the specified order
   const eventTypesArray: EventType[] = [
-    'trip', 'camping', 'beach', 'party', 'food', 'sport',
-    'culture', 'nature', 'nightlife'
+    'trip', 'party', 'attraction', 'food', 'nightlife', 'beach', 'sport', 'other'
   ];
 
   return (
@@ -203,7 +199,13 @@ export default function CreateEventPage() {
           placeholderTextColor="#999"
         />
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
+        {/* RTL horizontal scroll for event types */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={styles.typeSelector}
+          contentContainerStyle={styles.typeSelectorContent}
+        >
           {eventTypesArray.map((type: EventType) => (
             <TouchableOpacity
               key={type}
@@ -211,22 +213,13 @@ export default function CreateEventPage() {
               onPress={() => setEventType(type)}
             >
               <Ionicons
-                name={
-                  type === 'trip' ? 'car' :
-                  type === 'camping' ? 'bonfire' :
-                  type === 'beach' ? 'water' :
-                  type === 'party' ? 'happy' :
-                  type === 'food' ? 'fast-food' :
-                  type === 'sport' ? 'fitness' :
-                  type === 'culture' ? 'school' :
-                  type === 'nature' ? 'leaf' :
-                  type === 'nightlife' ? 'wine' :
-                  'help-circle'
-                }
+                name={getEventIcon(type)}
                 size={20}
                 color={eventType === type ? 'white' : '#3A8DFF'}
               />
-              <Text style={[styles.typeText, { color: eventType === type ? 'white' : '#333' }]}>{typeLabels[type]}</Text>
+              <Text style={[styles.typeText, { color: eventType === type ? 'white' : '#333' }]}>
+                {typeLabels[type]}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -245,7 +238,11 @@ export default function CreateEventPage() {
           placeholderTextColor="#999"
         />
 
-        <TouchableOpacity style={[styles.createButton, isLoading && { opacity: 0.6 }]} onPress={handleCreateEvent} disabled={isLoading}>
+        <TouchableOpacity 
+          style={[styles.createButton, isLoading && { opacity: 0.6 }]} 
+          onPress={handleCreateEvent} 
+          disabled={isLoading}
+        >
           <Text style={styles.createButtonText}>{isLoading ? 'יוצר...' : 'צור אירוע'}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -253,7 +250,15 @@ export default function CreateEventPage() {
       <Modal visible={showDatePicker} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowDatePicker(false)}>
           <View style={styles.datePickerModal}>
-            <DateTimePicker value={eventDate} mode="date" onChange={(e, d) => { setShowDatePicker(false); if (d) setEventDate(d); }} minimumDate={new Date()} />
+            <DateTimePicker 
+              value={eventDate} 
+              mode="date" 
+              onChange={(e, d) => { 
+                setShowDatePicker(false); 
+                if (d) setEventDate(d); 
+              }} 
+              minimumDate={new Date()} 
+            />
           </View>
         </TouchableOpacity>
       </Modal>
@@ -291,7 +296,14 @@ const styles = StyleSheet.create({
   scrollView: { padding: 20 },
   map: { height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 15 },
   customMarker: { alignItems: 'center', justifyContent: 'center' },
-  locationBox: { backgroundColor: 'white', padding: 10, marginVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#ddd' },
+  locationBox: { 
+    backgroundColor: 'white', 
+    padding: 10, 
+    marginVertical: 8, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: '#ddd' 
+  },
   locationText: { color: '#333', textAlign: 'center', fontWeight: '500' },
   cityBox: { backgroundColor: '#f5f5f5', padding: 8, marginBottom: 15, borderRadius: 8 },
   cityText: { color: '#666', textAlign: 'center', fontSize: 12 },
@@ -306,23 +318,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  typeSelector: { flexDirection: 'row', marginVertical: 15 },
+  typeSelector: { 
+    flexDirection: 'row', 
+    marginVertical: 15,
+  },
+  typeSelectorContent: {
+    flexDirection: 'row-reverse', // RTL for content
+    paddingHorizontal: 5,
+  },
   typeButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // RTL layout for button content
     alignItems: 'center',
     backgroundColor: 'white',
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 20,
-    marginRight: 10,
+    marginLeft: 10, // Changed from marginRight to marginLeft for RTL
     borderWidth: 1,
     borderColor: '#ddd',
+    minWidth: 80,
   },
   typeSelected: {
     backgroundColor: '#3A8DFF',
     borderColor: '#3A8DFF',
   },
-  typeText: { marginLeft: 8, fontSize: 15, fontWeight: '500' },
+  typeText: { 
+    marginRight: 8, // Changed from marginLeft to marginRight for RTL
+    fontSize: 15, 
+    fontWeight: '500',
+    textAlign: 'right',
+  },
   dateButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
@@ -344,6 +369,16 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   createButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  datePickerModal: { backgroundColor: 'white', borderRadius: 15, padding: 20, margin: 20 },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  datePickerModal: { 
+    backgroundColor: 'white', 
+    borderRadius: 15, 
+    padding: 20, 
+    margin: 20 
+  },
 });

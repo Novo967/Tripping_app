@@ -9,6 +9,9 @@ import {
   getDoc // ייבוא getDoc עבור fetchCurrentUserUsername
   ,
 
+
+
+
   getDocs,
   getFirestore,
   query
@@ -31,8 +34,8 @@ import UserMarker from '../../components/UserMarker';
 
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
 import { calculateDistance } from '../../IndexServices/MapUtils';
-import MyLocationButton from '../../IndexServices/MyLocationButton';
 import UserDetailsModal from '../../IndexServices/UserDetailsModal';
+import MyLocationButton from '../../MapButtons/MyLocationButton';
 
 import { app } from '../../../firebaseConfig'; // ודא ש-app מיובא
 
@@ -349,7 +352,7 @@ export default function HomeScreen() {
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             router.push({
-              pathname: '/components/CreateEventPage',
+              pathname: '/IndexServices/CreateEventPage',
               params: { latitude: latitude.toString(), longitude: longitude.toString(), owner_uid: user?.uid || '' }
             });
             setIsChoosingLocation(false);
