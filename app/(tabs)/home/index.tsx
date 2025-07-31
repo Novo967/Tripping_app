@@ -3,6 +3,15 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
+import {
+  collection,
+  doc, // ייבוא doc עבור fetchCurrentUserUsername
+  getDoc // ייבוא getDoc עבור fetchCurrentUserUsername
+  ,
+  getDocs,
+  getFirestore,
+  query
+} from 'firebase/firestore'; // ייבוא Firestore ופונקציות קריאה
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,6 +33,10 @@ import { calculateDistance } from '../../IndexServices/MapUtils';
 import MyLocationButton from '../../IndexServices/MyLocationButton';
 import UserDetailsModal from '../../IndexServices/UserDetailsModal';
 
+import { app } from '../../../firebaseConfig'; // ודא ש-app מיובא
+
+const db = getFirestore(app); // יצירת מופע של Firestore
+
 interface SelectedEventType {
   id: string;
   latitude: number;
@@ -43,6 +56,7 @@ interface SelectedUserType {
   username: string;
   latitude: number;
   longitude: number;
+  profile_image?: string; // שדה עבור קישור תמונת הפרופיל
 }
 
 const SERVER_URL = 'https://tripping-app.onrender.com';
@@ -70,40 +84,73 @@ export default function HomeScreen() {
   const auth = getAuth();
   const user = auth.currentUser;
 
+  // ✅ שינוי: פונקציית fetchUsers משלבת נתונים מהבקאנד ומ-Firestore
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${SERVER_URL}/get-all-users`);
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+      // 1. שלוף משתמשים עם מיקום מהבקאנד
+      const backendRes = await fetch(`${SERVER_URL}/get-all-users`);
+      if (!backendRes.ok) {
+        throw new Error(`HTTP error! status: ${backendRes.status}`);
       }
-      const data = await res.json();
-      setUsers(data.users || []);
+      const backendUsersData: SelectedUserType[] = (await backendRes.json()).users || [];
+
+      // 2. שלוף את כל תמונות הפרופיל מ-Firestore
+      const usersCol = collection(db, 'users');
+      const usersSnapshot = await getDocs(query(usersCol));
+      const firestoreProfileImages: { [uid: string]: string } = {};
+      usersSnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.profile_image) {
+          firestoreProfileImages[doc.id] = data.profile_image;
+        }
+      });
+
+      // 3. שלב את הנתונים: הוסף תמונת פרופיל מ-Firestore לנתוני המשתמשים מהבקאנד
+      const combinedUsersData: SelectedUserType[] = backendUsersData.map(backendUser => {
+        // וודא שלמשתמש מהבקאנד יש את הפרטים הנדרשים
+        if (backendUser.uid && backendUser.username && backendUser.latitude != null && backendUser.longitude != null) {
+          return {
+            uid: backendUser.uid,
+            username: backendUser.username,
+            latitude: backendUser.latitude,
+            longitude: backendUser.longitude,
+            profile_image: firestoreProfileImages[backendUser.uid] || null, // קבל תמונה ממפת Firestore
+          };
+        }
+        return null; // סנן משתמשים לא תקינים
+      }).filter(Boolean) as SelectedUserType[]; // סנן החוצה את ה-nulls
+
+      setUsers(combinedUsersData);
     } catch (error) {
-      console.error("Error fetching users:", error);
+      console.error("Error fetching users (combined from backend and Firestore):", error);
       Alert.alert('שגיאה', 'לא ניתן לטעון משתמשים.');
     }
   }, []);
 
+  // ✅ פונקציית fetchCurrentUserUsername ממשיכה לקרוא מ-Firestore
   const fetchCurrentUserUsername = useCallback(async () => {
     if (!user) {
       setCurrentUserUsername('');
       return;
     }
     try {
-      const res = await fetch(`${SERVER_URL}/get-user-profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: user.uid }),
-      });
-      const data = await res.json();
-      if (res.ok && data.username) {
-        setCurrentUserUsername(data.username);
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        if (userData && userData.username) {
+          setCurrentUserUsername(userData.username);
+        } else {
+          console.warn("Current user username not found in Firestore.");
+          setCurrentUserUsername('');
+        }
       } else {
-        console.error("Error fetching current user username:", data.error);
+        console.warn("Current user document not found in Firestore.");
         setCurrentUserUsername('');
       }
     } catch (error) {
-      console.error("Error fetching current user username:", error);
+      console.error("Error fetching current user username from Firestore:", error);
       setCurrentUserUsername('');
     }
   }, [user]);
@@ -292,11 +339,11 @@ export default function HomeScreen() {
         provider={PROVIDER_GOOGLE}
         style={{ flex: 1 }}
         region={region}
-        showsUserLocation={true} // מציג את הנקודה הכחולה המובנית של המפה
-        showsMyLocationButton={false} // מבטל את הכפתור הפנימי כי יש לנו כפתור מותאם אישית
-        followsUserLocation={false} // מונע מעקב אוטומטי כדי שהמפה לא תזוז כל הזמן
-        userLocationPriority="high" // דיוק גבוה למיקום המשתמש
-        userLocationUpdateInterval={5000} // עדכון כל 5 שניות
+        showsUserLocation={true}
+        showsMyLocationButton={false}
+        followsUserLocation={false}
+        userLocationPriority="high"
+        userLocationUpdateInterval={5000}
         onPress={(e) => {
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;

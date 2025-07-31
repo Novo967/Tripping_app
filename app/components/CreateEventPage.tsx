@@ -1,32 +1,36 @@
 // app/create-event/index.tsx
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Constants from 'expo-constants'; // ייבוא Constants מ-expo-constants
+import Constants from 'expo-constants';
 import { router, useLocalSearchParams } from 'expo-router';
-import { getAuth } from 'firebase/auth';
+import { getAuth } from 'firebase/auth'; // Only need getAuth, no signIn functions here
+import { addDoc, collection, getFirestore } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform, ScrollView,
-  StatusBar // ייבוא StatusBar לטיפול בגובה הסטטוס בר
-  ,
-
-
-
+  Platform,
+  ScrollView,
+  StatusBar,
   StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
-// Define a type for the allowed event types כדי למנוע את שגיאת ה-TypeScript
+// Import the 'app' instance from your firebaseConfig.js
+// ייבוא מופע ה-'app' מקובץ ה-firebaseConfig.js שלך
+import { app } from '../../firebaseConfig'; // Adjust path as needed
+
+// Define a type for the allowed event types
 type EventType = 'trip' | 'camping' | 'beach' | 'party' | 'food' | 'sport' | 'culture' | 'nature' | 'nightlife';
+
+// No Canvas-specific global variables needed here
+// אין צורך במשתנים גלובליים ספציפיים ל-Canvas כאן
 
 export default function CreateEventPage() {
   const { latitude, longitude } = useLocalSearchParams();
   const [eventTitle, setEventTitle] = useState('');
-  // Use the EventType in your state
-  const [eventType, setEventType] = useState<EventType | ''>(''); // Allow empty string initially
+  const [eventType, setEventType] = useState<EventType | ''>('');
   const [eventDate, setEventDate] = useState(new Date());
   const [eventDescription, setEventDescription] = useState('');
   const [eventLocation, setEventLocation] = useState('');
@@ -34,12 +38,21 @@ export default function CreateEventPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const auth = getAuth();
-  const user = auth.currentUser;
+  // Directly get Firebase instances from the imported 'app'
+  // קבלת מופעי Firebase ישירות מתוך ה-'app' המיובא
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  // No need for isAuthReady state or complex useEffect for authentication
+  // אין צורך במצב isAuthReady או ב-useEffect מורכב לאימות
 
   useEffect(() => {
-    reverseGeocode();
-  }, []);
+    // Perform reverse geocoding when component mounts and location params are available
+    // בצע גיאו-קידוד הפוך כשהקומפוננטה נטענת ופרמטרי המיקום זמינים
+    if (latitude && longitude) {
+      reverseGeocode();
+    }
+  }, [latitude, longitude]); // Depend on location params
 
   const reverseGeocode = async () => {
     try {
@@ -51,7 +64,6 @@ export default function CreateEventPage() {
         const feature = data.features[0];
         setEventLocation(feature.place_name_he || feature.place_name);
 
-        // Extract city and country
         const contexts = feature.context || [];
         const place = contexts.find((c: any) => c.id.includes('place'));
         const country = contexts.find((c: any) => c.id.includes('country'));
@@ -59,7 +71,8 @@ export default function CreateEventPage() {
           setCityCountry(`${place.text_he || place.text}, ${country.text_he || country.text}`);
         }
       }
-    } catch {
+    } catch (error) {
+      console.error("Error during reverse geocoding:", error);
       setEventLocation(`${parseFloat(latitude as string).toFixed(4)}, ${parseFloat(longitude as string).toFixed(4)}`);
     }
   };
@@ -69,14 +82,43 @@ export default function CreateEventPage() {
       Alert.alert('שגיאה', 'אנא מלא את כל השדות');
       return;
     }
+
+    // Get the current user's UID directly from the auth instance
+    // קבל את ה-UID של המשתמש הנוכחי ישירות ממופע האימות
+    const userId = auth.currentUser?.uid;
+
+    if (!userId) {
+      Alert.alert('שגיאה', 'אין משתמש מחובר. אנא התחבר ונסה שוב.');
+      return;
+    }
+
     setIsLoading(true);
     try {
+      // Data to be sent to your backend (if it still handles some logic)
+      const backendPayload = {
+        owner_uid: userId,
+        username: auth.currentUser?.displayName || 'משתמש',
+        latitude: parseFloat(latitude as string),
+        longitude: parseFloat(longitude as string),
+        event_title: eventTitle,
+        event_type: eventType,
+        event_date: eventDate.toISOString(),
+        description: eventDescription,
+        location: eventLocation,
+      };
+
+      // Call your existing backend API
       const response = await fetch('https://tripping-app.onrender.com/add-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          owner_uid: user?.uid,
-          username: user?.displayName || 'משתמש',
+        body: JSON.stringify(backendPayload),
+      });
+
+      if (response.ok) {
+        // If backend call is successful, add to Firestore
+        const pinData = {
+          owner_uid: userId,
+          username: auth.currentUser?.displayName || 'משתמש',
           latitude: parseFloat(latitude as string),
           longitude: parseFloat(longitude as string),
           event_title: eventTitle,
@@ -84,10 +126,15 @@ export default function CreateEventPage() {
           event_date: eventDate.toISOString(),
           description: eventDescription,
           location: eventLocation,
-        }),
-      });
-      if (response.ok) {
-        Alert.alert('הצלחה', 'האירוע נוצר!', [
+          city_country: cityCountry,
+          created_at: new Date().toISOString(),
+        };
+
+        // Use a simple 'pins' collection path for a standard Firebase project
+        // השתמש בנתיב אוסף פשוט 'pins' עבור פרויקט Firebase סטנדרטי
+        await addDoc(collection(db, 'pins'), pinData);
+
+        Alert.alert('הצלחה', 'האירוע נוצר בהצלחה ונוסף לפיירסטור!', [
           { text: 'אוקיי', onPress: () => router.replace('/home') }
         ]);
       } else {
@@ -96,36 +143,33 @@ export default function CreateEventPage() {
         Alert.alert('שגיאה', `אירעה שגיאה ביצירת האירוע: ${errorData.message || response.statusText}`);
       }
     } catch (error) {
-      console.error('Network or parsing error:', error);
-      Alert.alert('שגיאה', 'אירעה שגיאה ביצירת האירוע');
+      console.error('Network or parsing error or Firestore error:', error);
+      Alert.alert('שגיאה', 'אירעה שגיאה ביצירת האירוע או בשמירה במסד הנתונים.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Explicitly define the type for typeLabels כדי למנוע את שגיאת ה-TypeScript
   const typeLabels: Record<EventType, string> = {
     trip: 'טיול',
     camping: 'קמפינג',
     beach: 'חוף',
     party: 'מסיבה',
-    food: 'אוכל', // סוג חדש
+    food: 'אוכל',
     sport: 'ספורט',
-    culture: 'תרבות', // סוג חדש
-    nature: 'טבע', // סוג חדש
-    nightlife: 'חיי לילה', // סוג חדש
+    culture: 'תרבות',
+    nature: 'טבע',
+    nightlife: 'חיי לילה',
   };
 
-  // יצירת מערך סוגי האירועים עם הטיפוס הנכון
   const eventTypesArray: EventType[] = [
-     'trip', 'camping', 'beach', 'party', 'food', 'sport',
+    'trip', 'camping', 'beach', 'party', 'food', 'sport',
     'culture', 'nature', 'nightlife'
   ];
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
-        {/* כפתור חזרה - שינוי הפעולה ל-router.back() ומיקום */}
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-forward" size={24} color="white" />
         </TouchableOpacity>
@@ -160,7 +204,7 @@ export default function CreateEventPage() {
         />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
-          {eventTypesArray.map((type: EventType) => ( // Explicitly type 'type' in the map function
+          {eventTypesArray.map((type: EventType) => (
             <TouchableOpacity
               key={type}
               style={[styles.typeButton, eventType === type && styles.typeSelected]}
@@ -168,17 +212,16 @@ export default function CreateEventPage() {
             >
               <Ionicons
                 name={
-                  // לוגיקה לבחירת אייקון מ-Ionicons
                   type === 'trip' ? 'car' :
                   type === 'camping' ? 'bonfire' :
                   type === 'beach' ? 'water' :
                   type === 'party' ? 'happy' :
-                  type === 'food' ? 'fast-food' : // אייקון לסוג 'food'
+                  type === 'food' ? 'fast-food' :
                   type === 'sport' ? 'fitness' :
-                  type === 'culture' ? 'school' : // אייקון לסוג 'culture'
-                  type === 'nature' ? 'leaf' : // אייקון לסוג 'nature'
-                  type === 'nightlife' ? 'wine' : // אייקון לסוג 'nightlife'
-                  'help-circle' // אייקון ברירת מחדל אם אין התאמה
+                  type === 'culture' ? 'school' :
+                  type === 'nature' ? 'leaf' :
+                  type === 'nightlife' ? 'wine' :
+                  'help-circle'
                 }
                 size={20}
                 color={eventType === type ? 'white' : '#FF6F00'}
@@ -194,7 +237,7 @@ export default function CreateEventPage() {
         </TouchableOpacity>
 
         <TextInput
-          style={[styles.input, { height: 100, marginBottom: 20 }]} // הוספת marginBottom
+          style={[styles.input, { height: 100, marginBottom: 20 }]}
           placeholder="תיאור האירוע"
           value={eventDescription}
           onChangeText={setEventDescription}
@@ -223,12 +266,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'space-between', // פיזור הכפתור והכותרת
+    justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 24) + 10) : Constants.statusBarHeight + 10, // התאמה לסטטוס בר
+    paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 24) + 10) : Constants.statusBarHeight + 10,
     paddingBottom: 10,
     backgroundColor: '#FF6F00',
-    // הוספת צל עבור אנדרואיד ו-iOS
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -236,60 +278,59 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   backButton: {
-    // אין צורך ב-marginLeft אם משתמשים ב-justifyContent: 'space-between'
-    padding: 5, // כדי להגדיל את אזור הלחיצה
+    padding: 5,
   },
   headerTitle: {
-    flex: 1, // מאפשר לכותרת לתפוס את המקום הנותר
+    flex: 1,
     textAlign: 'center',
     color: 'white',
-    fontSize: 20, // הגדלת גודל הגופן לכותרת
+    fontSize: 20,
     fontWeight: 'bold',
-    marginRight: 40, // רווח מהכפתור חזרה
+    marginRight: 40,
   },
   scrollView: { padding: 20 },
-  map: { height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 15 }, // רווח מתחת למפה
+  map: { height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 15 },
   customMarker: { alignItems: 'center', justifyContent: 'center' },
   locationBox: { backgroundColor: 'white', padding: 10, marginVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#ddd' },
   locationText: { color: '#333', textAlign: 'center', fontWeight: '500' },
-  cityBox: { backgroundColor: '#f5f5f5', padding: 8, marginBottom: 15, borderRadius: 8 }, // רווח מתחת לעיר
+  cityBox: { backgroundColor: '#f5f5f5', padding: 8, marginBottom: 15, borderRadius: 8 },
   cityText: { color: '#666', textAlign: 'center', fontSize: 12 },
   input: {
     backgroundColor: 'white',
     borderRadius: 10,
     padding: 12,
-    marginVertical: 8, // רווח אנכי אחיד
+    marginVertical: 8,
     color: '#333',
     textAlign: 'right',
-    fontSize: 16, // גודל גופן אחיד
-    borderWidth: 1, // גבול קל
-    borderColor: '#eee', // צבע גבול
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#eee',
   },
-  typeSelector: { flexDirection: 'row', marginVertical: 15 }, // רווח אנכי
+  typeSelector: { flexDirection: 'row', marginVertical: 15 },
   typeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
     paddingVertical: 10,
     paddingHorizontal: 15,
-    borderRadius: 20, // כפתורים מעוגלים יותר
-    marginRight: 10, // רווח בין כפתורים
+    borderRadius: 20,
+    marginRight: 10,
     borderWidth: 1,
     borderColor: '#ddd',
   },
   typeSelected: {
     backgroundColor: '#FF6F00',
-    borderColor: '#FF6F00', // גבול בצבע הבחירה
+    borderColor: '#FF6F00',
   },
-  typeText: { marginLeft: 8, fontSize: 15, fontWeight: '500' }, // רווח וגודל גופן
+  typeText: { marginLeft: 8, fontSize: 15, fontWeight: '500' },
   dateButton: {
-    flexDirection: 'row-reverse', // כפתור תאריך מימין לשמאל
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'space-between', // פיזור האייקון והטקסט
+    justifyContent: 'space-between',
     padding: 12,
     backgroundColor: 'white',
     borderRadius: 10,
-    marginVertical: 15, // רווח אנכי
+    marginVertical: 15,
     borderWidth: 1,
     borderColor: '#eee',
   },
@@ -299,8 +340,8 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
-    marginTop: 20, // רווח מהשדה שלפניו
-    marginBottom: 30, // רווח מהקצה התחתון של המסך
+    marginTop: 20,
+    marginBottom: 30,
   },
   createButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
