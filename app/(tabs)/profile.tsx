@@ -463,6 +463,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     left: 20,
+    marginTop: -50,  
     zIndex: 15,
     borderRadius: 12,
     padding: 16,
