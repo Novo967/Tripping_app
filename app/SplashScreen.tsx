@@ -1,9 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  ActivityIndicator // Import ActivityIndicator for loading circle
-  ,
-
-
+  ActivityIndicator, // Import ActivityIndicator for loading circle
   Animated,
   Dimensions,
   StatusBar,
@@ -29,8 +26,8 @@ export default function SplashScreen() {
   // Function to start the splash screen animation sequence
   // פונקציה להפעלת רצף האנימציה של מסך הפתיחה
   const startSplashAnimation = () => {
-    // Stage 1: Main logo appears with a scale effect
-    // שלב 1: לוגו ראשי מופיע עם אפקט קנה מידה
+    // Stage 1: Main logo and letters appear with scale effect simultaneously
+    // שלב 1: לוגו ראשי ואותיות מופיעות עם אפקט קנה מידה בו זמנית
     Animated.parallel([
       Animated.timing(logoAnim, {
         toValue: 1,
@@ -43,17 +40,12 @@ export default function SplashScreen() {
         friction: 7,
         useNativeDriver: true,
       }),
-    ]).start();
-
-    // Stage 2: Letters and words appear in a row (adjusted timing after tagline removal)
-    // שלב 2: אותיות ומילים מופיעות בשורה (תזמון מותאם לאחר הסרת הסלוגן)
-    setTimeout(() => {
-      Animated.timing(lettersContainerAnim, {
+      Animated.timing(lettersContainerAnim, { // Start letters animation at the same time
         toValue: 1,
-        duration: 1500, // Adjusted duration
+        duration: 1500,
         useNativeDriver: true,
-      }).start();
-    }, 1500); // Starts immediately after logo animation ends
+      }),
+    ]).start();
 
     // Stage 3: Loading indicator appears (adjusted timing)
     // שלב 3: מחוון טעינה מופיע (תזמון מותאם)
@@ -63,7 +55,7 @@ export default function SplashScreen() {
         duration: 500,
         useNativeDriver: true,
       }).start();
-    }, 3000); // Starts after letters animation
+    }, 2000); // Starts after main logo and letters animation (reduced delay)
   };
 
   // Define the words for the "TREK" acronym
@@ -117,17 +109,19 @@ export default function SplashScreen() {
           ]}
         >
           {trekWords.map((item, index) => (
-            <View key={index} style={styles.letterWordPair}>
-              {/* Emphasized first letter as part of the word */}
-              {/* אות ראשונה מודגשת כחלק מהמילה */}
-              <Text numberOfLines={1} allowFontScaling={false}>
-                <Text style={styles.letterText}>{item.word.charAt(0)}</Text>
-                <Text style={styles.wordText}>{item.word.substring(1)}</Text>
-              </Text>
+            <React.Fragment key={index}>
+              <View style={styles.letterWordPair}>
+                {/* Emphasized first letter as part of the word, no separation */}
+                {/* אות ראשונה מודגשת כחלק מהמילה, ללא הפרדה */}
+                <Text numberOfLines={1} allowFontScaling={false}>
+                  <Text style={styles.letterText}>{item.word.charAt(0)}</Text>
+                  <Text style={styles.wordText}>{item.word.substring(1)}</Text>
+                </Text>
+              </View>
               {index < trekWords.length - 1 && (
-                <Text style={styles.separatorText}> | </Text>
+                <Text style={styles.doubleSpace}>{'  '}</Text> // Add double space here
               )}
-            </View>
+            </React.Fragment>
           ))}
         </Animated.View>
       </View>
@@ -169,7 +163,7 @@ const styles = StyleSheet.create({
   mainLogo: {
     fontSize: 80, // Larger font size for main logo
     fontWeight: '900', // Bolder font weight
-    color: '#3A8DFF', // Orange color for the logo
+    color: '#3A8DFF', // Blue color for the logo
     letterSpacing: 15, // Increased letter spacing
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.1)', // Subtle text shadow
@@ -187,25 +181,24 @@ const styles = StyleSheet.create({
   letterWordPair: {
     flexDirection: 'row',
     alignItems: 'baseline', // Align text baseline
-    marginHorizontal: 2, // Reduced space between each letter-word pair
+    // Removed marginHorizontal here as the word itself will handle spacing
     flex: 0, // Don't allow flex growth
     minWidth: 0, // Allow shrinking
   },
   letterText: {
     fontSize: 20, // Reduced size for smaller screens
     fontWeight: 'bold',
-    color: '#3A8DFF', // Orange for initials
+    color: '#3A8DFF', // Blue for initials
     // Removed marginRight as it's now part of the same Text component
   },
   wordText: {
     fontSize: 16, // Reduced size for smaller screens
-    color: '#333333', // Darker text for readability
+    color: '#3A8DFF', // Blue color for readability
     fontWeight: '500',
   },
-  separatorText: {
-    fontSize: 16, // Reduced size
-    color: '#AAAAAA', // Lighter separator
-    marginHorizontal: 3, // Reduced margin
+  doubleSpace: {
+    fontSize: 16, // Match font size of words for consistent spacing
+    color: '#3A8DFF', // Ensure space is also blue
   },
   loadingContainer: {
     position: 'absolute',
@@ -213,7 +206,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#888888',
+    color: '#3A8DFF', // Blue loading text
     fontSize: 16, // Slightly larger loading text
     letterSpacing: 1.2,
     marginTop: 10, // Space between spinner and text
