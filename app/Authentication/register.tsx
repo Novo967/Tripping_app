@@ -1,10 +1,11 @@
+// --- Imports ---
 import { useAuthRequest } from 'expo-auth-session';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +24,7 @@ import { auth, db } from '../../firebaseConfig';
 
 WebBrowser.maybeCompleteAuthSession();
 
+// --- Google OAuth Client IDs (אין שינוי) ---
 const ANDROID_CLIENT_ID = '328672185045-j2ufp6opvvq2hbce9u4og7rt6ghvb08j.apps.googleusercontent.com';
 const IOS_CLIENT_ID = '328672185045-ope89nmh8ft15p1smem42e7no81ukc85.apps.googleusercontent.com';
 const WEB_CLIENT_ID = '328672185045-g7gkss6smt3t1nkbp73nf1tt2bmham58.apps.googleusercontent.com'; // ודא שזה מדויק!
@@ -33,16 +35,13 @@ const getExpoWebRedirectUri = () => {
   const expoConfig = Constants.expoConfig;
   const expoUsername = expoConfig?.owner;
   const appSlug = expoConfig?.slug;
-  const appScheme = expoConfig?.scheme; // <--- הוספנו גישה ל-scheme
+  const appScheme = expoConfig?.scheme;
 
-  if (!expoUsername || !appSlug || !appScheme) { // <--- ודא שגם scheme קיים
+  if (!expoUsername || !appSlug || !appScheme) {
     console.warn('Could not determine Expo username, app slug, or scheme for redirect URI. Using fallback URI.');
     return 'https://auth.expo.io/@your-fallback-username/your-fallback-app-slug';
   }
-
-  // זהו ה-URI שגוגל מצפה לו עבור לקוח ווב של Expo Go
-  // נוסיף את ה-scheme בסוף ה-URI כדי לוודא שהוא חלק מההפניה
-  return `https://auth.expo.io/@${expoUsername}/${appSlug}`; // <--- שינוי כאן
+  return `https://auth.expo.io/@${expoUsername}/${appSlug}`;
 };
 
 
@@ -75,7 +74,7 @@ export default function RegisterScreen() {
       console.log('Auth Session Response Type:', response.type);
       if (response.type === 'success') {
         const { id_token } = response.params;
-        console.log('Received id_token:', id_token ? 'YES' : 'NO'); // נדפיס רק אם קיים
+        console.log('Received id_token:', id_token ? 'YES' : 'NO');
         if (id_token) {
           handleGoogleSignIn(id_token);
         } else {
@@ -92,86 +91,81 @@ export default function RegisterScreen() {
       }
     }
   }, [response]);
+  
+  // פונקציית עזר חדשה לשמירת מיקום ב-Firestore
+  const saveLocationToFirestore = async (user) => {
+    try {
+      console.log('Requesting location permissions...');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status === 'granted') {
+        console.log('Location permission granted. Getting current position...');
+        const location = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = location.coords;
+        console.log('Location received:', { latitude, longitude });
+
+        // עדכון מסמך המשתמש ב-Firestore עם נתוני המיקום
+        await setDoc(doc(db, 'users', user.uid), {
+          latitude,
+          longitude,
+        }, { merge: true }); // השתמש ב-merge כדי לא לדרוס שדות קיימים
+        console.log('User location saved to Firestore.');
+      } else {
+        console.warn('Location permission not granted. User document created without location.');
+      }
+    } catch (error) {
+      console.error("Error saving location to Firestore:", error);
+    }
+  };
 
   const validateForm = () => {
-    // ... (ללא שינוי)
     if (!email.trim() || !username.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('שגיאה', 'נא למלא את כל השדות');
       return false;
     }
-
     if (password !== confirmPassword) {
       Alert.alert('שגיאה', 'הסיסמאות אינן תואמות');
       return false;
     }
-
     if (password.length < 6) {
       Alert.alert('שגיאה', 'הסיסמה חייבת להכיל לפחות 6 תווים');
       return false;
     }
-
     if (username.trim().length < 2) {
       Alert.alert('שגיאה', 'שם המשתמש חייב להכיל לפחות 2 תווים');
       return false;
     }
-
     if (!agreedToTerms) {
       Alert.alert('שגיאה', 'נא לאשר את תנאי השימוש ומדיניות הפרטיות');
       return false;
     }
-
     return true;
   };
 
   const handleRegister = async () => {
-    // ... (ללא שינוי)
     if (!validateForm()) return;
-
     setIsLoading(true);
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
+      
       await updateProfile(user, {
         displayName: username.trim(),
       });
+
+      // שמירת נתונים בסיסיים ב-Firestore (במקום לשלוח לשרת חיצוני)
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email,
         uid: user.uid,
         username: username.trim(),
         createdAt: new Date(),
       });
+      
+      // קריאה לפונקציה המאוחדת לשמירת מיקום
+      await saveLocationToFirestore(user);
 
-      await fetch('https://tripping-app.onrender.com/register-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uid: user.uid,
-          email: user.email,
-          username: username.trim(),
-        }),
-      });
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const location = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = location.coords;
-
-        await fetch('https://tripping-app.onrender.com/update-user-location', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            uid: user.uid,
-            latitude,
-            longitude,
-            username: username.trim(),
-          }),
-        });
-      }
-
+      Alert.alert('ההרשמה בוצעה בהצלחה!');
       router.push('/(tabs)/home');
     } catch (error) {
       console.error("שגיאה ברישום:", error);
@@ -181,74 +175,42 @@ export default function RegisterScreen() {
     }
   };
 
-  const handleGoogleSignIn = async (idToken: String) => {
+  const handleGoogleSignIn = async (idToken) => {
     setIsLoading(true);
     try {
       console.log('Attempting Firebase sign-in with Google ID Token...');
-      const idTokenPrimitive = String(idToken); // <--- הוסף את השורה הזו
-    
-      const credential = GoogleAuthProvider.credential(idTokenPrimitive); // <--- השתמש ב-idTokenPrimitive כאן
+      const idTokenPrimitive = String(idToken);
+      const credential = GoogleAuthProvider.credential(idTokenPrimitive);
       console.log('Firebase credential created.');
 
       const userCredential = await signInWithCredential(auth, credential);
       const user = userCredential.user;
       console.log('Firebase sign-in successful. User UID:', user.uid);
-
+      
+      // בדיקה אם המשתמש כבר קיים ב-Firestore
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
       const usernameToSave = user.displayName || (user.email ? user.email.split('@')[0] : 'משתמש גוגל');
-      console.log('Saving user data to Firestore...');
-      await setDoc(doc(db, 'users', user.uid), {
-        email: user.email,
-        uid: user.uid,
-        username: usernameToSave,
-        createdAt: new Date(),
-      }, { merge: true });
-      console.log('User data saved to Firestore.');
-
-      console.log('Calling backend /register-user...');
-      await fetch('https://tripping-app.onrender.com/register-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uid: user.uid,
+      
+      if (!userDoc.exists()) {
+        console.log('User document does not exist. Creating new one...');
+        // יצירת מסמך חדש עבור משתמש גוגל
+        await setDoc(userDocRef, {
           email: user.email,
+          uid: user.uid,
           username: usernameToSave,
-        }),
-      });
-      console.log('Backend /register-user call complete.');
-
-      console.log('Requesting location permissions...');
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        console.log('Location permission granted. Getting current position...');
-        const location = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = location.coords;
-        console.log('Location received:', { latitude, longitude });
-
-        console.log('Calling backend /update-user-location...');
-        await fetch('https://tripping-app.onrender.com/update-user-location', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            uid: user.uid,
-            latitude,
-            longitude,
-            username: usernameToSave,
-          }),
+          createdAt: new Date(),
         });
-        console.log('Backend /update-user-location call complete.');
-      } else {
-        console.warn('Location permission not granted.');
       }
+
+      // קריאה לפונקציה המאוחדת לשמירת מיקום
+      await saveLocationToFirestore(user);
 
       console.log('Navigating to home screen...');
       router.push('/(tabs)/home');
-    } catch (error: any) {
+    } catch (error) {
       console.error("שגיאה בתהליך הכניסה ל-Firebase עם גוגל:", error);
-      Alert.alert('שגיאה בהתחברות לגוגל', error.message);
+      Alert.alert('שגיאה בהתחברות לגוגל');
     } finally {
       setIsLoading(false);
       console.log('Finished handleGoogleSignIn process.');
@@ -274,7 +236,6 @@ export default function RegisterScreen() {
           <Text style={styles.subtitle}>צרו חשבון חדש והתחילו את ההרפתקה שלכם</Text>
         </View>
 
-        {/* כפתור התחברות עם גוגל - ממוקם ראשון */}
         <TouchableOpacity
           style={[
             styles.googleButton,
@@ -292,11 +253,10 @@ export default function RegisterScreen() {
           activeOpacity={0.8}
         >
           <View style={styles.googleButtonContent}>
-            <Text style={styles.googleIcon}>Google</Text> 
+            <Text style={styles.googleIcon}>Google</Text>
           </View>
         </TouchableOpacity>
 
-        {/* מפריד בין התחברות עם גוגל להרשמה רגילה */}
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>או</Text>
@@ -416,8 +376,6 @@ export default function RegisterScreen() {
         )}
 
         <View style={styles.footerContainer}>
-          {/* המפריד והקישור להתחברות קיימים כבר בתוך ה-footerContainer.
-              העברנו את המפריד הראשון למעלה כדי להפריד את כפתור גוגל. */}
           <TouchableOpacity
             onPress={() => router.push('/Authentication/login')}
             style={styles.loginLink}
@@ -659,7 +617,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
-    marginBottom: 0, // Adjusted to reduce space before divider
+    marginBottom: 0,
   },
   googleButtonDisabled: {
     backgroundColor: '#A0A0A0',
@@ -673,7 +631,7 @@ const styles = StyleSheet.create({
   },
   googleIcon: {
     color: '#FFFFFF',
-    fontSize: 20, // Adjust size as needed
+    fontSize: 20,
     fontWeight: 'bold',
   },
   loadingOverlay: {
