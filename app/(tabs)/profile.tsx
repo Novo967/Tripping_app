@@ -411,9 +411,6 @@ export default function ProfileScreen() {
         />
 
         <Gallery
-          gallery={gallery}
-          onAddImage={(uri: string) => uploadImageToServer(uri, false)}
-          onDeleteImages={handleDeleteImagesFromGallery}
           onImagePress={openImageModal}
         />
 
