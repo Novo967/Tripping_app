@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
+import {
+  getDownloadURL,
+  getStorage,
+  listAll, // ייבוא הפונקציה listAll כדי לרשום קבצים בתיקייה
+  ref
+} from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
+import { app } from '../../firebaseConfig';
 
 interface UserMarkerProps {
   user: {
@@ -11,42 +18,77 @@ interface UserMarkerProps {
     profile_image?: string;
     username?: string;
   };
-  currentUserUid?: string; // UID של המשתמש הנוכחי
+  currentUserUid?: string;
   onPress: (user: any) => void;
 }
+
+const storage = getStorage(app);
 
 const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }) => {
   const [shouldTrackViewChanges, setShouldTrackViewChanges] = useState(true);
   const [isImageLoading, setIsImageLoading] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  // בדיקה אם זה המשתמש הנוכחי (לא רלוונטי יותר עבור רינדור המרקר שלו)
   const isCurrentUser = user.uid === currentUserUid;
 
   useEffect(() => {
-    // אם אין תמונה, או אם זה המשתמש הנוכחי (שאינו מרונדר יותר על ידי מרקר זה)
-    if (!user.profile_image) {
-      const timer = setTimeout(() => {
+    const fetchLatestImageUrl = async () => {
+      // אם אין UID של משתמש, אין מאיפה לשלוף
+      if (!user.uid) {
+        setIsImageLoading(false);
+        setImageUrl(null);
         setShouldTrackViewChanges(false);
-      }, 100);
-      return () => clearTimeout(timer);
-    } else { // This block handles users with profile images
+        return;
+      }
+
       setIsImageLoading(true);
-      setShouldTrackViewChanges(true); // עקוב אחר שינויים בתצוגה עד שהתמונה נטענת
-    }
-  }, [user.profile_image]);
+      setShouldTrackViewChanges(true);
+
+      try {
+        // יצירת הפניה לתיקייה של המשתמש ב-Firebase Storage
+        const folderRef = ref(storage, `profile_images/${user.uid}`);
+        
+        // קבלת רשימה של כל הקבצים בתיקייה
+        const result = await listAll(folderRef);
+
+        if (result.items.length === 0) {
+          // אם אין קבצים בתיקייה, נשתמש באייקון ברירת מחדל
+          setImageUrl(null);
+          return;
+        }
+
+        // מיון הקבצים לפי שם כדי למצוא את העדכני ביותר.
+        // אנו מניחים ששם הקובץ מכיל חותמת זמן כלשהי
+        const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
+        const latestFileRef = sortedItems[0];
+        
+        // קבלת ה-URL הציבורי של התמונה העדכנית ביותר
+        const url = await getDownloadURL(latestFileRef);
+        setImageUrl(url);
+
+      } catch (e) {
+        console.warn(`שגיאה בשליפת תמונה עבור משתמש ${user.uid}:`, e);
+        setImageUrl(null);
+      } finally {
+        setIsImageLoading(false);
+      }
+    };
+
+    fetchLatestImageUrl();
+  }, [user.uid]);
 
   const handleImageLoadEnd = () => {
     setIsImageLoading(false);
-    setShouldTrackViewChanges(false); // Stop tracking after image loads
+    setShouldTrackViewChanges(false);
   };
 
   const handleImageError = (e: any) => {
-    console.warn(`Error loading image for user ${user.uid}:`, e.nativeEvent.error);
+    console.warn(`שגיאה בטעינת התמונה עבור משתמש ${user.uid}:`, e.nativeEvent.error);
     setIsImageLoading(false);
-    setShouldTrackViewChanges(false); // Stop tracking on error
+    setShouldTrackViewChanges(false);
+    setImageUrl(null);
   };
 
-  // אם זה המשתמש הנוכחי, לא נרנדר לו מרקר
   if (isCurrentUser) {
     return null;
   }
@@ -59,13 +101,13 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={shouldTrackViewChanges}
     >
-      {user.profile_image ? (
+      {imageUrl ? (
         <View style={styles.imageContainer}>
           {isImageLoading && (
             <ActivityIndicator size="small" color="#3A8DFF" style={StyleSheet.absoluteFillObject} />
           )}
           <Image
-            source={{ uri: user.profile_image }}
+            source={{ uri: imageUrl }}
             style={styles.profileMarker}
             resizeMode="cover"
             onLoadEnd={handleImageLoadEnd}
@@ -100,14 +142,13 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   imageContainer: {
-    width: 36, // Ensure container has dimensions to match profileMarker
-    height: 36, //
-    borderRadius: 25, // Match border radius of profileMarker
-    overflow: 'hidden', // Clip content to border radius
+    width: 36,
+    height: 36,
+    borderRadius: 25,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // סגנונות עבור העיגול הכחול של המשתמש הנוכחי - **הוסרו לחלוטין**
 });
 
 export default React.memo(UserMarker);
