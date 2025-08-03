@@ -3,7 +3,15 @@ import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { doc, getDoc } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import {
+  deleteObject,
+  getDownloadURL,
+  getStorage,
+  listAll,
+  ref,
+  uploadBytes,
+} from 'firebase/storage';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,47 +22,70 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import { auth, db } from '../../firebaseConfig'; // וודא שזה הנתיב הנכון
+import { auth, db } from '../../firebaseConfig';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
-// ייבוא Firebase Storage
-import { deleteObject, getStorage, ref } from 'firebase/storage';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const GALLERY_IMAGE_SIZE = (SCREEN_WIDTH - 32 - 4) / 3;
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const GALLERY_IMAGE_SIZE = (SCREEN_WIDTH - 32 - 4) / 3; // 16px margin on each side, 2px gap
-const SERVER_URL = 'https://tripping-app.onrender.com'; // השרת שלך עדיין ישמש לניהול ה-URLים
-
-// אתחל את Firebase Storage
 const storage = getStorage();
 
 type Props = {
-  gallery: string[];
-  onAddImage: (uri: string) => void;
-  onDeleteImages: (deletedImageUrls: string[]) => void;
   onImagePress: (imageUri: string) => void;
 };
 
-export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePress }: Props) {
+const GALLERY_STORAGE_PATH = 'gallery_images';
+
+export default function Gallery({ onImagePress }: Props) {
   const { theme } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [longPressActive, setLongPressActive] = useState(false);
   const [likeCounts, setLikeCounts] = useState<number[]>([]);
+  const [firebaseGalleryImages, setFirebaseGalleryImages] = useState<string[]>([]);
+  const [loadingGallery, setLoadingGallery] = useState(true);
+
+  const fetchFirebaseGalleryImages = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('User not logged in, cannot fetch gallery.');
+      setLoadingGallery(false);
+      return;
+    }
+
+    setLoadingGallery(true);
+
+    try {
+      const userGalleryRef = ref(storage, `${GALLERY_STORAGE_PATH}/${user.uid}`);
+      const res = await listAll(userGalleryRef);
+      const urls = await Promise.all(
+        res.items.map((itemRef) => getDownloadURL(itemRef))
+      );
+      setFirebaseGalleryImages(urls);
+      console.log('Fetched gallery images from Firebase Storage:', urls);
+    } catch (error) {
+      console.error('Error fetching gallery images from Firebase Storage:', error);
+      Alert.alert('שגיאה', 'אירעה שגיאה בטעינת התמונות מהגלריה.');
+    } finally {
+      setLoadingGallery(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFirebaseGalleryImages();
+  }, [fetchFirebaseGalleryImages]);
 
   useEffect(() => {
     const fetchLikesForGallery = async () => {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user || firebaseGalleryImages.length === 0) return;
 
-      const promises = gallery.map(async (_, index) => {
-        // לוודא שה-docId תואם לאיך שאתה שומר לייקים עבור כל תמונה
-        // אם ה-likes משויכים ל-URL ספציפי, עדיף להשתמש ב-URL כחלק מה-ID או כ-query
-        // כרגע זה מבוסס על אינדקס, וזה עלול להיות בעייתי אם סדר התמונות משתנה
-        // אולי כדאי לשקול לשמור את ה-image ID/URL ב-Firestore במקום Index
-        const docId = `${user.uid}_${index}`; // לשנות את זה ל-ID ייחודי של התמונה אם קיים
-        const docRef = doc(db, 'imageLikes', docId);
+      const promises = firebaseGalleryImages.map(async (imageUrl) => {
+        const fileRef = ref(storage, imageUrl);
+        const imagePath = fileRef.fullPath;
+        const docRef = doc(db, 'imageLikes', imagePath);
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
@@ -67,16 +98,34 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
       setLikeCounts(results);
     };
 
-    if (gallery.length > 0) {
-      fetchLikesForGallery();
+    fetchLikesForGallery();
+  }, [firebaseGalleryImages]);
+
+  const uploadImageToFirebaseStorage = async (uri: string) => {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('משתמש לא מחובר');
     }
-  }, [gallery]);
+
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const filename = `image_${Date.now()}.jpg`;
+      const imageRef = ref(storage, `${GALLERY_STORAGE_PATH}/${user.uid}/${filename}`);
+      await uploadBytes(imageRef, blob);
+      const downloadUrl = await getDownloadURL(imageRef);
+      console.log('Uploaded image to Firebase Storage:', downloadUrl);
+      return downloadUrl;
+    } catch (error) {
+      console.error('Error uploading image to Firebase Storage:', error);
+      throw error;
+    }
+  };
 
   const handlePickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (permissionResult.granted === false) {
+      if (!permissionResult.granted) {
         Alert.alert('הרשאה נדרשת', 'אנחנו צריכים הרשאה לגשת לגלריה שלך');
         return;
       }
@@ -93,86 +142,15 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
 
       if (!result.canceled && result.assets.length > 0) {
         const uri = result.assets[0].uri;
-        // קורא ל-onAddImage שמועבר מ-profile.tsx
-        // onAddImage כבר מטפלת בהעלאה ל-Firebase Storage ובשמירת ה-URL בשרת ה-Render
-        await onAddImage(uri);
+        const newImageUrl = await uploadImageToFirebaseStorage(uri);
+        setFirebaseGalleryImages((prevImages) => [...prevImages, newImageUrl]);
+        Alert.alert('הצלחה', 'התמונה הועלתה בהצלחה!');
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('שגיאה', 'לא הצלחנו לטעון את התמונה');
+      console.error('Error picking or uploading image:', error);
+      Alert.alert('שגיאה', 'לא הצלחנו להעלות את התמונה');
     } finally {
       setUploading(false);
-    }
-  };
-
-  /**
-   * מוחק קובץ מ-Firebase Storage.
-   * @param fileUrl ה-Download URL של הקובץ למחיקה.
-   */
-  const deleteFileFromFirebaseStorage = async (fileUrl: string) => {
-    try {
-      const fileRef = ref(storage, fileUrl);
-      await deleteObject(fileRef);
-      console.log(`Successfully deleted ${fileUrl} from Firebase Storage.`);
-    } catch (error) {
-      console.error(`Error deleting ${fileUrl} from Firebase Storage:`, error);
-      // ייתכן שהקובץ כבר לא קיים, אין צורך להציג שגיאה קריטית למשתמש
-      // אם תרצה לטפל בשגיאה ספציפית (כמו קובץ לא קיים), תוכל לבדוק את ה-error.code
-    }
-  };
-
-  /**
-   * מוחק רשומה של תמונה ממסד הנתונים בשרת וגם את הקובץ מ-Firebase Storage.
-   * @param imageUrl ה-Download URL של התמונה למחיקה.
-   */
-  const deleteImageRecordFromServer = async (imageUrl: string) => {
-    const user = auth.currentUser;
-    if (!user) {
-      throw new Error('משתמש לא מחובר');
-    }
-
-    try {
-      // 1. נסה למחוק את הקובץ מ-Firebase Storage
-      await deleteFileFromFirebaseStorage(imageUrl);
-
-      // 2. שלח בקשה לשרת שלך למחוק את רשומת ה-URL ממסד הנתונים
-      const response = await fetch(`${SERVER_URL}/delete-image`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`מחיקת רשומת תמונה מהשרת נכשלה: ${errorText}`);
-      }
-      console.log(`Successfully deleted image record for ${imageUrl} from server.`);
-    } catch (error) {
-      console.error('שגיאה בתהליך מחיקת תמונה:', error);
-      throw error; // זרוק את השגיאה הלאה כדי ש-handleDeleteSelected יוכל לטפל בה
-    }
-  };
-
-  const handleImagePress = (index: number) => {
-    if (longPressActive) {
-      const newSelected = new Set(selectedImages);
-      if (newSelected.has(index)) {
-        newSelected.delete(index);
-      } else {
-        newSelected.add(index);
-      }
-      setSelectedImages(newSelected);
-    } else {
-      onImagePress(gallery[index]);
-    }
-  };
-
-  const handleLongPress = (index: number) => {
-    setLongPressActive(true);
-    const newSelected = new Set(selectedImages);
-    if (!newSelected.has(index)) {
-      newSelected.add(index);
-      setSelectedImages(newSelected);
     }
   };
 
@@ -194,34 +172,57 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
             const toDeleteUrls: string[] = [];
             const deletePromises: Promise<void>[] = [];
 
-            // הכנס את כל ה-URLs של התמונות שנבחרו למחיקה
             for (const index of Array.from(selectedImages)) {
-              const imageUrl = gallery[index];
+              const imageUrl = firebaseGalleryImages[index];
               if (imageUrl) {
                 toDeleteUrls.push(imageUrl);
-                // הוסף את המחיקה ל-Promises
-                deletePromises.push(deleteImageRecordFromServer(imageUrl));
+                const fileRef = ref(storage, imageUrl);
+                deletePromises.push(deleteObject(fileRef));
               }
             }
 
             try {
-              // המתן שכל פעולות המחיקה יסתיימו
               await Promise.all(deletePromises);
-
-              // עדכן את הגלריה המקומית ואת המצב
-              onDeleteImages(toDeleteUrls); // קורא לפונקציה מ-profile.tsx
+              console.log(
+                `Successfully deleted ${toDeleteUrls.length} images from Firebase Storage.`
+              );
+              setFirebaseGalleryImages((prevImages) =>
+                prevImages.filter((url) => !toDeleteUrls.includes(url))
+              );
               setSelectedImages(new Set());
               setLongPressActive(false);
               Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה!');
-
             } catch (error) {
               console.error('שגיאה במחיקת תמונות:', error);
               Alert.alert('שגיאה', 'אירעה שגיאה במחיקת התמונות. אנא נסה שוב.');
             }
-          }
-        }
+          },
+        },
       ]
     );
+  };
+
+  const handleImagePress = (index: number) => {
+    if (longPressActive) {
+      const newSelected = new Set(selectedImages);
+      if (newSelected.has(index)) {
+        newSelected.delete(index);
+      } else {
+        newSelected.add(index);
+      }
+      setSelectedImages(newSelected);
+    } else {
+      onImagePress(firebaseGalleryImages[index]);
+    }
+  };
+
+  const handleLongPress = (index: number) => {
+    setLongPressActive(true);
+    const newSelected = new Set(selectedImages);
+    if (!newSelected.has(index)) {
+      newSelected.add(index);
+      setSelectedImages(newSelected);
+    }
   };
 
   const renderGridItem = ({ item, index }: ListRenderItemInfo<string>) => {
@@ -232,7 +233,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
         style={[
           styles.galleryItem,
           { backgroundColor: theme.colors.surface },
-          isSelected && { opacity: 0.7 }
+          isSelected && { opacity: 0.7 },
         ]}
         onPress={() => handleImagePress(index)}
         onLongPress={() => handleLongPress(index)}
@@ -244,20 +245,23 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
           resizeMode="cover"
         />
 
-        {/* Selection overlay */}
         {isSelected && (
           <View style={styles.selectionOverlay}>
             <LinearGradient
               colors={['transparent', 'rgba(0,0,0,0.6)']}
               style={styles.selectionGradient}
             />
-            <View style={[styles.selectionIndicator, { backgroundColor: theme.colors.primary }]}>
+            <View
+              style={[
+                styles.selectionIndicator,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
               <Ionicons name="checkmark" size={16} color="white" />
             </View>
           </View>
         )}
 
-        {/* Image stats overlay */}
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.4)']}
           style={styles.imageOverlay}
@@ -269,7 +273,6 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
                 {likeCounts[index] !== undefined ? likeCounts[index] : 0}
               </Text>
             </View>
-
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -278,22 +281,18 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
 
   const renderHeader = () => (
     <View style={[styles.galleryHeader, { backgroundColor: theme.colors.surface }]}>
-      <View style={styles.headerLeft}>
-        {/* הוסרו כפתורי viewMode */}
-      </View>
-
+      <View style={styles.headerLeft}></View>
       <View style={styles.headerCenter}>
         <Text style={[styles.galleryCount, { color: theme.colors.text }]}>
-          {gallery.length} תמונות
+          {firebaseGalleryImages.length} תמונות
         </Text>
       </View>
-
       <View style={styles.headerRight}>
         {selectedImages.size > 0 || longPressActive ? (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
             onPress={handleDeleteSelected}
-            accessibilityLabel={`מחק ${selectedImages.size} תמונות שנבחרו`} // נגישות
+            accessibilityLabel={`מחק ${selectedImages.size} תמונות שנבחרו`}
           >
             <Ionicons name="trash" size={16} color="white" />
             <Text style={styles.actionButtonText}>{selectedImages.size}</Text>
@@ -303,7 +302,7 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
             style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
             onPress={handlePickImage}
             disabled={uploading}
-            accessibilityLabel={uploading ? "מעלה תמונה" : "הוסף תמונה חדשה"} // נגישות
+            accessibilityLabel={uploading ? 'מעלה תמונה' : 'הוסף תמונה חדשה'}
           >
             {uploading ? (
               <ActivityIndicator size="small" color="white" />
@@ -329,11 +328,10 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
         <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
           הוסף תמונות כדי לשתף עם חברים
         </Text>
-
         <TouchableOpacity
           style={[styles.emptyButton, { backgroundColor: theme.colors.primary }]}
           onPress={handlePickImage}
-          accessibilityLabel="הוסף תמונה ראשונה" // נגישות
+          accessibilityLabel="הוסף תמונה ראשונה"
         >
           <Ionicons name="camera" size={20} color="white" />
           <Text style={styles.emptyButtonText}>הוסף תמונה ראשונה</Text>
@@ -342,7 +340,15 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
     </View>
   );
 
-  if (gallery.length === 0) {
+  if (loadingGallery) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (firebaseGalleryImages.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {renderHeader()}
@@ -354,10 +360,9 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {renderHeader()}
-
       <FlatList
-        data={gallery}
-        keyExtractor={(_, index) => index.toString()}
+        data={firebaseGalleryImages}
+        keyExtractor={(item, index) => item || index.toString()}
         numColumns={3}
         key={'grid'}
         renderItem={renderGridItem}
@@ -365,7 +370,6 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
       />
-
       {(selectedImages.size > 0 || longPressActive) && (
         <TouchableOpacity
           style={styles.floatingClearButton}
@@ -373,9 +377,13 @@ export default function Gallery({ gallery, onAddImage, onDeleteImages, onImagePr
             setSelectedImages(new Set());
             setLongPressActive(false);
           }}
-          accessibilityLabel="בטל בחירה של תמונות" // נגישות
+          accessibilityLabel="בטל בחירה של תמונות"
         >
-          <BlurView intensity={80} tint={theme.isDark ? 'dark' : 'light'} style={styles.blurButton}>
+          <BlurView
+            intensity={80}
+            tint={theme.isDark ? 'dark' : 'light'}
+            style={styles.blurButton}
+          >
             <Ionicons name="close" size={20} color={theme.colors.text} />
           </BlurView>
         </TouchableOpacity>
@@ -549,5 +557,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
