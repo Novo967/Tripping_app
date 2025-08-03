@@ -20,7 +20,7 @@ CORS(app)
 
 
 # הגדרת DB
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://trippingappdbnew_user:ks2QQdvcWfXPyr8yJ8r8gU1Ux2fLIuUi@dpg-d1ieg9jipnbc73bk80m0-a.oregon-postgres.render.com/trippingappdbnew')
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://trippingappdbnew2_user:P4hIDexu2vLsS2AxSjCXpMblM2rv8ADB@dpg-d27jbe6uk2gs73e8k4ng-a.oregon-postgres.render.com/trippingappdbnew2')
 engine = create_engine(DATABASE_URL)
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
