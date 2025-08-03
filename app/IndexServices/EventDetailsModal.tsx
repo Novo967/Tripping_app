@@ -142,7 +142,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
           style={[styles.actionButton, styles.chatButton]}
           onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
         >
-          <Text style={styles.actionButtonText}>פתח צ'אט קבוצתי</Text>
+          <Text style={styles.actionButtonText}>פתח צאט קבוצתי</Text>
           <Ionicons name="chatbubbles-outline" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       );
@@ -198,7 +198,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 <View style={styles.detailRow}>
                   <Ionicons name="navigate-outline" size={18} color="#3A8DFF" style={styles.detailIcon} />
                   <Text style={styles.modalDistance}>מרחק ממיקומך:</Text>
-                  <Text style={styles.modalDistance}><Text style={styles.distanceValue}>{eventDistance} ק"מ</Text></Text>
+                  <Text style={styles.modalDistance}><Text style={styles.distanceValue}>{eventDistance} קמ</Text></Text>
                 </View>
               )}
               {selectedEvent.description && (

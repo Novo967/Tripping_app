@@ -1,8 +1,11 @@
+// --- Imports ---
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore'; // ייבוא של doc ו-setDoc
 import React, { useState } from 'react';
 import {
+  ActivityIndicator, // ייבוא של ActivityIndicator
   Alert,
   Dimensions,
   KeyboardAvoidingView,
@@ -14,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { auth } from '../../firebaseConfig';
+import { auth, db } from '../../firebaseConfig'; // ודא ש-db מיוצא מ-firebaseConfig
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,6 +25,32 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // פונקציית עזר חדשה לשמירת מיקום ב-Firestore
+  const saveLocationToFirestore = async (user) => {
+    try {
+      console.log('Requesting location permissions...');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status === 'granted') {
+        console.log('Location permission granted. Getting current position...');
+        const location = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = location.coords;
+        console.log('Location received:', { latitude, longitude });
+
+        // עדכון מסמך המשתמש ב-Firestore עם נתוני המיקום
+        await setDoc(doc(db, 'users', user.uid), {
+          latitude,
+          longitude,
+        }, { merge: true }); // השתמש ב-merge כדי לא לדרוס שדות קיימים
+        console.log('User location saved to Firestore.');
+      } else {
+        console.warn('Location permission not granted. User document not updated with location.');
+      }
+    } catch (error) {
+      console.error("Error saving location to Firestore:", error);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -34,44 +63,25 @@ export default function LoginScreen() {
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
 
-      // בקשת הרשאה למיקום
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('שגיאה', 'אין הרשאה לגשת למיקום');
-        setIsLoading(false);
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = location.coords;
-
-      // שליחת מיקום לשרת
-      await fetch('https://tripping-app.onrender.com/update-user-location', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uid: user.uid,
-          latitude,
-          longitude,
-        }),
-      });
-
+      // קריאה לפונקציה המאוחדת לשמירת מיקום במקום שליחה לשרת חיצוני
+      await saveLocationToFirestore(user);
+      
+      Alert.alert('התחברת בהצלחה!');
       router.push('/(tabs)/home');
-    } catch (error: any) {
-      Alert.alert('שגיאה בהתחברות', error.message);
+    } catch (error) {
+      console.error("שגיאה בהתחברות:", error);
+      Alert.alert('שגיאה בהתחברות');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -80,7 +90,7 @@ export default function LoginScreen() {
           <View style={styles.logoContainer}>
             <Text style={styles.logo}>TREK</Text>
             <Text style={styles.slogenContainer}>
-           
+
             </Text>
             <View style={styles.logoUnderline} />
           </View>
@@ -117,8 +127,8 @@ export default function LoginScreen() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
+          <TouchableOpacity
+            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
             activeOpacity={0.8}
@@ -128,6 +138,14 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        
+        {/* שכבת טעינה, נוספה לזמן ההתחברות */}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+            <Text style={styles.loadingText}>מתחבר...</Text>
+          </View>
+        )}
 
         <View style={styles.footerContainer}>
           <View style={styles.divider}>
@@ -136,7 +154,7 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.push('/Authentication/register')}
             style={styles.registerLink}
             disabled={isLoading}
@@ -292,5 +310,17 @@ const styles = StyleSheet.create({
   registerTextBold: {
     color: PRIMARY_COLOR,
     fontWeight: '700',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: TEXT_COLOR,
   },
 });
