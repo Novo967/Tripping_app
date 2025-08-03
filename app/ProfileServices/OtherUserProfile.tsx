@@ -1,9 +1,12 @@
+// --- Imports ---
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, DocumentData, getDoc } from 'firebase/firestore';
+import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -23,27 +26,22 @@ import { RootStackParamList } from '../types';
 
 type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile'>;
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const PROFILE_IMAGE_SIZE = 120;
-const GALLERY_MARGIN = 24; // Increased margin for more spacing
-const GALLERY_SPACING = 12; // Increased spacing between items
+const GALLERY_MARGIN = 24;
+const GALLERY_SPACING = 12;
 const GALLERY_COLUMNS = 3;
 const BOTTOM_BUTTON_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
 
 const galleryItemSize = (width - GALLERY_MARGIN * 2 - GALLERY_SPACING * (GALLERY_COLUMNS - 1)) / GALLERY_COLUMNS;
 
+// הגדרת הממשק עבור נתוני המשתמש
 interface UserData {
   username: string;
   profileImage: string;
   galleryImages: string[];
-  location?: {
-    country: string;
-    city: string;
-  } | null;
-  currentLocation?: {
-    country: string;
-    city: string;
-  } | null;
+  location?: { country: string; city: string; } | null;
+  currentLocation?: { country: string; city: string; } | null;
   bio?: string;
   favoriteDestinations?: string[];
   travelStyle?: string;
@@ -71,33 +69,71 @@ const OtherUserProfile = () => {
       try {
         setLoading(true);
 
-        const res = await fetch(`https://tripping-app.onrender.com/get-other-user-profile?uid=${uid}`);
-        const apiData = await res.json();
+        const storage = getStorage();
 
+        // קריאה לפיירסטור כדי להשיג את הנתונים הטקסטואליים
         const userDocRef = doc(db, 'users', uid);
         const userSnap = await getDoc(userDocRef);
 
+        let firestoreData: DocumentData | null = null;
         if (userSnap.exists()) {
-          const firestoreData = userSnap.data();
-          setUserData({
-            username: firestoreData.username || '',
-            profileImage: apiData.profile_image || '',
-            galleryImages: apiData.gallery_images || [],
-            location: firestoreData.location && firestoreData.location.city && firestoreData.location.country
-              ? firestoreData.location
-              : null,
-            currentLocation: firestoreData.currentLocation && firestoreData.currentLocation.city && firestoreData.currentLocation.country
-              ? firestoreData.currentLocation
-              : null,
-            bio: firestoreData.bio || '',
-            favoriteDestinations: firestoreData.favoriteDestinations || [],
-            travelStyle: firestoreData.travelStyle || '',
-            joinDate: firestoreData.joinDate || '',
-            isOnline: firestoreData.isOnline || false,
-          });
+          firestoreData = userSnap.data();
+        } else {
+          console.warn("User document not found in Firestore.");
+          setLoading(false);
+          return;
         }
+
+        // --- קריאה לפיירבייס סטורג' כדי להשיג תמונות ---
+        
+        // 1. קבלת URL של תמונת הפרופיל
+        let profileImageUrl = '';
+        try {
+          const profileImageRef = ref(storage, `profile_images/${uid}`);
+          // משתמשים ב-listAll כדי לקבל את כל הפריטים בתוך התיקייה
+          const profileImageList = await listAll(profileImageRef);
+          
+          // אם יש פריטים בתיקייה, מקבלים את ה-URL של הראשון
+          if (profileImageList.items.length > 0) {
+            profileImageUrl = await getDownloadURL(profileImageList.items[0]);
+          }
+        } catch (error) {
+          console.warn("Profile image not found in Firebase Storage:", error);
+        }
+
+        // 2. קבלת URL-ים של תמונות הגלריה
+        let galleryImageUrls = [];
+        try {
+          const galleryRef = ref(storage, `gallery_images/${uid}`);
+          const galleryList = await listAll(galleryRef);
+          
+          // יצירת מערך של פרומיסים עבור כל תמונה
+          const urlPromises = galleryList.items.map((item) => getDownloadURL(item));
+          galleryImageUrls = await Promise.all(urlPromises);
+        } catch (error) {
+          console.warn("Gallery images not found in Firebase Storage:", error);
+        }
+
+        // עדכון ה-state של הקומפוננטה עם הנתונים המלאים
+        setUserData({
+          username: firestoreData?.username || '',
+          profileImage: profileImageUrl, // ה-URL החדש שנשלף מה-Storage
+          galleryImages: galleryImageUrls, // מערך ה-URLs שנשלף מה-Storage
+          location: firestoreData?.location && firestoreData?.location.city && firestoreData?.location.country
+            ? firestoreData.location
+            : null,
+          currentLocation: firestoreData?.currentLocation && firestoreData?.currentLocation.city && firestoreData?.currentLocation.country
+            ? firestoreData.currentLocation
+            : null,
+          bio: firestoreData?.bio || '',
+          favoriteDestinations: firestoreData?.favoriteDestinations || [],
+          travelStyle: firestoreData?.travelStyle || '',
+          joinDate: firestoreData?.joinDate || '',
+          isOnline: firestoreData?.isOnline || false,
+        });
+
       } catch (error) {
-        console.error('Error loading user profile:', error);
+        console.error('An error occurred during data fetching:', error);
       } finally {
         setLoading(false);
       }
@@ -119,6 +155,7 @@ const OtherUserProfile = () => {
 
   const formatJoinDate = (dateString: string) => {
     if (!dateString) return '';
+    // נניח ש-joinDate מגיע בפורמט ISO, אז צריך לחלץ את השנה.
     const date = new Date(dateString);
     return `הצטרף ${date.getFullYear()}`;
   };
@@ -171,8 +208,18 @@ const OtherUserProfile = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3A8DFF" />
         <Text style={styles.loadingText}>טוען פרופיל...</Text>
       </View>
+    );
+  }
+
+  // הצג הודעה אם אין נתוני משתמש
+  if (!userData.username) {
+    return (
+        <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>הפרופיל לא נמצא או אין לו נתונים זמינים.</Text>
+        </View>
     );
   }
 
@@ -271,14 +318,14 @@ const OtherUserProfile = () => {
         {userData.galleryImages.length > 0 && (
           <View style={styles.galleryContainer}>
             <FlatList
-              data={userData.galleryImages.slice(0, 9).reverse()} // Reverse for RTL
+              data={userData.galleryImages.slice(0, 9).reverse()}
               keyExtractor={(item, index) => index.toString()}
               numColumns={GALLERY_COLUMNS}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
               renderItem={({ item, index }) => renderGalleryImage({
                 item,
-                index: userData.galleryImages.slice(0, 9).length - 1 - index // Adjust index for reversed array
+                index: userData.galleryImages.slice(0, 9).length - 1 - index
               })}
               contentContainerStyle={styles.galleryContent}
               style={styles.galleryList}
@@ -337,6 +384,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#666',
+    marginTop: 10,
   },
   header: {
     flexDirection: 'row',
@@ -480,20 +528,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   galleryContainer: {
-    paddingHorizontal: GALLERY_MARGIN, // Uses the updated GALLERY_MARGIN
+    paddingHorizontal: GALLERY_MARGIN,
     marginBottom: 32,
   },
   galleryContent: {
     paddingTop: 0,
   },
   galleryList: {
-    transform: [{ scaleX: -1 }], // Flip for RTL
+    transform: [{ scaleX: -1 }],
   },
   galleryItem: {
-    width: galleryItemSize, // Uses the updated galleryItemSize
-    height: galleryItemSize, // Uses the updated galleryItemSize
+    width: galleryItemSize,
+    height: galleryItemSize,
     position: 'relative',
-    transform: [{ scaleX: -1 }], // Flip back individual items
+    transform: [{ scaleX: -1 }],
   },
   galleryImage: {
     width: '100%',
@@ -525,7 +573,6 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     paddingTop: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(10px)',
   },
   messageButton: {
     flexDirection: 'row',
