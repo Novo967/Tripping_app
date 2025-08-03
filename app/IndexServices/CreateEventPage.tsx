@@ -13,14 +13,26 @@ import {
   Platform,
   ScrollView,
   StatusBar,
-  StyleSheet, Text, TextInput, TouchableOpacity, View
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
 import { app } from '../../firebaseConfig';
 
 // Define event types according to your requirements
-type EventType = 'trip' | 'party' | 'attraction' | 'food' | 'nightlife' | 'beach' | 'sport' | 'other';
+type EventType =
+  | 'trip'
+  | 'party'
+  | 'attraction'
+  | 'food'
+  | 'nightlife'
+  | 'beach'
+  | 'sport'
+  | 'other';
 
 export default function CreateEventPage() {
   const { latitude, longitude } = useLocalSearchParams();
@@ -45,6 +57,7 @@ export default function CreateEventPage() {
   const reverseGeocode = async () => {
     try {
       const response = await fetch(
+        // You MUST replace 'YOUR_MAPBOX_TOKEN' with your actual Mapbox access token
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=YOUR_MAPBOX_TOKEN&language=he`
       );
       const data = await response.json();
@@ -60,8 +73,10 @@ export default function CreateEventPage() {
         }
       }
     } catch (error) {
-      console.error("Error during reverse geocoding:", error);
-      setEventLocation(`${parseFloat(latitude as string).toFixed(4)}, ${parseFloat(longitude as string).toFixed(4)}`);
+      console.error('Error during reverse geocoding:', error);
+      setEventLocation(
+        `${parseFloat(latitude as string).toFixed(4)}, ${parseFloat(longitude as string).toFixed(4)}`
+      );
     }
   };
 
@@ -72,6 +87,7 @@ export default function CreateEventPage() {
     }
 
     const userId = auth.currentUser?.uid;
+    const username = auth.currentUser?.displayName || 'משתמש';
 
     if (!userId) {
       Alert.alert('שגיאה', 'אין משתמש מחובר. אנא התחבר ונסה שוב.');
@@ -80,9 +96,10 @@ export default function CreateEventPage() {
 
     setIsLoading(true);
     try {
-      const backendPayload = {
+      // יצירת אובייקט הנתונים לשמירה ב-Firestore
+      const eventData = {
         owner_uid: userId,
-        username: auth.currentUser?.displayName || 'משתמש',
+        username: username,
         latitude: parseFloat(latitude as string),
         longitude: parseFloat(longitude as string),
         event_title: eventTitle,
@@ -90,42 +107,22 @@ export default function CreateEventPage() {
         event_date: eventDate.toISOString(),
         description: eventDescription,
         location: eventLocation,
+        city_country: cityCountry,
+        created_at: new Date().toISOString(),
       };
 
-      const response = await fetch('https://tripping-app.onrender.com/add-pin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(backendPayload),
-      });
+      // שמירת האובייקט ישירות בקולקשן 'pins' ב-Firestore
+      await addDoc(collection(db, 'pins'), eventData);
 
-      if (response.ok) {
-        const pinData = {
-          owner_uid: userId,
-          username: auth.currentUser?.displayName || 'משתמש',
-          latitude: parseFloat(latitude as string),
-          longitude: parseFloat(longitude as string),
-          event_title: eventTitle,
-          event_type: eventType,
-          event_date: eventDate.toISOString(),
-          description: eventDescription,
-          location: eventLocation,
-          city_country: cityCountry,
-          created_at: new Date().toISOString(),
-        };
-
-        await addDoc(collection(db, 'pins'), pinData);
-
-        Alert.alert('הצלחה', 'האירוע נוצר בהצלחה ונוסף לפיירסטור!', [
-          { text: 'אוקיי', onPress: () => router.replace('/home') }
-        ]);
-      } else {
-        const errorData = await response.json();
-        console.error('Error from server:', errorData);
-        Alert.alert('שגיאה', `אירעה שגיאה ביצירת האירוע: ${errorData.message || response.statusText}`);
-      }
+      Alert.alert('הצלחה', 'האירוע נוצר בהצלחה ונוסף ל-Firestore!', [
+        { text: 'אוקיי', onPress: () => router.replace('/home') },
+      ]);
     } catch (error) {
-      console.error('Network or parsing error or Firestore error:', error);
-      Alert.alert('שגיאה', 'אירעה שגיאה ביצירת האירוע או בשמירה במסד הנתונים.');
+      console.error('Firestore error:', error);
+      Alert.alert(
+        'שגיאה',
+        'אירעה שגיאה ביצירת האירוע או בשמירה במסד הנתונים.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -160,11 +157,21 @@ export default function CreateEventPage() {
 
   // Event types array in the specified order
   const eventTypesArray: EventType[] = [
-    'trip', 'party', 'attraction', 'food', 'nightlife', 'beach', 'sport', 'other'
+    'trip',
+    'party',
+    'attraction',
+    'food',
+    'nightlife',
+    'beach',
+    'sport',
+    'other',
   ];
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-forward" size={24} color="white" />
@@ -178,18 +185,32 @@ export default function CreateEventPage() {
           initialRegion={{
             latitude: parseFloat(latitude as string),
             longitude: parseFloat(longitude as string),
-            latitudeDelta: 0.01, longitudeDelta: 0.01,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
           }}
           scrollEnabled={false}
           zoomEnabled={false}
         >
-          <Marker coordinate={{ latitude: parseFloat(latitude as string), longitude: parseFloat(longitude as string) }}>
-            <View style={styles.customMarker}><Ionicons name="location" size={30} color="#3A8DFF" /></View>
+          <Marker
+            coordinate={{
+              latitude: parseFloat(latitude as string),
+              longitude: parseFloat(longitude as string),
+            }}
+          >
+            <View style={styles.customMarker}>
+              <Ionicons name="location" size={30} color="#3A8DFF" />
+            </View>
           </Marker>
         </MapView>
 
-        <View style={styles.locationBox}><Text style={styles.locationText}>{eventLocation}</Text></View>
-        {cityCountry && <View style={styles.cityBox}><Text style={styles.cityText}>{cityCountry}</Text></View>}
+        <View style={styles.locationBox}>
+          <Text style={styles.locationText}>{eventLocation}</Text>
+        </View>
+        {cityCountry && (
+          <View style={styles.cityBox}>
+            <Text style={styles.cityText}>{cityCountry}</Text>
+          </View>
+        )}
 
         <TextInput
           style={styles.input}
@@ -200,9 +221,9 @@ export default function CreateEventPage() {
         />
 
         {/* RTL horizontal scroll for event types */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
           style={styles.typeSelector}
           contentContainerStyle={styles.typeSelectorContent}
         >
@@ -217,7 +238,12 @@ export default function CreateEventPage() {
                 size={20}
                 color={eventType === type ? 'white' : '#3A8DFF'}
               />
-              <Text style={[styles.typeText, { color: eventType === type ? 'white' : '#333' }]}>
+              <Text
+                style={[
+                  styles.typeText,
+                  { color: eventType === type ? 'white' : '#333' },
+                ]}
+              >
                 {typeLabels[type]}
               </Text>
             </TouchableOpacity>
@@ -238,26 +264,31 @@ export default function CreateEventPage() {
           placeholderTextColor="#999"
         />
 
-        <TouchableOpacity 
-          style={[styles.createButton, isLoading && { opacity: 0.6 }]} 
-          onPress={handleCreateEvent} 
+        <TouchableOpacity
+          style={[styles.createButton, isLoading && { opacity: 0.6 }]}
+          onPress={handleCreateEvent}
           disabled={isLoading}
         >
-          <Text style={styles.createButtonText}>{isLoading ? 'יוצר...' : 'צור אירוע'}</Text>
+          <Text style={styles.createButtonText}>
+            {isLoading ? 'יוצר...' : 'צור אירוע'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
       <Modal visible={showDatePicker} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowDatePicker(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          onPress={() => setShowDatePicker(false)}
+        >
           <View style={styles.datePickerModal}>
-            <DateTimePicker 
-              value={eventDate} 
-              mode="date" 
-              onChange={(e, d) => { 
-                setShowDatePicker(false); 
-                if (d) setEventDate(d); 
-              }} 
-              minimumDate={new Date()} 
+            <DateTimePicker
+              value={eventDate}
+              mode="date"
+              onChange={(e, d) => {
+                setShowDatePicker(false);
+                if (d) setEventDate(d);
+              }}
+              minimumDate={new Date()}
             />
           </View>
         </TouchableOpacity>
@@ -273,7 +304,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 24) + 10) : Constants.statusBarHeight + 10,
+    paddingTop:
+      Platform.OS === 'android'
+        ? (StatusBar.currentHeight ?? 24) + 10
+        : Constants.statusBarHeight + 10,
     paddingBottom: 10,
     backgroundColor: '#3A8DFF',
     elevation: 5,
@@ -296,13 +330,13 @@ const styles = StyleSheet.create({
   scrollView: { padding: 20 },
   map: { height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 15 },
   customMarker: { alignItems: 'center', justifyContent: 'center' },
-  locationBox: { 
-    backgroundColor: 'white', 
-    padding: 10, 
-    marginVertical: 8, 
-    borderRadius: 10, 
-    borderWidth: 1, 
-    borderColor: '#ddd' 
+  locationBox: {
+    backgroundColor: 'white',
+    padding: 10,
+    marginVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   locationText: { color: '#333', textAlign: 'center', fontWeight: '500' },
   cityBox: { backgroundColor: '#f5f5f5', padding: 8, marginBottom: 15, borderRadius: 8 },
@@ -318,22 +352,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  typeSelector: { 
-    flexDirection: 'row', 
+  typeSelector: {
+    flexDirection: 'row',
     marginVertical: 15,
   },
   typeSelectorContent: {
-    flexDirection: 'row-reverse', // RTL for content
+    flexDirection: 'row-reverse',
     paddingHorizontal: 5,
   },
   typeButton: {
-    flexDirection: 'row-reverse', // RTL layout for button content
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: 'white',
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 20,
-    marginLeft: 10, // Changed from marginRight to marginLeft for RTL
+    marginLeft: 10,
     borderWidth: 1,
     borderColor: '#ddd',
     minWidth: 80,
@@ -342,9 +376,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#3A8DFF',
     borderColor: '#3A8DFF',
   },
-  typeText: { 
-    marginRight: 8, // Changed from marginLeft to marginRight for RTL
-    fontSize: 15, 
+  typeText: {
+    marginRight: 8,
+    fontSize: 15,
     fontWeight: '500',
     textAlign: 'right',
   },
@@ -369,16 +403,16 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   createButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-  modalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.5)', 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  datePickerModal: { 
-    backgroundColor: 'white', 
-    borderRadius: 15, 
-    padding: 20, 
-    margin: 20 
+  datePickerModal: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    margin: 20,
   },
 });
