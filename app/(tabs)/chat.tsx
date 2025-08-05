@@ -11,7 +11,7 @@ import {
   query,
   where
 } from 'firebase/firestore';
-import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage'; // שינוי: הוספת listAll
+import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import moment from 'moment';
 import 'moment/locale/he';
 import React, { useEffect, useRef, useState } from 'react';
@@ -55,27 +55,22 @@ const ChatsList = () => {
   const chatListeners = useRef<(() => void)[]>([]);
   const storage = getStorage(app);
 
-  // שינוי: הפונקציה getProfileImageUrl תשתמש ב-listAll
   const getProfileImageUrl = async (userId: string) => {
     if (!userId) {
       return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
     }
 
     try {
-      // יצירת הפנייה לתיקייה, לא לקובץ ספציפי
       const folderRef = ref(storage, `profile_images/${userId}`);
       const result = await listAll(folderRef);
 
-      // אם אין קבצים בתיקייה, תחזיר תמונת ברירת מחדל
       if (result.items.length === 0) {
         return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
       }
 
-      // מיון הקבצים כדי למצוא את העדכני ביותר (בהנחה ששם הקובץ מכיל timestamp)
       const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
       const latestFileRef = sortedItems[0];
       
-      // קבלת ה-Download URL של הקובץ העדכני ביותר
       const url = await getDownloadURL(latestFileRef);
       return url;
     } catch (e) {
@@ -134,7 +129,6 @@ const ChatsList = () => {
           }
           const userData = userDoc.data();
 
-          // שינוי: קורא לפונקציה החדשה
           const profileImageUrl = await getProfileImageUrl(otherUserId);
 
           const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -195,6 +189,9 @@ const ChatsList = () => {
           const messagesRef = collection(db, 'group_chats', groupId, 'messages');
           const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
 
+          // שינוי: קריאת תמונת הקבוצה מ-Firestore ישירות
+          const groupImageUrl = groupData.groupImage || 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png';
+
           return new Promise<ChatItem | null>((resolve) => {
             const unsubscribeGroupMsg = onSnapshot(lastMsgQuery, (lastMsgSnapshot) => {
               if (lastMsgSnapshot.empty) {
@@ -202,7 +199,7 @@ const ChatsList = () => {
                 return resolve({
                   chatId: groupId,
                   otherUsername: groupData.name || 'קבוצה',
-                  otherUserImage: groupData.groupImage || 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
+                  otherUserImage: groupImageUrl, // שימוש ב-URL שנשלף
                   lastMessage: 'התחל שיחה חדשה',
                   lastMessageTimestamp: groupData.lastUpdate?.toDate().getTime() || 0,
                   isGroup: true,
@@ -213,7 +210,7 @@ const ChatsList = () => {
               const newGroupChatItem: ChatItem = {
                 chatId: groupId,
                 otherUsername: groupData.name || 'קבוצה',
-                otherUserImage: groupData.groupImage || 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
+                otherUserImage: groupImageUrl, // שימוש ב-URL שנשלף
                 lastMessage: msg.text || '',
                 lastMessageTimestamp: msg.createdAt?.toDate().getTime() || 0,
                 isGroup: true,
@@ -293,7 +290,15 @@ const ChatsList = () => {
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        {item.isGroup ? (
+        {/* שינוי: בדיקה אם יש תמונה של קבוצה, אם כן מציג אותה */}
+        {item.isGroup && item.otherUserImage !== 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png' ? (
+          <Image
+            source={{
+              uri: item.otherUserImage,
+            }}
+            style={styles.avatar}
+          />
+        ) : item.isGroup ? (
           <View style={styles.groupIcon}>
             <Ionicons name="people" size={24} color="#3A8DFF" />
           </View>
