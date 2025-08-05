@@ -8,7 +8,7 @@ import {
   doc,
   getDoc,
   getFirestore,
-  onSnapshot
+  onSnapshot,
 } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
@@ -28,6 +28,7 @@ import { app } from '../../../firebaseConfig';
 
 const db = getFirestore(app);
 
+// שינוי: ממשק EventType עודכן לשימוש ב-owner_uid
 interface SelectedEventType {
   id: string;
   latitude: number;
@@ -38,7 +39,7 @@ interface SelectedEventType {
   event_type: string;
   description?: string;
   location?: string;
-  event_owner_uid: string;
+  owner_uid: string; // ✅ תוקן ל-owner_uid
   approved_users?: string[];
 }
 
@@ -142,7 +143,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // ✅ שימוש ב-useEffect עם onSnapshot עבור טעינה ועדכונים בזמן אמת
   useEffect(() => {
     const loadInitialData = async () => {
       await fetchLocation();
@@ -153,9 +153,7 @@ export default function HomeScreen() {
     loadInitialData();
   }, [fetchLocation, fetchCurrentUserUsername]);
 
-  // ✅ פונקציית האזנה בזמן אמת למשתמשים ולאירועים
   useEffect(() => {
-    // האזנה למשתמשים
     const usersCollection = collection(db, 'users');
     const unsubscribeUsers = onSnapshot(usersCollection, (snapshot) => {
       const usersData: SelectedUserType[] = [];
@@ -177,7 +175,6 @@ export default function HomeScreen() {
       Alert.alert('שגיאה', 'לא ניתן לטעון משתמשים.');
     });
 
-    // האזנה לאירועים
     const pinsCollection = collection(db, 'pins');
     const unsubscribePins = onSnapshot(pinsCollection, (snapshot) => {
       const pins: SelectedEventType[] = [];
@@ -189,7 +186,6 @@ export default function HomeScreen() {
         const pinId = doc.id;
         const eventDate = new Date(pinData.event_date);
 
-        // אם האירוע פג תוקף, מוחקים אותו
         if (todayStart.getTime() > eventDate.getTime()) {
           deleteDoc(doc.ref)
             .then(() => console.log(`Event ${pinId} has expired and was deleted.`))
@@ -205,7 +201,7 @@ export default function HomeScreen() {
             event_type: pinData.event_type,
             description: pinData.description,
             location: pinData.location,
-            event_owner_uid: pinData.event_owner_uid,
+            owner_uid: pinData.owner_uid, // ✅ תוקן ל-owner_uid
             approved_users: pinData.approved_users || [],
           });
         }
@@ -216,7 +212,6 @@ export default function HomeScreen() {
       Alert.alert('שגיאה', 'לא ניתן לטעון אירועים.');
     });
 
-    // פונקציית ניקוי שמפסיקה את ההאזנה כשהקומפוננטה נעלמת
     return () => {
       unsubscribeUsers();
       unsubscribePins();
@@ -311,8 +306,12 @@ export default function HomeScreen() {
             event_type: pinData.event_type,
             description: pinData.description,
             location: pinData.location,
-            event_owner_uid: pinData.event_owner_uid,
+            owner_uid: pinData.owner_uid, // ✅ תוקן ל-owner_uid
             approved_users: pinData.approved_users || [],
+          });
+          console.log('Fetched single event data:', { // הוספתי לוג כאן לבדיקה
+            id: pinId,
+            ...pinData,
           });
         } else {
           console.warn('Pin document not found in Firestore.');
