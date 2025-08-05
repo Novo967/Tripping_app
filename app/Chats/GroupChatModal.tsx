@@ -15,11 +15,11 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
-// ✅ ייבוא הפונקציות הנכונות מ-Storage
-import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
+import { getDownloadURL, getStorage, listAll, ref, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -54,36 +54,23 @@ const GroupChatModal = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [groupName, setGroupName] = useState(eventTitle);
-  // ✅ State חדש לשמירת ה-URL של תמונת הקבוצה
   const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
   const currentUsername = currentUser?.displayName || currentUser?.email || 'משתמש אנונימי';
-
   const insets = useSafeAreaInsets();
 
-  // ✅ הפונקציה החדשה לשליפת תמונת קבוצה מ-Storage
   const getGroupImageUrl = async (groupId: string) => {
-    if (!groupId) {
-      return null;
-    }
-
+    if (!groupId) return null;
     try {
-      // הנתיב לתמונות קבוצה יכול להיות שונה. כאן אני מניח מבנה דומה לתמונות פרופיל
-      // `group_images/{groupId}`
       const folderRef = ref(storage, `group_images/${groupId}`);
       const result = await listAll(folderRef);
-
-      if (result.items.length === 0) {
-        return null;
-      }
-
-      // נניח שהקובץ העדכני ביותר הוא הראשון לאחר מיון הפוך
-      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
-      const latestFileRef = sortedItems[0];
-      
+      if (result.items.length === 0) return null;
+      // Get the latest file. This logic might not be ideal if multiple files exist.
+      const latestFileRef = result.items.sort((a, b) => b.name.localeCompare(a.name))[0];
       const url = await getDownloadURL(latestFileRef);
       return url;
     } catch (e) {
@@ -92,23 +79,118 @@ const GroupChatModal = () => {
     }
   };
 
-  // Effect to load group details (name, image) and listen to messages
+  const uploadGroupImage = async (uri: string) => {
+    setIsUploading(true);
+    if (!eventTitle) {
+      console.error('Group ID (eventTitle) is undefined.');
+      Alert.alert('שגיאה', 'שם הקבוצה אינו זמין, לא ניתן להעלות תמונה.');
+      setIsUploading(false);
+      return;
+    }
+
+    try {
+      // Check if URI is valid before fetching
+      if (!uri) {
+        throw new Error('Invalid image URI provided.');
+      }
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      const storageRef = ref(storage, `group_images/${eventTitle}/groupImage.jpg`);
+      
+      await uploadBytes(storageRef, blob);
+      const newImageUrl = await getDownloadURL(storageRef);
+
+      const groupDocRef = doc(db, 'group_chats', eventTitle);
+      await updateDoc(groupDocRef, { groupImage: newImageUrl });
+
+      setGroupImageUrl(newImageUrl);
+      Alert.alert('התמונה עודכנה בהצלחה!');
+    } catch (error) {
+      console.error('Failed to upload group image:', error);
+      Alert.alert('שגיאה', `העלאת התמונה נכשלה: . אנא נסה שוב.`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleGroupImagePicker = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['ביטול', 'מצלמה', 'גלריה'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) openCameraForGroupImage();
+          if (buttonIndex === 2) openGalleryForGroupImage();
+        }
+      );
+    } else {
+      Alert.alert('החלפת תמונת קבוצה', 'בחר תמונה חדשה לקבוצה', [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'מצלמה', onPress: openCameraForGroupImage },
+        { text: 'גלריה', onPress: openGalleryForGroupImage },
+      ]);
+    }
+  };
+
+  const openCameraForGroupImage = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת מצלמה כדי לצלם תמונות.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets[0]) {
+      uploadGroupImage(result.assets[0].uri);
+    } else if (result.canceled) {
+      console.log('User cancelled the image picker.');
+    } else {
+      console.log('Image picker returned with no assets.');
+    }
+  };
+
+  const openGalleryForGroupImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת גלריה כדי לבחור תמונות.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets[0]) {
+      uploadGroupImage(result.assets[0].uri);
+    } else if (result.canceled) {
+      console.log('User cancelled the image picker.');
+    } else {
+      console.log('Image picker returned with no assets.');
+    }
+  };
+
   useEffect(() => {
     if (!eventTitle || typeof eventTitle !== 'string') return;
-
     const groupDocRef = doc(db, 'group_chats', eventTitle);
-
-    // Listener for group details (name, image)
     const unsubscribeGroupDetails = onSnapshot(
       groupDocRef,
       async (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setGroupName(data.name || eventTitle); // Use actual name, fallback to eventTitle
-          
-          // ✅ קורא לפונקציה החדשה כדי לטעון את התמונה מ-Storage
-          const imageUrl = await getGroupImageUrl(eventTitle);
-          setGroupImageUrl(imageUrl);
+          setGroupName(data.name || eventTitle);
+          // Only fetch group image if it's not already set to avoid race conditions
+          if (!groupImageUrl) {
+            const imageUrl = await getGroupImageUrl(eventTitle);
+            setGroupImageUrl(imageUrl);
+          }
         } else {
           setGroupName(eventTitle);
           setGroupImageUrl(null);
@@ -119,10 +201,8 @@ const GroupChatModal = () => {
       }
     );
 
-    // Listener for messages
     const messagesRef = collection(db, 'group_chats', eventTitle, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
-
     const unsubscribeMessages = onSnapshot(
       q,
       (snapshot) => {
@@ -132,7 +212,6 @@ const GroupChatModal = () => {
         console.error('Error listening to group messages:', error);
       }
     );
-
     return () => {
       unsubscribeGroupDetails();
       unsubscribeMessages();
@@ -141,10 +220,8 @@ const GroupChatModal = () => {
 
   const sendMessage = async (imageUrl?: string) => {
     if ((!input.trim() && !imageUrl) || !currentUid || typeof eventTitle !== 'string') return;
-
     const chatDocRef = doc(db, 'group_chats', eventTitle);
     const docSnap = await getDoc(chatDocRef);
-
     if (!docSnap.exists()) {
       await setDoc(chatDocRef, {
         name: eventTitle,
@@ -160,7 +237,6 @@ const GroupChatModal = () => {
         });
       }
     }
-
     const messagesRef = collection(chatDocRef, 'messages');
     await addDoc(messagesRef, {
       text: input.trim(),
@@ -169,13 +245,10 @@ const GroupChatModal = () => {
       createdAt: serverTimestamp(),
       ...(imageUrl && { imageUrl }),
     });
-
     setInput('');
   };
 
-  const goBack = () => {
-    router.back();
-  };
+  const goBack = () => router.back();
 
   const handleImagePicker = () => {
     if (Platform.OS === 'ios') {
@@ -185,53 +258,49 @@ const GroupChatModal = () => {
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
-          if (buttonIndex === 1) openCamera();
-          if (buttonIndex === 2) openGallery();
+          if (buttonIndex === 1) openCameraForMessage();
+          if (buttonIndex === 2) openGalleryForMessage();
         }
       );
     } else {
       Alert.alert('בחר תמונה', '', [
         { text: 'ביטול', style: 'cancel' },
-        { text: 'מצלמה', onPress: openCamera },
-        { text: 'גלריה', onPress: openGallery },
+        { text: 'מצלמה', onPress: openCameraForMessage },
+        { text: 'גלריה', onPress: openGalleryForMessage },
       ]);
     }
   };
 
-  const openCamera = async () => {
+  const openCameraForMessage = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Camera permission is required to take photos.');
       return;
     }
-
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
     });
-
-    if (!result.canceled && result.assets[0]) {
+    if (!result.canceled && result.assets && result.assets[0]) {
       sendMessage(result.assets[0].uri);
     }
   };
 
-  const openGallery = async () => {
+  const openGalleryForMessage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Media library permission is required to pick photos.');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
     });
-
-    if (!result.canceled && result.assets[0]) {
+    if (!result.canceled && result.assets && result.assets[0]) {
       sendMessage(result.assets[0].uri);
     }
   };
@@ -303,14 +372,13 @@ const GroupChatModal = () => {
     );
   }
 
-  const headerHeight = 68; // גובה ההאדר מבוסס על פאדינג ותוכן
+  const headerHeight = 68;
   const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + headerHeight : 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
 
-      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity
           onPress={goBack}
@@ -321,9 +389,16 @@ const GroupChatModal = () => {
         </TouchableOpacity>
 
         <View style={styles.groupInfo}>
-          <View style={styles.groupIconContainer}>
-            {/* Conditional rendering for group image or icon */}
-            {groupImageUrl ? (
+          <TouchableOpacity
+            onPress={handleGroupImagePicker}
+            style={styles.groupIconContainer}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <View style={styles.groupAvatarPlaceholder}>
+                <ActivityIndicator size="small" color="#3A8DFF" />
+              </View>
+            ) : groupImageUrl ? (
               <Image
                 source={{ uri: groupImageUrl }}
                 style={styles.groupAvatar}
@@ -334,7 +409,7 @@ const GroupChatModal = () => {
               </View>
             )}
             <View style={styles.onlineIndicator} />
-          </View>
+          </TouchableOpacity>
           <View style={styles.groupTextInfo}>
             <Text style={styles.groupName} numberOfLines={1}>
               {groupName}
@@ -603,7 +678,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 24, // קבוע על 24 כדי לשמור על עיצוב אחיד
+    paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
   },
