@@ -15,17 +15,17 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
+// ✅ ייבוא הפונקציות הנכונות מ-Storage
+import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
-  Dimensions,
   FlatList,
   Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
@@ -34,9 +34,10 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { db } from '../../firebaseConfig';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { app, db } from '../../firebaseConfig';
 
-const { width, height } = Dimensions.get('window');
+const storage = getStorage(app);
 
 interface Message {
   id: string;
@@ -48,17 +49,48 @@ interface Message {
 }
 
 const GroupChatModal = () => {
-  const { eventTitle } = useLocalSearchParams<{ eventTitle: string }>(); // eventTitle now represents the groupId
+  const { eventTitle } = useLocalSearchParams<{ eventTitle: string }>();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [groupName, setGroupName] = useState(eventTitle); // State for actual group name
-  const [groupImage, setGroupImage] = useState<string | null>(null); // Default group image is null for icon
+  const [groupName, setGroupName] = useState(eventTitle);
+  // ✅ State חדש לשמירת ה-URL של תמונת הקבוצה
+  const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
   const currentUsername = currentUser?.displayName || currentUser?.email || 'משתמש אנונימי';
+
+  const insets = useSafeAreaInsets();
+
+  // ✅ הפונקציה החדשה לשליפת תמונת קבוצה מ-Storage
+  const getGroupImageUrl = async (groupId: string) => {
+    if (!groupId) {
+      return null;
+    }
+
+    try {
+      // הנתיב לתמונות קבוצה יכול להיות שונה. כאן אני מניח מבנה דומה לתמונות פרופיל
+      // `group_images/{groupId}`
+      const folderRef = ref(storage, `group_images/${groupId}`);
+      const result = await listAll(folderRef);
+
+      if (result.items.length === 0) {
+        return null;
+      }
+
+      // נניח שהקובץ העדכני ביותר הוא הראשון לאחר מיון הפוך
+      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
+      const latestFileRef = sortedItems[0];
+      
+      const url = await getDownloadURL(latestFileRef);
+      return url;
+    } catch (e) {
+      console.warn(`Error fetching group image for ${groupId}:`, e);
+      return null;
+    }
+  };
 
   // Effect to load group details (name, image) and listen to messages
   useEffect(() => {
@@ -69,15 +101,17 @@ const GroupChatModal = () => {
     // Listener for group details (name, image)
     const unsubscribeGroupDetails = onSnapshot(
       groupDocRef,
-      (docSnap) => {
+      async (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setGroupName(data.name || eventTitle); // Use actual name, fallback to eventTitle
-          setGroupImage(data.groupImage || null); // Set to null if groupImage is not found
+          
+          // ✅ קורא לפונקציה החדשה כדי לטעון את התמונה מ-Storage
+          const imageUrl = await getGroupImageUrl(eventTitle);
+          setGroupImageUrl(imageUrl);
         } else {
-          // If the group document doesn't exist yet, we'll create it on first message send
-          setGroupName(eventTitle); // Fallback to eventTitle as the name
-          setGroupImage(null); // Keep as null for default icon
+          setGroupName(eventTitle);
+          setGroupImageUrl(null);
         }
       },
       (error) => {
@@ -111,28 +145,22 @@ const GroupChatModal = () => {
     const chatDocRef = doc(db, 'group_chats', eventTitle);
     const docSnap = await getDoc(chatDocRef);
 
-    // If group document doesn't exist, create it with initial data
     if (!docSnap.exists()) {
-      console.log(`Creating new group document for: ${eventTitle}`);
       await setDoc(chatDocRef, {
-        name: eventTitle, // Use eventTitle as the initial group name
-        members: [currentUid], // Add current user as the first member
-        groupImage: null, // Default to null for icon display
+        name: eventTitle,
+        members: [currentUid],
+        groupImage: null,
         createdAt: serverTimestamp(),
       });
     } else {
-      // Optional: If the group exists, but somehow 'members' is missing (e.g. legacy data),
-      // ensure the current user is added. This is a safeguard.
       const groupData = docSnap.data();
       if (!groupData.members || !groupData.members.includes(currentUid)) {
-        console.log(`Adding current user (${currentUid}) to members list of group: ${eventTitle}`);
         await updateDoc(chatDocRef, {
-          members: [...(groupData.members || []), currentUid], // Add current user if not present
+          members: [...(groupData.members || []), currentUid],
         });
       }
     }
 
-    // Add the message to the messages subcollection
     const messagesRef = collection(chatDocRef, 'messages');
     await addDoc(messagesRef, {
       text: input.trim(),
@@ -275,18 +303,15 @@ const GroupChatModal = () => {
     );
   }
 
-  // חישוב דינמי של גובה ההאדר והסטטוס בר עבור iOS
-  // גובה הסטטוס בר מחושב אוטומטית ע"י SafeAreaView, אבל אם יש לך StatusBar ידני עם backgroundColor הוא עשוי להשפיע.
-  // ההאדר הוא 68 פיקסלים (paddingVertical 12 * 2 + גובה התוכן בערך 44).
-  // נוסיף קצת בטיחות לאופסט
-  const keyboardVerticalOffset = Platform.OS === 'ios' ? 68 + 20 : 0; // 68 זה גובה ההאדר, 20 זה עוד קצת בטיחות
+  const headerHeight = 68; // גובה ההאדר מבוסס על פאדינג ותוכן
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + headerHeight : 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity
           onPress={goBack}
           style={styles.backButton}
@@ -298,17 +323,13 @@ const GroupChatModal = () => {
         <View style={styles.groupInfo}>
           <View style={styles.groupIconContainer}>
             {/* Conditional rendering for group image or icon */}
-            {groupImage ? (
-              // If groupImage exists, render Image inside groupIcon View
-              <View style={styles.groupIcon}>
-                <Image
-                  source={{ uri: groupImage }}
-                  style={StyleSheet.absoluteFillObject} // Image fills the parent View
-                />
-              </View>
+            {groupImageUrl ? (
+              <Image
+                source={{ uri: groupImageUrl }}
+                style={styles.groupAvatar}
+              />
             ) : (
-              // If groupImage is null, render Ionicons people icon
-              <View style={[styles.groupIcon, styles.groupIconPlaceholder]}>
+              <View style={styles.groupAvatarPlaceholder}>
                 <Ionicons name="people" size={24} color="#3A8DFF" />
               </View>
             )}
@@ -328,10 +349,10 @@ const GroupChatModal = () => {
       <KeyboardAvoidingView
         style={styles.flexContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset} 
+        keyboardVerticalOffset={keyboardVerticalOffset}
       >
         {messages.length === 0 ? (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={styles.emptyStateTouchable}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.emptyState}>
               <Ionicons name="people-outline" size={60} color="#E0E0E0" />
               <Text style={styles.emptyStateTitle}>התחל שיחה קבוצתית</Text>
@@ -341,7 +362,7 @@ const GroupChatModal = () => {
             </View>
           </TouchableWithoutFeedback>
         ) : (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={styles.flatListTouchable}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -366,7 +387,7 @@ const GroupChatModal = () => {
               activeOpacity={0.8}
               disabled={!input.trim()}
             >
-              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'}style={{ transform: [{ scaleX: -1 }] }} />
+              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
             </TouchableOpacity>
 
             <TextInput
@@ -405,7 +426,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#3A8DFF',
     paddingHorizontal: 16,
-    paddingVertical: 12, // 12 + 12 = 24px פאדינג אנכי
+    paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#3A8DFF',
@@ -432,19 +453,30 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginLeft: 12,
   },
-  groupIcon: {
-    width: 44, // גובה התוכן בערך 44px
+  groupAvatar: {
+    width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  groupAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  groupIconPlaceholder: {
-    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   onlineIndicator: {
     position: 'absolute',
@@ -471,12 +503,6 @@ const styles = StyleSheet.create({
     color: '#FFE0B3',
     textAlign: 'right',
     marginTop: 2,
-  },
-  emptyStateTouchable: {
-    flex: 1,
-  },
-  flatListTouchable: {
-    flex: 1,
   },
   emptyState: {
     flex: 1,
@@ -556,6 +582,12 @@ const styles = StyleSheet.create({
   theirMessageText: {
     color: '#2C3E50',
   },
+  messageImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
   messageTime: {
     fontSize: 11,
     marginTop: 4,
@@ -571,14 +603,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 48,
+    paddingBottom: 24, // קבוע על 24 כדי לשמור על עיצוב אחיד
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -588,23 +615,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 4,
     minHeight: 50,
-  },
-  attachButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   cameraButton: {
     width: 40,
@@ -622,12 +632,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-  },
-  messageImage: {
-    width: 200,
-    height: 150,
-    borderRadius: 12,
-    marginBottom: 8,
   },
   input: {
     flex: 1,
