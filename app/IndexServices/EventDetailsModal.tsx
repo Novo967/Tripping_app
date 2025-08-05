@@ -1,8 +1,10 @@
 // app/IndexServices/EventDetailsModal.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { arrayUnion, doc, getFirestore, updateDoc } from 'firebase/firestore'; // שינוי: ייבוא פונקציות Firestore
 import React from 'react';
 import { Alert, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { app } from '../../firebaseConfig'; // שינוי: ייבוא האפליקציה של Firebase
 
 // הגדרת ממשק (interface) עבור selectedEvent
 interface SelectedEventType {
@@ -15,7 +17,7 @@ interface SelectedEventType {
   event_type: string;
   description?: string;
   location?: string;
-  event_owner_uid: string;
+  owner_uid: string; // שינוי: השם עודכן ל-owner_uid כפי שנראה ב-Firestore
   approved_users?: string[];
 }
 
@@ -25,7 +27,6 @@ interface EventDetailsModalProps {
   onClose: () => void;
   user: any; // המשתמש המחובר כרגע
   currentUserUsername: string; // שם המשתמש המחובר
-  SERVER_URL: string; // כתובת השרת
   userLocation: { latitude: number; longitude: number } | null;
 }
 
@@ -39,9 +40,10 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
   onClose,
   user,
   currentUserUsername,
-  SERVER_URL,
   userLocation,
 }) => {
+
+  const db = getFirestore(app); // שינוי: יצירת מופע של Firestore
 
   /**
    * פונקציה לחישוב מרחק בין שתי נקודות על פני כדור הארץ (Haversine formula).
@@ -73,7 +75,8 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
   }, [userLocation, selectedEvent]);
 
   /**
-   * שולח בקשה להצטרפות לאירוע.
+   * הפונקציה מעדכנת את הנתונים ב-Firestore.
+   * מוסיף את ה-UID של המשתמש לרשימת approved_users של האירוע.
    */
   const handleSendRequest = async () => {
     if (!user || !selectedEvent || !currentUserUsername) {
@@ -81,29 +84,21 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
       return;
     }
 
-    if (user.uid === selectedEvent.event_owner_uid) {
+    if (user.uid === selectedEvent.owner_uid) {
       Alert.alert('שגיאה', 'אינך יכול לשלוח בקשה לאירוע שאתה מנהל.');
       return;
     }
 
     try {
-      const response = await fetch(`${SERVER_URL}/send-event-request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sender_uid: user.uid,
-          sender_username: currentUserUsername,
-          receiver_uid: selectedEvent.event_owner_uid,
-          event_id: selectedEvent.id,
-          event_title: selectedEvent.event_title,
-        }),
+      // יצירת הפניה למסמך האירוע בקולקציית 'pins'
+      const eventRef = doc(db, 'pins', selectedEvent.id);
+
+      // עדכון המסמך ב-Firestore: הוספת ה-UID של המשתמש ל-approved_users
+      await updateDoc(eventRef, {
+        approved_users: arrayUnion(user.uid)
       });
-      const result = await response.json();
-      if (response.ok) {
-        Alert.alert('הצלחה', 'הבקשה נשלחה למנהל האירוע!');
-      } else {
-        Alert.alert('שגיאה', result.error || 'שליחת הבקשה נכשלה.');
-      }
+      
+      Alert.alert('הצלחה', 'הבקשה נשלחה למנהל האירוע!');
     } catch (error) {
       console.error('Error sending request:', error);
       Alert.alert('שגיאה', 'אירעה שגיאה בשליחת הבקשה.');
@@ -133,7 +128,11 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
   const renderEventActionButton = () => {
     if (!user || !selectedEvent) return null;
 
-    const isOwner = user.uid === selectedEvent.event_owner_uid;
+    // הדפסת ה-UID-ים לבדיקה
+    console.log('User UID:', user.uid);
+    console.log('Event Owner UID:', selectedEvent.owner_uid);
+
+    const isOwner = user.uid === selectedEvent.owner_uid;
     const isApproved = selectedEvent.approved_users?.includes(user.uid);
 
     if (isOwner || isApproved) {
@@ -142,7 +141,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
           style={[styles.actionButton, styles.chatButton]}
           onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
         >
-          <Text style={styles.actionButtonText}>פתח צאט קבוצתי</Text>
+          <Text style={styles.actionButtonText}>עבור לצ'ט הקבוצתי</Text>
           <Ionicons name="chatbubbles-outline" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       );
@@ -360,10 +359,10 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   requestButton: {
-    backgroundColor: '#3A8DFF', // כתום ראשי
+    backgroundColor: '#3A8DFF', // כחול ראשי
   },
   chatButton: {
-    backgroundColor: '#3A8DFF', // כתום בהיר יותר לצ'אט
+    backgroundColor: '#3A8DFF', // כחול ראשי
   },
   actionButtonText: {
     color: '#FFFFFF',
