@@ -138,9 +138,10 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
           >
             <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
               <Ionicons
-                name={isLiked ? 'heart' : 'heart-outline'}
-                size={20}
-                color={isLiked ? '#FF3B30' : '#FFF'}
+                name={'heart'} // Always use the filled heart icon
+                size={18}
+                color={isLiked ? '#FF3B30' : '#FFF'} // Color changes based on isLiked state
+                style={isLiked ? null : styles.iconShadow} // Apply shadow to the white icon
               />
             </Animated.View>
             {likeCount > 0 && (
@@ -172,18 +173,21 @@ const styles = StyleSheet.create({
   likeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 16,
-    minWidth: 40,
     justifyContent: 'center',
   },
   likeCount: {
     color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '500',
     marginLeft: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  iconShadow: {
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 
