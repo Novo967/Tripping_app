@@ -1,5 +1,4 @@
 // app/(tabs)/home/index.tsx
-import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
@@ -8,9 +7,8 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getDocs,
   getFirestore,
-  query,
+  onSnapshot
 } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
@@ -83,93 +81,10 @@ export default function HomeScreen() {
       const pinDocRef = doc(db, 'pins', pinId);
       await deleteDoc(pinDocRef);
       console.log(`Pin ${pinId} deleted successfully from Firestore.`);
-      // עדכון המצב המקומי
-      setEvents((prevEvents) => prevEvents.filter((event) => event.id !== pinId));
+      // onSnapshot יטפל בעדכון ה-state
     } catch (error) {
       console.error(`Error deleting pin ${pinId} from Firestore:`, error);
       Alert.alert('שגיאה', 'אירעה שגיאה במחיקת האירוע.');
-    }
-  }, []);
-
-  // פונקציה לקריאת כל הפינים מ-Firestore
-  const fetchPins = useCallback(async () => {
-    try {
-      const pinsCollection = collection(db, 'pins');
-      const q = query(pinsCollection);
-      const querySnapshot = await getDocs(q);
-
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const pins: SelectedEventType[] = [];
-      const deletionPromises: Promise<void>[] = [];
-
-      querySnapshot.forEach((doc) => {
-        const pinData = doc.data() as Omit<SelectedEventType, 'id'>;
-        const pinId = doc.id;
-        const eventDate = new Date(pinData.event_date);
-        eventDate.setHours(0, 0, 0, 0);
-
-        // לוגיקה למחיקת אירועים ישנים
-        const deletionDate = new Date(eventDate);
-        deletionDate.setDate(eventDate.getDate() + 1);
-
-        if (todayStart.getTime() >= deletionDate.getTime()) {
-          console.log(
-            `Event ${pinData.event_title} (${pinId}) has passed its deletion threshold. Deleting pin from Firestore.`
-          );
-          deletionPromises.push(deleteDoc(doc.ref));
-        } else {
-          pins.push({
-            id: pinId,
-            latitude: pinData.latitude,
-            longitude: pinData.longitude,
-            event_date: pinData.event_date,
-            username: pinData.username,
-            event_title: pinData.event_title,
-            event_type: pinData.event_type,
-            description: pinData.description,
-            location: pinData.location,
-            event_owner_uid: pinData.event_owner_uid,
-            approved_users: pinData.approved_users || [],
-          });
-        }
-      });
-
-      // המתן לסיום כל המחיקות
-      await Promise.all(deletionPromises);
-
-      setEvents(pins);
-    } catch (error) {
-      console.error('Error fetching pins from Firestore:', error);
-      Alert.alert('שגיאה', 'לא ניתן לטעון אירועים.');
-    }
-  }, []);
-
-  // ✅ פונקציה לקריאת פרטי משתמשים - כעת קוראת רק מ-Firestore
-  const fetchUsers = useCallback(async () => {
-    try {
-      const usersCol = collection(db, 'users');
-      const usersSnapshot = await getDocs(query(usersCol));
-      
-      const usersData: SelectedUserType[] = [];
-      usersSnapshot.forEach(doc => {
-        const data = doc.data();
-        // נניח שנתוני המיקום קיימים במסמך המשתמש
-        if (data.latitude != null && data.longitude != null) {
-          usersData.push({
-            uid: doc.id,
-            username: data.username,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            profile_image: data.profile_image || null,
-          });
-        }
-      });
-      setUsers(usersData);
-    } catch (error) {
-      console.error("Error fetching users from Firestore:", error);
-      Alert.alert('שגיאה', 'לא ניתן לטעון משתמשים.');
     }
   }, []);
 
@@ -227,21 +142,86 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // ✅ שימוש ב-useEffect עם onSnapshot עבור טעינה ועדכונים בזמן אמת
   useEffect(() => {
     const loadInitialData = async () => {
-      await Promise.all([fetchLocation(), fetchUsers(), fetchPins(), fetchCurrentUserUsername()]);
+      await fetchLocation();
+      await fetchCurrentUserUsername();
       setInitialDataLoaded(true);
     };
-    loadInitialData();
-  }, [fetchLocation, fetchUsers, fetchPins, fetchCurrentUserUsername]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchUsers();
-      fetchPins();
-      fetchCurrentUserUsername();
-    }, [fetchUsers, fetchPins, fetchCurrentUserUsername])
-  );
+    loadInitialData();
+  }, [fetchLocation, fetchCurrentUserUsername]);
+
+  // ✅ פונקציית האזנה בזמן אמת למשתמשים ולאירועים
+  useEffect(() => {
+    // האזנה למשתמשים
+    const usersCollection = collection(db, 'users');
+    const unsubscribeUsers = onSnapshot(usersCollection, (snapshot) => {
+      const usersData: SelectedUserType[] = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.latitude != null && data.longitude != null) {
+          usersData.push({
+            uid: doc.id,
+            username: data.username,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            profile_image: data.profile_image || null,
+          });
+        }
+      });
+      setUsers(usersData);
+    }, (error) => {
+      console.error("Error fetching users from Firestore:", error);
+      Alert.alert('שגיאה', 'לא ניתן לטעון משתמשים.');
+    });
+
+    // האזנה לאירועים
+    const pinsCollection = collection(db, 'pins');
+    const unsubscribePins = onSnapshot(pinsCollection, (snapshot) => {
+      const pins: SelectedEventType[] = [];
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      snapshot.forEach((doc) => {
+        const pinData = doc.data() as Omit<SelectedEventType, 'id'>;
+        const pinId = doc.id;
+        const eventDate = new Date(pinData.event_date);
+
+        // אם האירוע פג תוקף, מוחקים אותו
+        if (todayStart.getTime() > eventDate.getTime()) {
+          deleteDoc(doc.ref)
+            .then(() => console.log(`Event ${pinId} has expired and was deleted.`))
+            .catch(error => console.error(`Error deleting expired pin ${pinId}:`, error));
+        } else {
+          pins.push({
+            id: pinId,
+            latitude: pinData.latitude,
+            longitude: pinData.longitude,
+            event_date: pinData.event_date,
+            username: pinData.username,
+            event_title: pinData.event_title,
+            event_type: pinData.event_type,
+            description: pinData.description,
+            location: pinData.location,
+            event_owner_uid: pinData.event_owner_uid,
+            approved_users: pinData.approved_users || [],
+          });
+        }
+      });
+      setEvents(pins);
+    }, (error) => {
+      console.error('Error fetching pins from Firestore:', error);
+      Alert.alert('שגיאה', 'לא ניתן לטעון אירועים.');
+    });
+
+    // פונקציית ניקוי שמפסיקה את ההאזנה כשהקומפוננטה נעלמת
+    return () => {
+      unsubscribeUsers();
+      unsubscribePins();
+    };
+  }, []);
 
   const visibleEvents = useMemo(() => {
     if (!currentLocation) return events;

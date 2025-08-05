@@ -3,14 +3,15 @@ import { router } from 'expo-router';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
   collection,
-  doc, // Added for fetching a single document
-  getDoc, // Added for fetching a single document
+  doc,
+  getDoc,
   limit,
   onSnapshot,
   orderBy,
   query,
-  where // Added for querying chats involving the user
+  where
 } from 'firebase/firestore';
+import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage'; // שינוי: הוספת listAll
 import moment from 'moment';
 import 'moment/locale/he';
 import React, { useEffect, useRef, useState } from 'react';
@@ -28,7 +29,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../firebaseConfig';
+import { app, db } from '../../firebaseConfig';
 
 moment.locale('he');
 
@@ -52,8 +53,38 @@ const ChatsList = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const chatListeners = useRef<(() => void)[]>([]);
+  const storage = getStorage(app);
 
-  // Function to sort chats by timestamp
+  // שינוי: הפונקציה getProfileImageUrl תשתמש ב-listAll
+  const getProfileImageUrl = async (userId: string) => {
+    if (!userId) {
+      return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
+    }
+
+    try {
+      // יצירת הפנייה לתיקייה, לא לקובץ ספציפי
+      const folderRef = ref(storage, `profile_images/${userId}`);
+      const result = await listAll(folderRef);
+
+      // אם אין קבצים בתיקייה, תחזיר תמונת ברירת מחדל
+      if (result.items.length === 0) {
+        return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
+      }
+
+      // מיון הקבצים כדי למצוא את העדכני ביותר (בהנחה ששם הקובץ מכיל timestamp)
+      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
+      const latestFileRef = sortedItems[0];
+      
+      // קבלת ה-Download URL של הקובץ העדכני ביותר
+      const url = await getDownloadURL(latestFileRef);
+      return url;
+    } catch (e) {
+      console.warn(`Error fetching user image for ${userId}:`, e);
+      return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
+    }
+  };
+
+
   const sortChats = (chatArray: ChatItem[]) => {
     return [...chatArray].sort((a, b) => b.lastMessageTimestamp - a.lastMessageTimestamp);
   };
@@ -79,13 +110,11 @@ const ChatsList = () => {
     }
 
     setLoading(true);
-    // Cleanup previous listeners
     chatListeners.current.forEach(unsubscribe => unsubscribe());
     chatListeners.current = [];
     const chatMap = new Map<string, ChatItem>();
 
     const loadChats = async () => {
-      // --- Private Chats Listener ---
       const privateChatsQuery = query(collection(db, 'chats'), where('participants', 'array-contains', user.uid));
 
       const unsubscribePrivateChats = onSnapshot(privateChatsQuery, async (chatsSnapshot) => {
@@ -105,6 +134,9 @@ const ChatsList = () => {
           }
           const userData = userDoc.data();
 
+          // שינוי: קורא לפונקציה החדשה
+          const profileImageUrl = await getProfileImageUrl(otherUserId);
+
           const messagesRef = collection(db, 'chats', chatId, 'messages');
           const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
 
@@ -116,7 +148,7 @@ const ChatsList = () => {
                   chatId,
                   otherUserId,
                   otherUsername: userData.username || 'משתמש',
-                  otherUserImage: userData.profile_image || '',
+                  otherUserImage: profileImageUrl,
                   lastMessage: 'התחל שיחה חדשה',
                   lastMessageTimestamp: chatData.lastUpdate?.toDate().getTime() || 0,
                   isGroup: false,
@@ -128,7 +160,7 @@ const ChatsList = () => {
                 chatId,
                 otherUserId,
                 otherUsername: userData.username || 'משתמש',
-                otherUserImage: userData.profile_image || '',
+                otherUserImage: profileImageUrl,
                 lastMessage: msg.text || '',
                 lastMessageTimestamp: msg.createdAt?.toDate().getTime() || 0,
                 isGroup: false,
@@ -142,7 +174,6 @@ const ChatsList = () => {
           });
         });
 
-        // Wait for all private chat details to be fetched and update the map
         const newPrivateChats = (await Promise.all(privateChatPromises)).filter(Boolean);
         newPrivateChats.forEach(chat => chatMap.set(chat!.chatId, chat!));
         setChats(sortChats(Array.from(chatMap.values())));
@@ -154,7 +185,6 @@ const ChatsList = () => {
 
       chatListeners.current.push(unsubscribePrivateChats);
 
-      // --- Group Chats Listener ---
       const groupChatsQuery = query(collection(db, 'group_chats'), where('members', 'array-contains', user.uid));
 
       const unsubscribeGroupChats = onSnapshot(groupChatsQuery, async (groupSnapshot) => {
@@ -197,7 +227,6 @@ const ChatsList = () => {
           });
         });
 
-        // Wait for all group chat details to be fetched and update the map
         const newGroupChats = (await Promise.all(groupChatPromises)).filter(Boolean);
         newGroupChats.forEach(chat => chatMap.set(chat!.chatId, chat!));
         setChats(sortChats(Array.from(chatMap.values())));
@@ -211,7 +240,7 @@ const ChatsList = () => {
     };
 
     loadChats();
-  }, [user]); // Rerun when user changes or component re-renders
+  }, [user]);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -245,15 +274,15 @@ const ChatsList = () => {
     const messageTime = moment(timestamp);
 
     if (now.isSame(messageTime, 'day')) {
-      return messageTime.format('HH:mm'); // Today: 14:30
+      return messageTime.format('HH:mm');
     } else if (now.clone().subtract(1, 'days').isSame(messageTime, 'day')) {
-      return 'אתמול'; // Yesterday
+      return 'אתמול';
     } else if (now.isSame(messageTime, 'week')) {
-      return messageTime.format('dddd'); // Same week: Sunday
+      return messageTime.format('dddd');
     } else if (now.isSame(messageTime, 'year')) {
-      return messageTime.format('D MMM'); // Same year: 5 ביולי
+      return messageTime.format('D MMM');
     } else {
-      return messageTime.format('D MMM YY'); // Older: 5 ביולי 24
+      return messageTime.format('D MMM YY');
     }
   };
 
