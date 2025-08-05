@@ -1,7 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { doc, getDoc, getFirestore, updateDoc } from 'firebase/firestore';
+import {
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getFirestore,
+  onSnapshot,
+  query,
+  updateDoc,
+  where
+} from 'firebase/firestore';
 import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -28,9 +39,9 @@ import ProfileImage from '../ProfileServices/ProfileImage';
 import { useTheme } from '../ProfileServices/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
-const SERVER_URL = 'https://tripping-app.onrender.com';
+
 const storage = getStorage(app);
-const db = getFirestore(app); // ✅ יצירת מופע של Firestore
+const db = getFirestore(app);
 
 // פונקציית עזר להעלאת תמונה ל-Firebase Storage
 const uploadToFirebase = async (uri: string, path: string): Promise<string> => {
@@ -74,22 +85,7 @@ export default function ProfileScreen() {
 
   const insets = useSafeAreaInsets();
 
-  const fetchGallery = async (uid: string): Promise<string[]> => {
-    try {
-      const res = await fetch(`${SERVER_URL}/get-gallery`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid }),
-      });
-      const data = await res.json();
-      return data.gallery || [];
-    } catch (error) {
-      console.error('Error fetching gallery:', error);
-      return [];
-    }
-  };
-
-  const uploadImageToServer = async (uri: string, isProfilePic = false) => {
+  const uploadImageToFirebase = async (uri: string, isProfilePic = false) => {
     const user = auth.currentUser;
     if (!user) {
       Alert.alert('שגיאה', 'יש להתחבר כדי להעלות תמונות.');
@@ -98,54 +94,30 @@ export default function ProfileScreen() {
 
     try {
       const pathSegment = isProfilePic ? 'profile_images' : 'gallery_images';
-      // השם קובץ יכלול UID כדי לוודא יוניקיות אם יועלו מספר תמונות פרופיל
-      // למרות שבפועל אנחנו תמיד נעדכן את ה-URL ב-Firestore.
       const fileName = `${user.uid}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.jpg`;
       const storagePath = `${pathSegment}/${user.uid}/${fileName}`;
 
       const firebaseImageUrl = await uploadToFirebase(uri, storagePath);
 
-      // ✅ התווסף: עדכון Firestore עבור תמונת פרופיל
+      const userDocRef = doc(db, 'users', user.uid);
+
       if (isProfilePic) {
-        const userDocRef = doc(db, 'users', user.uid);
-        // לפני עדכון, בוא ננסה למחוק את התמונה הקודמת אם קיימת
+        // מחיקת תמונת פרופיל קודמת אם קיימת
         if (profilePic) {
-          try {
-            await deleteFromFirebase(profilePic);
-          } catch (deleteError) {
-            console.warn("Failed to delete old profile pic from storage:", deleteError);
-          }
+          await deleteFromFirebase(profilePic);
         }
         await updateDoc(userDocRef, {
-          profile_image: firebaseImageUrl, // שמירת ה-URL המלא של תמונת הפרופיל
+          profile_image: firebaseImageUrl,
         });
-        console.log("Profile image URL saved to Firestore:", firebaseImageUrl);
-      }
-
-      // שליחה גם לשרת הבאקנד שלך
-      const serverResponse = await fetch(`${SERVER_URL}/upload-image`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: user.uid,
-          image_url: firebaseImageUrl,
-          type: isProfilePic ? 'profile' : 'gallery',
-        }),
-      });
-
-      const result = await serverResponse.json();
-      if (serverResponse.ok) {
-        if (isProfilePic) {
-          setProfilePic(firebaseImageUrl);
-          Alert.alert('הצלחה', 'תמונת הפרופיל עודכנה בהצלחה!');
-        } else {
-          setGallery(prev => [...prev, firebaseImageUrl]);
-          Alert.alert('הצלחה', 'התמונה עלתה לגלריה בהצלחה!');
-        }
+        setProfilePic(firebaseImageUrl);
+        Alert.alert('הצלחה', 'תמונת הפרופיל עודכנה בהצלחה!');
       } else {
-        // אם השרת נכשל, ייתכן שנרצה לבטל את עדכון Firestore שבוצע קודם
-        // אך זה הופך את הלוגיקה למורכבת. עדיף להבטיח את הצלחת השרת.
-        throw new Error(result.error || 'Upload to server failed');
+        // הוספת התמונה החדשה לגלריה ב-Firestore
+        await updateDoc(userDocRef, {
+          gallery: arrayUnion(firebaseImageUrl),
+        });
+        setGallery(prev => [...prev, firebaseImageUrl]);
+        Alert.alert('הצלחה', 'התמונה עלתה לגלריה בהצלחה!');
       }
     } catch (err: any) {
       Alert.alert('שגיאה', `העלאת התמונה נכשלה: ${err.message}`);
@@ -161,19 +133,12 @@ export default function ProfileScreen() {
     }
 
     try {
+      const userDocRef = doc(db, 'users', user.uid);
       for (const imageUrl of deletedImageUrls) {
         await deleteFromFirebase(imageUrl);
-
-        const serverResponse = await fetch(`${SERVER_URL}/delete-image`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: user.uid, image_url: imageUrl }),
+        await updateDoc(userDocRef, {
+          gallery: arrayRemove(imageUrl),
         });
-
-        if (!serverResponse.ok) {
-          const errorText = await serverResponse.text();
-          throw new Error(`Failed to delete URL from server: ${serverResponse.status} ${errorText}`);
-        }
       }
 
       setGallery(prevGallery =>
@@ -201,26 +166,13 @@ export default function ProfileScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
-      // ✅ עדכון הביו בבקאנד שלך
-      const serverRes = await fetch(`${SERVER_URL}/update-user-profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: user.uid, bio }),
-      });
-
-      if (!serverRes.ok) {
-        const errorText = await serverRes.text();
-        throw new Error(`Failed to update bio on server: ${serverRes.status} ${errorText}`);
-      }
-
-      // ✅ עדכון הביו ב-Firebase Firestore
-      const userDocRef = doc(db, 'users', user.uid); // נניח שיש לך קולקציה בשם 'users' ומסמכים עם ה-UID של המשתמשים
+      const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, {
         bio: bio,
       });
 
       setIsEditingBio(false);
-      Alert.alert('הצלחה', 'הביוגרפיה נשמרה בהצלחה!'); // ✅ הוספת הודעת הצלחה למשתמש
+      Alert.alert('הצלחה', 'הביוגרפיה נשמרה בהצלחה!');
     } catch (error: any) {
       Alert.alert('שגיאה', `לא הצלחנו לשמור את הביוגרפיה: ${error.message}`);
       console.error('Save Bio Error:', error);
@@ -235,35 +187,25 @@ export default function ProfileScreen() {
     }
 
     try {
-      // ✅ שינוי: נקרא את נתוני הפרופיל כולל תמונת הפרופיל ישירות מ-Firestore
       const userDocRef = doc(db, 'users', user.uid);
-      const userDocSnap = await getDoc(userDocRef); // ✅ ייבוא getDoc
+      const userDocSnap = await getDoc(userDocRef);
 
-      let profileDataFromFirestore: any = {};
       if (userDocSnap.exists()) {
-        profileDataFromFirestore = userDocSnap.data();
-        setProfilePic(profileDataFromFirestore.profile_image || null); // קריאת ה-URL מ-Firestore
+        const profileDataFromFirestore = userDocSnap.data();
+        setProfilePic(profileDataFromFirestore.profile_image || null);
         setUsername(profileDataFromFirestore.username || '');
-        if (profileDataFromFirestore.bio) setBio(profileDataFromFirestore.bio);
+        setBio(profileDataFromFirestore.bio || '');
+        setGallery(profileDataFromFirestore.gallery || []);
       } else {
         console.warn("User document not found in Firestore for UID:", user.uid);
-        // Fallback: נסה לקרוא מהשרת אם לא נמצא ב-Firestore
-        const profileRes = await fetch(`${SERVER_URL}/get-user-profile`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: user.uid }),
+        // יצירת מסמך בסיסי אם לא קיים
+        await updateDoc(userDocRef, {
+          username: '',
+          bio: '',
+          profile_image: null,
+          gallery: [],
         });
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          setProfilePic(data.profile_image || null);
-          setUsername(data.username || '');
-          if (data.bio) setBio(data.bio);
-        }
       }
-
-      const galleryData = await fetchGallery(user.uid);
-      setGallery(galleryData);
-
     } catch (err) {
       console.error("Error during profile initialization:", err);
     } finally {
@@ -275,30 +217,25 @@ export default function ProfileScreen() {
     init();
   }, [init]);
 
+  // שימוש ב-onSnapshot כדי להאזין לבקשות בזמן אמת
   useFocusEffect(useCallback(() => {
-    const fetchRequests = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        setPendingRequests([]);
-        return;
-      }
-      try {
-        const res = await fetch(`${SERVER_URL}/get-pending-event-requests?receiver_uid=${user.uid}`);
-        const data = await res.json();
-        if (res.ok) {
-          setPendingRequests(data.requests || []);
-        } else {
-          console.error('Error fetching pending requests:', data.error);
-          setPendingRequests([]);
-        }
-      } catch (error) {
-        console.error('Error fetching pending requests:', error);
-        setPendingRequests([]);
-      }
-    };
-    fetchRequests();
-    init();
-  }, [init]));
+    const user = auth.currentUser;
+    if (!user) {
+      setPendingRequests([]);
+      return () => {};
+    }
+
+    const requestsQuery = query(collection(db, 'event_requests'), where('receiver_uid', '==', user.uid));
+    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPendingRequests(requests);
+    }, (error) => {
+      console.error('Error fetching pending requests from Firestore:', error);
+      Alert.alert('שגיאה', 'שגיאה בקבלת בקשות לאירועים.');
+    });
+
+    return () => unsubscribe();
+  }, []));
 
   const fadeOutAndLogout = () => {
     Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(async () => {
@@ -395,10 +332,10 @@ export default function ProfileScreen() {
           profilePic={profilePic}
           username={username}
           galleryLength={gallery.length}
-          onChangeImage={(uri: string) => uploadImageToServer(uri, true)}
+          onChangeImage={(uri: string) => uploadImageToFirebase(uri, true)}
           onImagePress={openImageModal}
           gallery={gallery}
-          onAddImage={(uri: string) => uploadImageToServer(uri, false)}
+          onAddImage={(uri: string) => uploadImageToFirebase(uri, false)}
           onDeleteImages={handleDeleteImagesFromGallery}
         />
 
@@ -411,6 +348,7 @@ export default function ProfileScreen() {
         />
 
         <Gallery
+          gallery={gallery} // ✅ העברת מערך הגלריה המעודכן כ-prop
           onImagePress={openImageModal}
         />
 
@@ -442,11 +380,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   topNav: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // שינוי לכיוון ימין-שמאל
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 10,
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 10,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   navButton: {
     padding: 10,
@@ -460,7 +403,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     left: 20,
-    marginTop: -50,  
+    marginTop: -50,
     zIndex: 15,
     borderRadius: 12,
     padding: 16,
@@ -487,5 +430,4 @@ const styles = StyleSheet.create({
     marginRight: 12,
     textAlign: 'right',
   },
-  // Add other styles as needed
 });

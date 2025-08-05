@@ -2,11 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   getDownloadURL,
   getStorage,
-  listAll, // ייבוא הפונקציה listAll כדי לרשום קבצים בתיקייה
+  listAll,
   ref
 } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 import { app } from '../../firebaseConfig';
 
@@ -25,68 +25,61 @@ interface UserMarkerProps {
 const storage = getStorage(app);
 
 const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }) => {
-  const [shouldTrackViewChanges, setShouldTrackViewChanges] = useState(true);
-  const [isImageLoading, setIsImageLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const isCurrentUser = user.uid === currentUserUid;
+  
+  const fetchLatestImageUrl = async () => {
+    if (!user.uid) {
+      setImageUrl(null);
+      return;
+    }
 
-  useEffect(() => {
-    const fetchLatestImageUrl = async () => {
-      // אם אין UID של משתמש, אין מאיפה לשלוף
-      if (!user.uid) {
-        setIsImageLoading(false);
+    try {
+      const folderRef = ref(storage, `profile_images/${user.uid}`);
+      const result = await listAll(folderRef);
+
+      if (result.items.length === 0) {
         setImageUrl(null);
-        setShouldTrackViewChanges(false);
         return;
       }
 
-      setIsImageLoading(true);
-      setShouldTrackViewChanges(true);
+      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
+      const latestFileRef = sortedItems[0];
+      const url = await getDownloadURL(latestFileRef);
+      setImageUrl(url);
+    } catch (e) {
+      console.warn(`Error fetching user image for ${user.uid}:`, e);
+      setImageUrl(null);
+    }
+  };
 
-      try {
-        // יצירת הפניה לתיקייה של המשתמש ב-Firebase Storage
-        const folderRef = ref(storage, `profile_images/${user.uid}`);
-        
-        // קבלת רשימה של כל הקבצים בתיקייה
-        const result = await listAll(folderRef);
-
-        if (result.items.length === 0) {
-          // אם אין קבצים בתיקייה, נשתמש באייקון ברירת מחדל
-          setImageUrl(null);
-          return;
-        }
-
-        // מיון הקבצים לפי שם כדי למצוא את העדכני ביותר.
-        // אנו מניחים ששם הקובץ מכיל חותמת זמן כלשהי
-        const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
-        const latestFileRef = sortedItems[0];
-        
-        // קבלת ה-URL הציבורי של התמונה העדכנית ביותר
-        const url = await getDownloadURL(latestFileRef);
-        setImageUrl(url);
-
-      } catch (e) {
-        console.warn(`שגיאה בשליפת תמונה עבור משתמש ${user.uid}:`, e);
-        setImageUrl(null);
-      } finally {
-        setIsImageLoading(false);
-      }
-    };
-
+  useEffect(() => {
+    // Fetch the image URL only once when the component mounts
     fetchLatestImageUrl();
   }, [user.uid]);
 
-  const handleImageLoadEnd = () => {
-    setIsImageLoading(false);
-    setShouldTrackViewChanges(false);
-  };
-
-  const handleImageError = (e: any) => {
-    console.warn(`שגיאה בטעינת התמונה עבור משתמש ${user.uid}:`, e.nativeEvent.error);
-    setIsImageLoading(false);
-    setShouldTrackViewChanges(false);
-    setImageUrl(null);
+  const renderMarkerContent = () => {
+    // If an image URL exists, display the image
+    if (imageUrl) {
+      return (
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: imageUrl }}
+            style={styles.profileMarker}
+            resizeMode="cover"
+          />
+        </View>
+      );
+    } 
+    // If no image URL, display a placeholder icon
+    else {
+      return (
+        <View style={styles.defaultMarkerIcon}>
+          <Ionicons name="person" size={24} color="#3A8DFF" />
+        </View>
+      );
+    }
   };
 
   if (isCurrentUser) {
@@ -99,26 +92,8 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }
       coordinate={{ latitude: user.latitude, longitude: user.longitude }}
       onPress={() => onPress(user)}
       anchor={{ x: 0.5, y: 0.5 }}
-      tracksViewChanges={shouldTrackViewChanges}
     >
-      {imageUrl ? (
-        <View style={styles.imageContainer}>
-          {isImageLoading && (
-            <ActivityIndicator size="small" color="#3A8DFF" style={StyleSheet.absoluteFillObject} />
-          )}
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.profileMarker}
-            resizeMode="cover"
-            onLoadEnd={handleImageLoadEnd}
-            onError={handleImageError}
-          />
-        </View>
-      ) : (
-        <View style={styles.defaultMarkerIcon}>
-          <Ionicons name="person" size={24} color="#3A8DFF" />
-        </View>
-      )}
+      {renderMarkerContent()}
     </Marker>
   );
 };
