@@ -13,7 +13,8 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage'; // ✅ ייבוא Firebase Storage
+// ✅ ייבוא הפונקציות הנכונות מ-Storage
+import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
@@ -32,11 +33,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { db } from '../../firebaseConfig'; // ודא ש-db מיובא כרגיל
+import { app, db } from '../../firebaseConfig';
 
-// ✅ ייבוא ה-storage מ-firebaseConfig
-import { app } from '../../firebaseConfig'; // ייתכן שתצטרך לייצא את app מ-firebaseConfig
-const storage = getStorage(app); // ✅ קבלת רפרנס ל-Firebase Storage
+const storage = getStorage(app);
 
 interface Message {
   id: string;
@@ -51,8 +50,6 @@ const ChatModal = () => {
   const { otherUserId, otherUsername } = useLocalSearchParams<{
     otherUserId: string;
     otherUsername: string;
-    // ✅ הסרנו את otherUserImage מפרמטרי ה-useLocalSearchParams
-    // otherUserImage: string;
   }>();
 
   // ✅ State חדש לשמירת ה-URL של תמונת הפרופיל
@@ -71,50 +68,41 @@ const ChatModal = () => {
   const chatId =
     currentUid && otherUserId ? [currentUid, otherUserId].sort().join('_') : '';
 
+  // ✅ הפונקציה המעודכנת לשליפת התמונה מ-Storage
+  const getProfileImageUrl = async (userId: string) => {
+    if (!userId) {
+      return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
+    }
+
+    try {
+      const folderRef = ref(storage, `profile_images/${userId}`);
+      const result = await listAll(folderRef);
+
+      if (result.items.length === 0) {
+        return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
+      }
+
+      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
+      const latestFileRef = sortedItems[0];
+      
+      const url = await getDownloadURL(latestFileRef);
+      return url;
+    } catch (e) {
+      console.warn(`Error fetching user image for ${userId}:`, e);
+      return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
+    }
+  };
+
   // ✅ useEffect חדש לטעינת תמונת הפרופיל
   useEffect(() => {
     const fetchProfileImage = async () => {
       if (!otherUserId) return;
-
-      try {
-        // נתיב נפוץ לתמונות פרופיל הוא 'profile_images/{uid}/profile.jpg'
-        // או השם המלא של הקובץ כפי שנשמר.
-        // בהנחה ששם הקובץ הוא יוניק ID (כמו Timestamp_filename.jpg)
-        // עדיף לשמור את שם הקובץ המלא בדאטהבייס (למשל, ב-Firestore של המשתמש).
-        // לצורך הדוגמה, נניח שהתמונה שמורה תחת הנתיב הנפוץ 'profile_images/{uid}/latest_profile_image.jpg'
-        // אם אתה שומר את ה-URL המלא בדאטהבייס של המשתמש, קרא אותו משם.
-
-        // דרך אמינה יותר: קבל את ה-URL מה-Firestore של המשתמש
-        const userDocRef = doc(db, 'users', otherUserId); // נניח שיש לך קולקציית 'users'
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          if (userData && userData.profile_image) { // נניח ששדה זה קיים
-            setOtherUserProfileImage(userData.profile_image);
-            console.log('ChatModal - Profile image fetched from Firestore:', userData.profile_image);
-            return;
-          }
-        }
-        
-        // אם לא נמצא ב-Firestore, נסה לחפש בנתיב כללי ב-Storage (פחות מומלץ, אבל אפשרי כ-fallback)
-        // זה ידרוש לדעת את שם הקובץ הספציפי, מה שקשה יותר בלי לשמור אותו.
-        // דוגמה: נניח שכל משתמש שומר את התמונה שלו בנתיב: `profile_images/${otherUserId}/profile.jpg`
-        // const imageRef = ref(storage, `profile_images/${otherUserId}/profile.jpg`);
-        // const url = await getDownloadURL(imageRef);
-        // setOtherUserProfileImage(url);
-        // console.log('ChatModal - Profile image fetched from Storage:', url);
-
-      } catch (error) {
-        console.error('ChatModal - Failed to fetch other user profile image:', error);
-        // Fallback למקרה של שגיאה או תמונה לא קיימת
-        setOtherUserProfileImage('https://cdn-icons-png.flaticon.com/512/1946/1946429.png'); // תמונת placeholder
-      }
+      const imageUrl = await getProfileImageUrl(otherUserId);
+      setOtherUserProfileImage(imageUrl);
     };
 
     fetchProfileImage();
-  }, [otherUserId]); // טען מחדש כשה-otherUserId משתנה
-
+  }, [otherUserId]);
 
   // שאר ה-useEffect לצאטים נשאר כרגיל
   useEffect(() => {
@@ -278,10 +266,9 @@ const ChatModal = () => {
         </TouchableOpacity>
         <TouchableOpacity style={styles.userInfo} onPress={handleUserProfilePress} activeOpacity={0.7}>
           <View style={styles.avatarContainer}>
-            {/* ✅ השתמש ב-otherUserProfileImage שהושג מ-Firebase */}
             <Image
               source={{
-                uri: otherUserProfileImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png', // Fallback placeholder
+                uri: otherUserProfileImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png',
               }}
               style={styles.avatar}
             />
