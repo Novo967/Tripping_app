@@ -34,8 +34,10 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import Modal from 'react-native-modal';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, db } from '../../firebaseConfig';
+import GroupImageModal from './GroupImageModal';
 
 const storage = getStorage(app);
 
@@ -56,12 +58,21 @@ const GroupChatModal = () => {
   const [groupName, setGroupName] = useState(eventTitle);
   const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGroupImageModalVisible, setIsGroupImageModalVisible] = useState(false); // State for the new modal
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
   const currentUsername = currentUser?.displayName || currentUser?.email || 'משתמש אנונימי';
   const insets = useSafeAreaInsets();
+
+  const openGroupImageModal = () => {
+    setIsGroupImageModalVisible(true);
+  };
+
+  const closeGroupImageModal = () => {
+    setIsGroupImageModalVisible(false);
+  };
 
   const getGroupImageUrl = async (groupId: string) => {
     if (!groupId) return null;
@@ -115,6 +126,7 @@ const GroupChatModal = () => {
   };
 
   const handleGroupImagePicker = () => {
+    closeGroupImageModal(); // Close the main modal before showing the action sheet
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -375,6 +387,28 @@ const GroupChatModal = () => {
   const headerHeight = 68;
   const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + headerHeight : 0;
 
+  if (isGroupImageModalVisible) {
+    return (
+      <Modal
+        isVisible={isGroupImageModalVisible}
+        style={styles.modal}
+        onBackButtonPress={closeGroupImageModal}
+        onSwipeComplete={closeGroupImageModal}
+        swipeDirection={['down']}
+      >
+        <GroupImageModal
+          groupImageUrl={groupImageUrl}
+          isUploading={isUploading}
+          onSelectNewImage={(uri) => {
+            closeGroupImageModal();
+            uploadGroupImage(uri);
+          }}
+          onClose={closeGroupImageModal}
+        />
+      </Modal>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
@@ -390,7 +424,7 @@ const GroupChatModal = () => {
 
         <View style={styles.groupInfo}>
           <TouchableOpacity
-            onPress={handleGroupImagePicker}
+            onPress={openGroupImageModal} // Changed to open the new modal
             style={styles.groupIconContainer}
             disabled={isUploading}
           >
@@ -494,6 +528,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+  },
+  modal: {
+    margin: 0,
   },
   flexContainer: {
     flex: 1,
