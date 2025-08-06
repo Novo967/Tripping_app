@@ -1,4 +1,3 @@
-// app/contexts/ThemeContext.tsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
@@ -45,14 +44,14 @@ const lightTheme: Theme = {
 const darkTheme: Theme = {
   isDark: true,
   colors: {
-    primary: '#FF8F00',
-    secondary: '#FFB74D',
-    background: '#121212',
-    surface: '#1E1E1E',
-    text: '#FFFFFF',
-    textSecondary: '#B0B0B0',
-    border: '#333333',
-    accent: '#FFA726',
+    primary: '#64B5F6', // גוון כחול בהיר שיתאים לרקע כהה
+    secondary: '#1A3F78', // כחול כהה לניגודיות
+    background: '#121C2B', // כחול-שחור עמוק כרקע כללי
+    surface: '#1A283B', // כחול כהה יותר עבור רכיבים כמו כרטיסים
+    text: '#E0E0E0', // טקסט בהיר
+    textSecondary: '#A0AEC0', // טקסט אפור בהיר
+    border: '#2A3C52', // גבול כחול-אפור כהה
+    accent: '#3A8DFF', // הדגשה בכחול בהיר
     shadow: '#000000',
     overlay: 'rgba(0, 0, 0, 0.7)',
     success: '#66BB6A',

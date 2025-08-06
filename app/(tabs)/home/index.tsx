@@ -13,6 +13,8 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { useTheme } from '../../../app/ProfileServices/ThemeContext'; // ✅ ייבוא useTheme
+import { app } from '../../../firebaseConfig';
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
 import { calculateDistance } from '../../IndexServices/MapUtils';
 import UserDetailsModal from '../../IndexServices/UserDetailsModal';
@@ -24,11 +26,33 @@ import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
 import UserMarker from '../../components/UserMarker';
 
-import { app } from '../../../firebaseConfig';
-
 const db = getFirestore(app);
 
-// שינוי: ממשק EventType עודכן לשימוש ב-owner_uid
+// כאן נגדיר את סגנון המפה הכהה.
+// זהו סגנון לדוגמה, תוכל ליצור סגנון מותאם אישית משלך
+// באמצעות כלי כמו Google Maps Styling Wizard.
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] }
+];
+
+
 interface SelectedEventType {
   id: string;
   latitude: number;
@@ -39,7 +63,7 @@ interface SelectedEventType {
   event_type: string;
   description?: string;
   location?: string;
-  owner_uid: string; // ✅ תוקן ל-owner_uid
+  owner_uid: string;
   approved_users?: string[];
 }
 
@@ -73,16 +97,16 @@ export default function HomeScreen() {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [currentUserUsername, setCurrentUserUsername] = useState('');
 
+  const { theme } = useTheme(); // ✅ שימוש ב-useTheme hook
+
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // פונקציה למחיקת פין ישירות מ-Firestore
   const deletePin = useCallback(async (pinId: string) => {
     try {
       const pinDocRef = doc(db, 'pins', pinId);
       await deleteDoc(pinDocRef);
       console.log(`Pin ${pinId} deleted successfully from Firestore.`);
-      // onSnapshot יטפל בעדכון ה-state
     } catch (error) {
       console.error(`Error deleting pin ${pinId} from Firestore:`, error);
       Alert.alert('שגיאה', 'אירעה שגיאה במחיקת האירוע.');
@@ -201,7 +225,7 @@ export default function HomeScreen() {
             event_type: pinData.event_type,
             description: pinData.description,
             location: pinData.location,
-            owner_uid: pinData.owner_uid, // ✅ תוקן ל-owner_uid
+            owner_uid: pinData.owner_uid,
             approved_users: pinData.approved_users || [],
           });
         }
@@ -306,10 +330,10 @@ export default function HomeScreen() {
             event_type: pinData.event_type,
             description: pinData.description,
             location: pinData.location,
-            owner_uid: pinData.owner_uid, // ✅ תוקן ל-owner_uid
+            owner_uid: pinData.owner_uid,
             approved_users: pinData.approved_users || [],
           });
-          console.log('Fetched single event data:', { // הוספתי לוג כאן לבדיקה
+          console.log('Fetched single event data:', {
             id: pinId,
             ...pinData,
           });
@@ -327,15 +351,15 @@ export default function HomeScreen() {
 
   if (!initialDataLoaded || !region) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#3A8DFF" />
-        <Text style={{ marginTop: 10, fontSize: 16 }}>📡 טוען מפה...</Text>
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>📡 טוען מפה...</Text>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -346,6 +370,7 @@ export default function HomeScreen() {
         followsUserLocation={false}
         userLocationPriority="high"
         userLocationUpdateInterval={5000}
+        customMapStyle={theme.isDark ? darkMapStyle : undefined} // ✅ יישום סגנון המפה הכהה
         onPress={(e) => {
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
@@ -454,6 +479,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
   },
 });
