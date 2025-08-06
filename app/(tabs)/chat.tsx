@@ -334,6 +334,65 @@ const ChatsList = () => {
     }
   };
 
+  /**
+   * ✅ פונקציה חדשה שמוסיפה לוגיקה לתמונות של קבוצות
+   */
+  const renderChatAvatar = (item: ChatItem) => {
+    if (item.isGroup) {
+      // אם יש תמונה לקבוצה, נציג אותה
+      if (item.otherUserImage && item.otherUserImage !== 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png') {
+        return (
+          <Image
+            source={{ uri: item.otherUserImage }}
+            style={[
+              styles.avatar,
+              {
+                borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
+              },
+            ]}
+          />
+        );
+      }
+      // אם אין תמונה, נציג אייקון של קבוצה
+      return (
+        <View
+          style={[
+            styles.groupIcon,
+            {
+              backgroundColor: theme.isDark ? '#3E506B' : '#FFFFFF',
+              borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
+              shadowColor: theme.isDark ? '#1F2937' : '#000',
+            },
+          ]}
+        >
+          <Ionicons
+            name="people"
+            size={24}
+            color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+          />
+        </View>
+      );
+    }
+
+    // אם זה צ'אט פרטי, נציג את תמונת הפרופיל של המשתמש
+    return (
+      <Image
+        source={{
+          uri:
+            item.otherUserImage ||
+            'https://cdn-icons-png.flaticon.com/512/1946/1946429.png',
+        }}
+        style={[
+          styles.avatar,
+          {
+            borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
+          },
+        ]}
+      />
+    );
+  };
+
+
   const renderChatItem = ({ item }: { item: ChatItem }) => (
     <TouchableOpacity
       style={[
@@ -347,38 +406,8 @@ const ChatsList = () => {
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        {item.isGroup ? (
-          <View
-            style={[
-              styles.groupIcon,
-              {
-                backgroundColor: theme.isDark ? '#3E506B' : '#FFFFFF',
-                borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
-                shadowColor: theme.isDark ? '#1F2937' : '#000',
-              },
-            ]}
-          >
-            <Ionicons
-              name="people"
-              size={24}
-              color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
-            />
-          </View>
-        ) : (
-          <Image
-            source={{
-              uri:
-                item.otherUserImage ||
-                'https://cdn-icons-png.flaticon.com/512/1946/1946429.png',
-            }}
-            style={[
-              styles.avatar,
-              {
-                borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
-              },
-            ]}
-          />
-        )}
+        {/* ✅ נחליף את הלוגיקה כאן בקריאה לפונקציה החדשה */}
+        {renderChatAvatar(item)}
       </View>
 
       <View style={styles.textContainer}>
