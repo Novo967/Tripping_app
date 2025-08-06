@@ -9,7 +9,7 @@ import {
   onSnapshot,
   orderBy,
   query,
-  where
+  where,
 } from 'firebase/firestore';
 import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import moment from 'moment';
@@ -26,9 +26,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../../app/ProfileServices/ThemeContext'; // ✅ ייבוא useTheme
 import { app, db } from '../../firebaseConfig';
 
 moment.locale('he');
@@ -54,6 +55,7 @@ const ChatsList = () => {
 
   const chatListeners = useRef<(() => void)[]>([]);
   const storage = getStorage(app);
+  const { theme } = useTheme(); // ✅ שימוש ב-useTheme hook
 
   const getProfileImageUrl = async (userId: string) => {
     if (!userId) {
@@ -68,9 +70,11 @@ const ChatsList = () => {
         return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
       }
 
-      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
+      const sortedItems = result.items.sort((a, b) =>
+        b.name.localeCompare(a.name)
+      );
       const latestFileRef = sortedItems[0];
-      
+
       const url = await getDownloadURL(latestFileRef);
       return url;
     } catch (e) {
@@ -79,9 +83,10 @@ const ChatsList = () => {
     }
   };
 
-
   const sortChats = (chatArray: ChatItem[]) => {
-    return [...chatArray].sort((a, b) => b.lastMessageTimestamp - a.lastMessageTimestamp);
+    return [...chatArray].sort(
+      (a, b) => b.lastMessageTimestamp - a.lastMessageTimestamp
+    );
   };
 
   useEffect(() => {
@@ -92,7 +97,7 @@ const ChatsList = () => {
 
     return () => {
       unsubscribeAuth();
-      chatListeners.current.forEach(unsubscribe => unsubscribe());
+      chatListeners.current.forEach((unsubscribe) => unsubscribe());
     };
   }, []);
 
@@ -105,133 +110,176 @@ const ChatsList = () => {
     }
 
     setLoading(true);
-    chatListeners.current.forEach(unsubscribe => unsubscribe());
+    chatListeners.current.forEach((unsubscribe) => unsubscribe());
     chatListeners.current = [];
     const chatMap = new Map<string, ChatItem>();
 
     const loadChats = async () => {
-      const privateChatsQuery = query(collection(db, 'chats'), where('participants', 'array-contains', user.uid));
+      const privateChatsQuery = query(
+        collection(db, 'chats'),
+        where('participants', 'array-contains', user.uid)
+      );
 
-      const unsubscribePrivateChats = onSnapshot(privateChatsQuery, async (chatsSnapshot) => {
-        const privateChatPromises = chatsSnapshot.docs.map(async (chatDoc) => {
-          const chatId = chatDoc.id;
-          const chatData = chatDoc.data();
-          const otherUserId = chatData.participants.find((p: string) => p !== user.uid);
+      const unsubscribePrivateChats = onSnapshot(
+        privateChatsQuery,
+        async (chatsSnapshot) => {
+          const privateChatPromises = chatsSnapshot.docs.map(
+            async (chatDoc) => {
+              const chatId = chatDoc.id;
+              const chatData = chatDoc.data();
+              const otherUserId = chatData.participants.find(
+                (p: string) => p !== user.uid
+              );
 
-          if (!otherUserId) return null;
+              if (!otherUserId) return null;
 
-          const userDocRef = doc(db, 'users', otherUserId);
-          const userDoc = await getDoc(userDocRef);
+              const userDocRef = doc(db, 'users', otherUserId);
+              const userDoc = await getDoc(userDocRef);
 
-          if (!userDoc.exists()) {
-            console.error('User data not found for ID:', otherUserId);
-            return null;
-          }
-          const userData = userDoc.data();
-
-          const profileImageUrl = await getProfileImageUrl(otherUserId);
-
-          const messagesRef = collection(db, 'chats', chatId, 'messages');
-          const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
-
-          return new Promise<ChatItem | null>((resolve) => {
-            const unsubscribeMsg = onSnapshot(lastMsgQuery, (lastMsgSnapshot) => {
-              if (lastMsgSnapshot.empty) {
-                unsubscribeMsg();
-                return resolve({
-                  chatId,
-                  otherUserId,
-                  otherUsername: userData.username || 'משתמש',
-                  otherUserImage: profileImageUrl,
-                  lastMessage: 'התחל שיחה חדשה',
-                  lastMessageTimestamp: chatData.lastUpdate?.toDate().getTime() || 0,
-                  isGroup: false,
-                });
+              if (!userDoc.exists()) {
+                console.error('User data not found for ID:', otherUserId);
+                return null;
               }
+              const userData = userDoc.data();
 
-              const msg = lastMsgSnapshot.docs[0].data();
-              const newChatItem: ChatItem = {
-                chatId,
-                otherUserId,
-                otherUsername: userData.username || 'משתמש',
-                otherUserImage: profileImageUrl,
-                lastMessage: msg.text || '',
-                lastMessageTimestamp: msg.createdAt?.toDate().getTime() || 0,
-                isGroup: false,
-              };
-              resolve(newChatItem);
-            }, (error) => {
-              console.error('Error fetching last message:', error);
-              resolve(null);
-            });
-            chatListeners.current.push(unsubscribeMsg);
-          });
-        });
+              const profileImageUrl = await getProfileImageUrl(otherUserId);
 
-        const newPrivateChats = (await Promise.all(privateChatPromises)).filter(Boolean);
-        newPrivateChats.forEach(chat => chatMap.set(chat!.chatId, chat!));
-        setChats(sortChats(Array.from(chatMap.values())));
-        setLoading(false);
-      }, (error) => {
-        console.error('Error listening to private chats:', error);
-        setLoading(false);
-      });
+              const messagesRef = collection(db, 'chats', chatId, 'messages');
+              const lastMsgQuery = query(
+                messagesRef,
+                orderBy('createdAt', 'desc'),
+                limit(1)
+              );
+
+              return new Promise<ChatItem | null>((resolve) => {
+                const unsubscribeMsg = onSnapshot(
+                  lastMsgQuery,
+                  (lastMsgSnapshot) => {
+                    if (lastMsgSnapshot.empty) {
+                      unsubscribeMsg();
+                      return resolve({
+                        chatId,
+                        otherUserId,
+                        otherUsername: userData.username || 'משתמש',
+                        otherUserImage: profileImageUrl,
+                        lastMessage: 'התחל שיחה חדשה',
+                        lastMessageTimestamp:
+                          chatData.lastUpdate?.toDate().getTime() || 0,
+                        isGroup: false,
+                      });
+                    }
+
+                    const msg = lastMsgSnapshot.docs[0].data();
+                    const newChatItem: ChatItem = {
+                      chatId,
+                      otherUserId,
+                      otherUsername: userData.username || 'משתמש',
+                      otherUserImage: profileImageUrl,
+                      lastMessage: msg.text || '',
+                      lastMessageTimestamp:
+                        msg.createdAt?.toDate().getTime() || 0,
+                      isGroup: false,
+                    };
+                    resolve(newChatItem);
+                  },
+                  (error) => {
+                    console.error('Error fetching last message:', error);
+                    resolve(null);
+                  }
+                );
+                chatListeners.current.push(unsubscribeMsg);
+              });
+            }
+          );
+
+          const newPrivateChats = (await Promise.all(privateChatPromises)).filter(
+            Boolean
+          );
+          newPrivateChats.forEach((chat) => chatMap.set(chat!.chatId, chat!));
+          setChats(sortChats(Array.from(chatMap.values())));
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Error listening to private chats:', error);
+          setLoading(false);
+        }
+      );
 
       chatListeners.current.push(unsubscribePrivateChats);
 
-      const groupChatsQuery = query(collection(db, 'group_chats'), where('members', 'array-contains', user.uid));
+      const groupChatsQuery = query(
+        collection(db, 'group_chats'),
+        where('members', 'array-contains', user.uid)
+      );
 
-      const unsubscribeGroupChats = onSnapshot(groupChatsQuery, async (groupSnapshot) => {
-        const groupChatPromises = groupSnapshot.docs.map(async (groupDoc) => {
-          const groupId = groupDoc.id;
-          const groupData = groupDoc.data();
+      const unsubscribeGroupChats = onSnapshot(
+        groupChatsQuery,
+        async (groupSnapshot) => {
+          const groupChatPromises = groupSnapshot.docs.map(async (groupDoc) => {
+            const groupId = groupDoc.id;
+            const groupData = groupDoc.data();
 
-          const messagesRef = collection(db, 'group_chats', groupId, 'messages');
-          const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
+            const messagesRef = collection(db, 'group_chats', groupId, 'messages');
+            const lastMsgQuery = query(
+              messagesRef,
+              orderBy('createdAt', 'desc'),
+              limit(1)
+            );
 
-          // שינוי: קריאת תמונת הקבוצה מ-Firestore ישירות
-          const groupImageUrl = groupData.groupImage || 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png';
+            return new Promise<ChatItem | null>((resolve) => {
+              const unsubscribeGroupMsg = onSnapshot(
+                lastMsgQuery,
+                (lastMsgSnapshot) => {
+                  if (lastMsgSnapshot.empty) {
+                    unsubscribeGroupMsg();
+                    return resolve({
+                      chatId: groupId,
+                      otherUsername: groupData.name || 'קבוצה',
+                      otherUserImage:
+                        groupData.groupImage ||
+                        'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
+                      lastMessage: 'התחל שיחה חדשה',
+                      lastMessageTimestamp:
+                        groupData.lastUpdate?.toDate().getTime() || 0,
+                      isGroup: true,
+                    });
+                  }
 
-          return new Promise<ChatItem | null>((resolve) => {
-            const unsubscribeGroupMsg = onSnapshot(lastMsgQuery, (lastMsgSnapshot) => {
-              if (lastMsgSnapshot.empty) {
-                unsubscribeGroupMsg();
-                return resolve({
-                  chatId: groupId,
-                  otherUsername: groupData.name || 'קבוצה',
-                  otherUserImage: groupImageUrl, // שימוש ב-URL שנשלף
-                  lastMessage: 'התחל שיחה חדשה',
-                  lastMessageTimestamp: groupData.lastUpdate?.toDate().getTime() || 0,
-                  isGroup: true,
-                });
-              }
-
-              const msg = lastMsgSnapshot.docs[0].data();
-              const newGroupChatItem: ChatItem = {
-                chatId: groupId,
-                otherUsername: groupData.name || 'קבוצה',
-                otherUserImage: groupImageUrl, // שימוש ב-URL שנשלף
-                lastMessage: msg.text || '',
-                lastMessageTimestamp: msg.createdAt?.toDate().getTime() || 0,
-                isGroup: true,
-              };
-              resolve(newGroupChatItem);
-            }, (error) => {
-              console.error('Error fetching last group message:', error);
-              resolve(null);
+                  const msg = lastMsgSnapshot.docs[0].data();
+                  const newGroupChatItem: ChatItem = {
+                    chatId: groupId,
+                    otherUsername: groupData.name || 'קבוצה',
+                    otherUserImage:
+                      groupData.groupImage ||
+                      'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
+                    lastMessage: msg.text || '',
+                    lastMessageTimestamp:
+                      msg.createdAt?.toDate().getTime() || 0,
+                    isGroup: true,
+                  };
+                  resolve(newGroupChatItem);
+                },
+                (error) => {
+                  console.error('Error fetching last group message:', error);
+                  resolve(null);
+                }
+              );
+              chatListeners.current.push(unsubscribeGroupMsg);
             });
-            chatListeners.current.push(unsubscribeGroupMsg);
           });
-        });
 
-        const newGroupChats = (await Promise.all(groupChatPromises)).filter(Boolean);
-        newGroupChats.forEach(chat => chatMap.set(chat!.chatId, chat!));
-        setChats(sortChats(Array.from(chatMap.values())));
-        setLoading(false);
-      }, (error) => {
-        console.error('Error listening to group chats:', error);
-        setLoading(false);
-      });
+          const newGroupChats = (await Promise.all(groupChatPromises)).filter(
+            Boolean
+          );
+          newGroupChats.forEach((chat) => chatMap.set(chat!.chatId, chat!));
+          setChats(sortChats(Array.from(chatMap.values())));
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Error listening to group chats:', error);
+          setLoading(false);
+        }
+      );
 
       chatListeners.current.push(unsubscribeGroupChats);
     };
@@ -243,7 +291,7 @@ const ChatsList = () => {
     if (searchQuery.trim() === '') {
       setFilteredChats(chats);
     } else {
-      const filtered = chats.filter(chat =>
+      const filtered = chats.filter((chat) =>
         chat.otherUsername.toLowerCase().includes(searchQuery.toLowerCase())
       );
       setFilteredChats(filtered);
@@ -252,7 +300,10 @@ const ChatsList = () => {
 
   const openChat = (chat: ChatItem) => {
     if (chat.isGroup) {
-      router.push({ pathname: '/Chats/GroupChatModal', params: { eventTitle: chat.chatId } });
+      router.push({
+        pathname: '/Chats/GroupChatModal',
+        params: { eventTitle: chat.chatId },
+      });
     } else {
       router.push({
         pathname: '/Chats/chatModal',
@@ -285,72 +336,180 @@ const ChatsList = () => {
 
   const renderChatItem = ({ item }: { item: ChatItem }) => (
     <TouchableOpacity
-      style={styles.chatItem}
+      style={[
+        styles.chatItem,
+        {
+          backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF', // צבע רקע
+          shadowColor: theme.isDark ? '#1F2937' : '#000', // צבע צל
+        },
+      ]}
       onPress={() => openChat(item)}
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        {/* שינוי: בדיקה אם יש תמונה של קבוצה, אם כן מציג אותה */}
-        {item.isGroup && item.otherUserImage !== 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png' ? (
-          <Image
-            source={{
-              uri: item.otherUserImage,
-            }}
-            style={styles.avatar}
-          />
-        ) : item.isGroup ? (
-          <View style={styles.groupIcon}>
-            <Ionicons name="people" size={24} color="#3A8DFF" />
+        {item.isGroup ? (
+          <View
+            style={[
+              styles.groupIcon,
+              {
+                backgroundColor: theme.isDark ? '#3E506B' : '#FFFFFF',
+                borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
+                shadowColor: theme.isDark ? '#1F2937' : '#000',
+              },
+            ]}
+          >
+            <Ionicons
+              name="people"
+              size={24}
+              color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+            />
           </View>
         ) : (
           <Image
             source={{
-              uri: item.otherUserImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png'
+              uri:
+                item.otherUserImage ||
+                'https://cdn-icons-png.flaticon.com/512/1946/1946429.png',
             }}
-            style={styles.avatar}
+            style={[
+              styles.avatar,
+              {
+                borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
+              },
+            ]}
           />
         )}
       </View>
 
       <View style={styles.textContainer}>
         <View style={styles.headerRow}>
-          <Text style={styles.username}>{item.otherUsername}</Text>
-          <Text style={styles.time}>{formatTimestamp(item.lastMessageTimestamp)}</Text>
+          <Text
+            style={[
+              styles.username,
+              { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
+            ]}
+          >
+            {item.otherUsername}
+          </Text>
+          <Text
+            style={[
+              styles.time,
+              { color: theme.isDark ? '#95A5A6' : '#95A5A6' },
+            ]}
+          >
+            {formatTimestamp(item.lastMessageTimestamp)}
+          </Text>
         </View>
-        <Text style={styles.lastMessage} numberOfLines={1}>
+        <Text
+          style={[
+            styles.lastMessage,
+            { color: theme.isDark ? '#BDC3C7' : '#7F8C8D' },
+          ]}
+          numberOfLines={1}
+        >
           {item.lastMessage || 'התחל שיחה חדשה'}
         </Text>
       </View>
-      <Ionicons name="chevron-back" size={20} color="#3A8DFF" />
+      <Ionicons
+        name="chevron-back"
+        size={20}
+        color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+      />
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
+      <SafeAreaView
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+        ]}
+      >
+        <StatusBar
+          barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
+        />
         <View style={styles.loadingContent}>
-          <ActivityIndicator size="large" color="#3A8DFF" />
-          <Text style={styles.loadingText}>טוען צאטים...</Text>
+          <ActivityIndicator
+            size="large"
+            color={theme.isDark ? '#4A90E2' : '#3A8DFF'}
+          />
+          <Text
+            style={[
+              styles.loadingText,
+              { color: theme.isDark ? '#BDC3C7' : '#666' },
+            ]}
+          >
+            טוען צאטים...
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>הצאטים שלך</Text>
-        <Text style={styles.headerSubtitle}>התחבר עם חברים למסע</Text>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+      ]}
+    >
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
+      />
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.isDark ? '#1F2937' : '#3A8DFF',
+            shadowColor: theme.isDark ? '#1F2937' : '#3A8DFF',
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.headerTitle,
+            { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' },
+          ]}
+        >
+          הצאטים שלך
+        </Text>
+        <Text
+          style={[
+            styles.headerSubtitle,
+            { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
+          ]}
+        >
+          התחבר עם חברים למסע
+        </Text>
       </View>
       <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF',
+              shadowColor: theme.isDark ? '#000' : '#000',
+            },
+          ]}
+        >
+          <Ionicons
+            name="search"
+            size={20}
+            color={theme.isDark ? '#BDC3C7' : '#999'}
+            style={styles.searchIcon}
+          />
           <TextInput
-            style={styles.searchInput}
+            style={[
+              styles.searchInput,
+              {
+                color: theme.isDark ? '#E0E0E0' : '#333',
+              },
+            ]}
             placeholder="חפש חברים..."
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.isDark ? '#BDC3C7' : '#999'}
             value={searchQuery}
             onChangeText={setSearchQuery}
             textAlign="right"
@@ -360,9 +519,25 @@ const ChatsList = () => {
       <View style={styles.listContainer}>
         {filteredChats.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={80} color="#E0E0E0" />
-            <Text style={styles.emptyStateTitle}>אין צאטים עדיין</Text>
-            <Text style={styles.emptyStateSubtitle}>
+            <Ionicons
+              name="chatbubbles-outline"
+              size={80}
+              color={theme.isDark ? '#4A90E2' : '#E0E0E0'}
+            />
+            <Text
+              style={[
+                styles.emptyStateTitle,
+                { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
+              ]}
+            >
+              אין צאטים עדיין
+            </Text>
+            <Text
+              style={[
+                styles.emptyStateSubtitle,
+                { color: theme.isDark ? '#BDC3C7' : '#95A5A6' },
+              ]}
+            >
               {searchQuery ? 'לא נמצאו תוצאות חיפוש' : 'התחל שיחה חדשה עם חברים'}
             </Text>
           </View>
