@@ -13,7 +13,6 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
-// ✅ ייבוא הפונקציות הנכונות מ-Storage
 import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -33,6 +32,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { app, db } from '../../firebaseConfig';
 
 const storage = getStorage(app);
@@ -52,9 +52,7 @@ const ChatModal = () => {
     otherUsername: string;
   }>();
 
-  // ✅ State חדש לשמירת ה-URL של תמונת הפרופיל
   const [otherUserProfileImage, setOtherUserProfileImage] = useState<string | null>(null);
-
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
@@ -62,29 +60,24 @@ const ChatModal = () => {
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
-
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
   const chatId =
     currentUid && otherUserId ? [currentUid, otherUserId].sort().join('_') : '';
 
-  // ✅ הפונקציה המעודכנת לשליפת התמונה מ-Storage
   const getProfileImageUrl = async (userId: string) => {
     if (!userId) {
       return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
     }
-
     try {
       const folderRef = ref(storage, `profile_images/${userId}`);
       const result = await listAll(folderRef);
-
       if (result.items.length === 0) {
         return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
       }
-
       const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
       const latestFileRef = sortedItems[0];
-      
       const url = await getDownloadURL(latestFileRef);
       return url;
     } catch (e) {
@@ -93,18 +86,15 @@ const ChatModal = () => {
     }
   };
 
-  // ✅ useEffect חדש לטעינת תמונת הפרופיל
   useEffect(() => {
     const fetchProfileImage = async () => {
       if (!otherUserId) return;
       const imageUrl = await getProfileImageUrl(otherUserId);
       setOtherUserProfileImage(imageUrl);
     };
-
     fetchProfileImage();
   }, [otherUserId]);
 
-  // שאר ה-useEffect לצאטים נשאר כרגיל
   useEffect(() => {
     if (!chatId) return;
     const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -117,17 +107,14 @@ const ChatModal = () => {
 
   const sendMessage = async (imageUrl?: string) => {
     if ((!input.trim() && !imageUrl) || !currentUid) return;
-
     const chatDocRef = doc(db, 'chats', chatId);
     const chatDocSnap = await getDoc(chatDocRef);
-
     if (!chatDocSnap.exists()) {
       await setDoc(chatDocRef, {
         participants: [currentUid, otherUserId],
         createdAt: serverTimestamp(),
       });
     }
-
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, {
       text: input.trim(),
@@ -136,7 +123,6 @@ const ChatModal = () => {
       createdAt: serverTimestamp(),
       ...(imageUrl && { imageUrl }),
     });
-
     setInput('');
   };
 
@@ -164,14 +150,12 @@ const ChatModal = () => {
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') return;
-
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
     });
-
     if (!result.canceled && result.assets[0]) {
       sendMessage(result.assets[0].uri);
     }
@@ -180,14 +164,12 @@ const ChatModal = () => {
   const openGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') return;
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
     });
-
     if (!result.canceled && result.assets[0]) {
       sendMessage(result.assets[0].uri);
     }
@@ -224,7 +206,7 @@ const ChatModal = () => {
         <View
           style={[
             styles.messageBubble,
-            isMe ? styles.myMessage : styles.theirMessage,
+            isMe ? styles.myMessage : [styles.theirMessage, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }],
           ]}
         >
           {item.imageUrl && (
@@ -234,7 +216,7 @@ const ChatModal = () => {
             <Text
               style={[
                 styles.messageText,
-                isMe ? styles.myMessageText : styles.theirMessageText,
+                isMe ? styles.myMessageText : [styles.theirMessageText, { color: theme.isDark ? '#F8F9FA' : '#2C3E50' }],
               ]}
             >
               {item.text}
@@ -243,7 +225,7 @@ const ChatModal = () => {
           <Text
             style={[
               styles.messageTime,
-              isMe ? styles.myMessageTime : styles.theirMessageTime,
+              isMe ? styles.myMessageTime : [styles.theirMessageTime, { color: theme.isDark ? '#D0D0D0' : '#95A5A6' }],
             ]}
           >
             {formatTime(item.createdAt)}
@@ -255,14 +237,16 @@ const ChatModal = () => {
 
   const headerHeight = 12 + 12 + 44;
   const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + headerHeight : 0;
+  
+  const statusBarStyle = theme.isDark ? 'light-content' : 'dark-content';
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
-      
-      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'ios' ? 0 : 10) }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle={statusBarStyle} backgroundColor="#1F2937" />
+
+      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'ios' ? 0 : 10), backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF', borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
-          <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-forward" size={24} color={theme.isDark ? '#FFFFFF' : '#3A8DFF'} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.userInfo} onPress={handleUserProfilePress} activeOpacity={0.7}>
           <View style={styles.avatarContainer}>
@@ -275,8 +259,8 @@ const ChatModal = () => {
             <View style={styles.onlineIndicator} />
           </View>
           <View style={styles.userTextInfo}>
-            <Text style={styles.username}>{otherUsername}</Text>
-            <Text style={styles.userStatus}>פעיל עכשיו</Text>
+            <Text style={[styles.username, { color: theme.isDark ? '#FFFFFF' : '#2C3E50' }]}>{otherUsername}</Text>
+            <Text style={[styles.userStatus, { color: theme.isDark ? '#D0D0D0' : '#95A5A6' }]}>פעיל עכשיו</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -284,14 +268,16 @@ const ChatModal = () => {
       <KeyboardAvoidingView
         style={styles.flexContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset} 
+        keyboardVerticalOffset={keyboardVerticalOffset}
       >
         {messages.length === 0 ? (
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.emptyState}>
-              <Ionicons name="chatbubble-outline" size={60} color="#E0E0E0" />
-              <Text style={styles.emptyStateTitle}>התחל שיחה</Text>
-              <Text style={styles.emptyStateSubtitle}>שלח הודעה ראשונה ל{otherUsername}</Text>
+              <Ionicons name="chatbubble-outline" size={60} color={theme.isDark ? '#D0D0D0' : '#E0E0E0'} />
+              <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>התחל שיחה</Text>
+              <Text style={[styles.emptyStateSubtitle, { color: theme.colors.text }]}>
+                שלח הודעה ראשונה ל{otherUsername}
+              </Text>
             </View>
           </TouchableWithoutFeedback>
         ) : (
@@ -309,20 +295,20 @@ const ChatModal = () => {
           </TouchableWithoutFeedback>
         )}
 
-        <View style={styles.inputWrapper}>
-          <View style={styles.inputContainer}>
+        <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
+          <View style={[styles.inputContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}>
             <TouchableOpacity
               onPress={() => sendMessage()}
               style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
               activeOpacity={0.8}
               disabled={!input.trim()}
             >
-              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
+              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
             </TouchableOpacity>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.colors.text, backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}
               placeholder="הקלד הודעה..."
-              placeholderTextColor="#999"
+              placeholderTextColor={theme.isDark ? '#999' : '#999'}
               value={input}
               onChangeText={setInput}
               onSubmitEditing={() => sendMessage()}
@@ -331,7 +317,7 @@ const ChatModal = () => {
               multiline
               maxLength={500}
             />
-            <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} activeOpacity={0.7}>
+            <TouchableOpacity style={[styles.cameraButton, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }]} onPress={handleImagePicker} activeOpacity={0.7}>
               <Ionicons name="camera" size={24} color="#3A8DFF" />
             </TouchableOpacity>
           </View>
@@ -346,18 +332,17 @@ export default ChatModal;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
   flexContainer: {
     flex: 1,
   },
   header: {
-    backgroundColor: '#3A8DFF',
+    // ✅ שינוי צבעי הרקע כאן
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    shadowColor: '#3A8DFF',
+    shadowColor: '#2C3946',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -405,20 +390,16 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    // ✅ צבע הטקסט כאן
+    color: '#FFFFFF', 
     textAlign: 'right',
   },
   userStatus: {
     fontSize: 13,
+    // ✅ צבע הטקסט כאן
     color: '#FFE0B3',
     textAlign: 'right',
     marginTop: 2,
-  },
-  emptyStateTouchable: {
-    flex: 1,
-  },
-  flatListTouchable: {
-    flex: 1,
   },
   emptyState: {
     flex: 1,
@@ -426,25 +407,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  emptyStateIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#2C3E50',
     textAlign: 'center',
     marginBottom: 8,
   },
   emptyStateSubtitle: {
     fontSize: 16,
-    color: '#95A5A6',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -484,7 +454,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
   },
   theirMessage: {
-    backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 8,
     borderWidth: 1,
     borderColor: '#E8E8E8',
@@ -498,7 +467,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   theirMessageText: {
-    color: '#2C3E50',
+    // ✅ צבע הטקסט כאן
   },
   messageImage: {
     width: 200,
@@ -515,20 +484,17 @@ const styles = StyleSheet.create({
     color: '#FFE0B3',
   },
   theirMessageTime: {
-    color: '#95A5A6',
+    // ✅ צבע הטקסט כאן
   },
   inputWrapper: {
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 24, 
+    paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#F5F5F5',
     borderRadius: 25,
     paddingHorizontal: 4,
     paddingVertical: 4,
@@ -538,7 +504,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 4,
@@ -554,7 +519,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#2C3E50',
     paddingHorizontal: 16,
     paddingVertical: 12,
     maxHeight: 100,
