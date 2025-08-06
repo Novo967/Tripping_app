@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTheme } from '../../app/ProfileServices/ThemeContext'; // Ensure this path is correct
 import { db } from '../../firebaseConfig';
 import { LikeableImage } from '../components/LikeableImage';
 import { RootStackParamList } from '../types';
@@ -54,6 +55,9 @@ const OtherUserProfile = () => {
   const { uid } = route.params;
   const router = useRouter();
 
+  // שימוש ב-useTheme כדי לקבל את ערכת הנושא הנוכחית
+  const { theme } = useTheme();
+
   const [userData, setUserData] = useState<UserData>({
     username: '',
     profileImage: '',
@@ -68,10 +72,7 @@ const OtherUserProfile = () => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
-
         const storage = getStorage();
-
-        // קריאה לפיירסטור כדי להשיג את הנתונים הטקסטואליים
         const userDocRef = doc(db, 'users', uid);
         const userSnap = await getDoc(userDocRef);
 
@@ -84,16 +85,10 @@ const OtherUserProfile = () => {
           return;
         }
 
-        // --- קריאה לפיירבייס סטורג' כדי להשיג תמונות ---
-        
-        // 1. קבלת URL של תמונת הפרופיל
         let profileImageUrl = '';
         try {
           const profileImageRef = ref(storage, `profile_images/${uid}`);
-          // משתמשים ב-listAll כדי לקבל את כל הפריטים בתוך התיקייה
           const profileImageList = await listAll(profileImageRef);
-          
-          // אם יש פריטים בתיקייה, מקבלים את ה-URL של הראשון
           if (profileImageList.items.length > 0) {
             profileImageUrl = await getDownloadURL(profileImageList.items[0]);
           }
@@ -101,24 +96,20 @@ const OtherUserProfile = () => {
           console.warn("Profile image not found in Firebase Storage:", error);
         }
 
-        // 2. קבלת URL-ים של תמונות הגלריה
         let galleryImageUrls = [];
         try {
           const galleryRef = ref(storage, `gallery_images/${uid}`);
           const galleryList = await listAll(galleryRef);
-          
-          // יצירת מערך של פרומיסים עבור כל תמונה
           const urlPromises = galleryList.items.map((item) => getDownloadURL(item));
           galleryImageUrls = await Promise.all(urlPromises);
         } catch (error) {
           console.warn("Gallery images not found in Firebase Storage:", error);
         }
 
-        // עדכון ה-state של הקומפוננטה עם הנתונים המלאים
         setUserData({
           username: firestoreData?.username || '',
-          profileImage: profileImageUrl, // ה-URL החדש שנשלף מה-Storage
-          galleryImages: galleryImageUrls, // מערך ה-URLs שנשלף מה-Storage
+          profileImage: profileImageUrl,
+          galleryImages: galleryImageUrls,
           location: firestoreData?.location && firestoreData?.location.city && firestoreData?.location.country
             ? firestoreData.location
             : null,
@@ -131,14 +122,12 @@ const OtherUserProfile = () => {
           joinDate: firestoreData?.joinDate || '',
           isOnline: firestoreData?.isOnline || false,
         });
-
       } catch (error) {
         console.error('An error occurred during data fetching:', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchUserData();
   }, [uid]);
 
@@ -148,14 +137,13 @@ const OtherUserProfile = () => {
       params: {
         otherUserId: uid,
         otherUsername: userData.username,
-        otherUserImage: userData.profileImage
+        otherUserImage: userData.profileImage,
       },
     });
   };
 
   const formatJoinDate = (dateString: string) => {
     if (!dateString) return '';
-    // נניח ש-joinDate מגיע בפורמט ISO, אז צריך לחלץ את השנה.
     const date = new Date(dateString);
     return `הצטרף ${date.getFullYear()}`;
   };
@@ -176,8 +164,8 @@ const OtherUserProfile = () => {
         styles.galleryItem,
         {
           marginLeft: (index + 1) % GALLERY_COLUMNS === 0 ? 0 : GALLERY_SPACING,
-          marginBottom: GALLERY_SPACING
-        }
+          marginBottom: GALLERY_SPACING,
+        },
       ]}
       onPress={() => openImageModal(userData.galleryImages.slice(0, 9).length - 1 - index)}
     >
@@ -196,48 +184,40 @@ const OtherUserProfile = () => {
     </TouchableOpacity>
   );
 
-  const renderModalImage = ({ item, index }: { item: string; index: number }) => (
-    <View style={styles.modalImageContainer}>
-      <Image source={{ uri: item }} style={styles.modalImage} resizeMode="contain" />
-      <View style={styles.imageCounter}>
-        <Text style={styles.imageCounterText}>{index + 1} / {userData.galleryImages.length}</Text>
-      </View>
-    </View>
-  );
+  const statusBarStyle = theme.isDark ? 'light-content' : 'dark-content';
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3A8DFF" />
-        <Text style={styles.loadingText}>טוען פרופיל...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>טוען פרופיל...</Text>
       </View>
     );
   }
 
-  // הצג הודעה אם אין נתוני משתמש
   if (!userData.username) {
     return (
-        <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>הפרופיל לא נמצא או אין לו נתונים זמינים.</Text>
-        </View>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>הפרופיל לא נמצא או אין לו נתונים זמינים.</Text>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle={statusBarStyle} backgroundColor={theme.colors.background} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
         {userData.isOnline && (
-          <View style={styles.onlineIndicator}>
+          <View style={[styles.onlineIndicator, { backgroundColor: theme.isDark ? '#4CAF5020' : '#F0F8F0' }]}>
             <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>פעיל עכשיו</Text>
+            <Text style={[styles.onlineText, { color: '#4CAF50' }]}>פעיל עכשיו</Text>
           </View>
         )}
 
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(tabs)/home')}>
-          <Feather name="arrow-right" size={24} color="#333" />
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.isDark ? theme.colors.card : '#f8f9fa' }]} onPress={() => router.push('/(tabs)/home')}>
+          <Feather name="arrow-right" size={24} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -249,23 +229,23 @@ const OtherUserProfile = () => {
         <View style={styles.profileSection}>
           <View style={styles.profileImageContainer}>
             {userData.profileImage ? (
-              <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
+              <Image source={{ uri: userData.profileImage }} style={[styles.profileImage, { borderColor: theme.colors.primary }]} />
             ) : (
-              <View style={styles.defaultProfileIcon}>
-                <Ionicons name="person" size={60} color="#3A8DFF" />
+              <View style={[styles.defaultProfileIcon, { backgroundColor: theme.isDark ? theme.colors.card : '#FFF3E0', borderColor: theme.colors.primary }]}>
+                <Ionicons name="person" size={60} color={theme.colors.primary} />
               </View>
             )}
-            {userData.isOnline && <View style={styles.onlineBadge} />}
+            {userData.isOnline && <View style={[styles.onlineBadge, { borderColor: theme.colors.background }]} />}
           </View>
 
-          <Text style={styles.username}>{userData.username}</Text>
+          <Text style={[styles.username, { color: theme.colors.text }]}>{userData.username}</Text>
 
           {/* Location Info */}
           <View style={styles.locationContainer}>
             {userData.currentLocation?.city && userData.currentLocation?.country && (
               <View style={styles.currentLocationRow}>
-                <Feather name="map-pin" size={16} color="#3A8DFF" />
-                <Text style={styles.currentLocationText}>
+                <Feather name="map-pin" size={16} color={theme.colors.primary} />
+                <Text style={[styles.currentLocationText, { color: theme.colors.primary }]}>
                   {userData.currentLocation.city}, {userData.currentLocation.country}
                 </Text>
               </View>
@@ -273,8 +253,8 @@ const OtherUserProfile = () => {
 
             {userData.location?.city && userData.location?.country && (
               <View style={styles.homeLocationRow}>
-                <Feather name="home" size={14} color="#999" />
-                <Text style={styles.homeLocationText}>
+                <Feather name="home" size={14} color={theme.colors.text} />
+                <Text style={[styles.homeLocationText, { color: theme.colors.text }]}>
                   מ-{userData.location.city}, {userData.location.country}
                 </Text>
               </View>
@@ -282,14 +262,14 @@ const OtherUserProfile = () => {
           </View>
 
           {userData.joinDate && (
-            <Text style={styles.joinDate}>{formatJoinDate(userData.joinDate)}</Text>
+            <Text style={[styles.joinDate, { color: theme.colors.text }]}>{formatJoinDate(userData.joinDate)}</Text>
           )}
         </View>
 
         {/* Bio */}
         {userData.bio && (
           <View style={styles.bioContainer}>
-            <Text style={styles.bioText}>{userData.bio}</Text>
+            <Text style={[styles.bioText, { color: theme.colors.text }]}>{userData.bio}</Text>
           </View>
         )}
 
@@ -297,16 +277,16 @@ const OtherUserProfile = () => {
         {(userData.travelStyle || (userData.favoriteDestinations && userData.favoriteDestinations.length > 0)) && (
           <View style={styles.travelInfoContainer}>
             {userData.travelStyle && (
-              <View style={styles.travelCard}>
-                <Feather name="compass" size={18} color="#3A8DFF" />
-                <Text style={styles.travelCardText}>{userData.travelStyle}</Text>
+              <View style={[styles.travelCard, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFF8F0', borderRightColor: theme.colors.primary }]}>
+                <Feather name="compass" size={18} color={theme.colors.primary} />
+                <Text style={[styles.travelCardText, { color: theme.colors.text }]}>{userData.travelStyle}</Text>
               </View>
             )}
 
             {userData.favoriteDestinations && userData.favoriteDestinations.length > 0 && (
-              <View style={styles.travelCard}>
-                <Feather name="heart" size={18} color="#3A8DFF" />
-                <Text style={styles.travelCardText} numberOfLines={2}>
+              <View style={[styles.travelCard, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFF8F0', borderRightColor: theme.colors.primary }]}>
+                <Feather name="heart" size={18} color={theme.colors.primary} />
+                <Text style={[styles.travelCardText, { color: theme.colors.text }]} numberOfLines={2}>
                   {userData.favoriteDestinations.join(', ')}
                 </Text>
               </View>
@@ -325,7 +305,7 @@ const OtherUserProfile = () => {
               showsVerticalScrollIndicator={false}
               renderItem={({ item, index }) => renderGalleryImage({
                 item,
-                index: userData.galleryImages.slice(0, 9).length - 1 - index
+                index: userData.galleryImages.slice(0, 9).length - 1 - index,
               })}
               contentContainerStyle={styles.galleryContent}
               style={styles.galleryList}
@@ -335,7 +315,7 @@ const OtherUserProfile = () => {
       </ScrollView>
 
       {/* Floating Message Button */}
-      <View style={styles.floatingButtonContainer}>
+      <View style={[styles.floatingButtonContainer, { backgroundColor: theme.isDark ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)' }]}>
         <TouchableOpacity style={styles.messageButton} onPress={handleSendMessage}>
           <Feather name="message-circle" size={20} color="white" />
           <Text style={styles.messageButtonText}>שלח הודעה</Text>
@@ -349,7 +329,10 @@ const OtherUserProfile = () => {
         animationType="fade"
         onRequestClose={closeImageModal}
       >
-        <TouchableOpacity style={styles.modalOverlay} onPress={closeImageModal}>
+        <TouchableOpacity
+          style={[styles.modalOverlay, { backgroundColor: theme.isDark ? 'rgba(0, 0, 0, 0.95)' : 'rgba(0, 0, 0, 0.9)' }]}
+          onPress={closeImageModal}
+        >
           {selectedImageIndex !== null && (
             <Image
               source={{ uri: userData.galleryImages[selectedImageIndex] }}
@@ -357,6 +340,9 @@ const OtherUserProfile = () => {
               resizeMode="contain"
             />
           )}
+          <View style={[styles.imageCounter, { backgroundColor: theme.isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.5)' }]}>
+            <Text style={styles.imageCounterText}>{selectedImageIndex + 1} / {userData.galleryImages.length}</Text>
+          </View>
         </TouchableOpacity>
       </Modal>
     </SafeAreaView>
@@ -368,22 +354,14 @@ export default OtherUserProfile;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
-  },
-  modalImageContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'white',
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
     marginTop: 10,
   },
   header: {
@@ -392,18 +370,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 4,
-    backgroundColor: 'white',
   },
   backButton: {
     padding: 8,
     borderRadius: 20,
     marginLeft: 310,
-    backgroundColor: '#f8f9fa',
   },
   onlineIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F8F0',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -417,7 +392,6 @@ const styles = StyleSheet.create({
   },
   onlineText: {
     fontSize: 12,
-    color: '#4CAF50',
     fontWeight: '600',
   },
   scrollContent: {
@@ -437,15 +411,12 @@ const styles = StyleSheet.create({
     height: PROFILE_IMAGE_SIZE,
     borderRadius: PROFILE_IMAGE_SIZE / 2,
     borderWidth: 3,
-    borderColor: '#3A8DFF',
   },
   defaultProfileIcon: {
     width: PROFILE_IMAGE_SIZE,
     height: PROFILE_IMAGE_SIZE,
     borderRadius: PROFILE_IMAGE_SIZE / 2,
-    backgroundColor: '#FFF3E0',
     borderWidth: 3,
-    borderColor: '#3A8DFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -458,12 +429,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#4CAF50',
     borderWidth: 4,
-    borderColor: 'white',
   },
   username: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#333',
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -478,7 +447,6 @@ const styles = StyleSheet.create({
   },
   currentLocationText: {
     fontSize: 16,
-    color: '#3A8DFF',
     marginLeft: 6,
     fontWeight: '600',
   },
@@ -488,12 +456,10 @@ const styles = StyleSheet.create({
   },
   homeLocationText: {
     fontSize: 14,
-    color: '#999',
     marginLeft: 6,
   },
   joinDate: {
     fontSize: 13,
-    color: '#999',
     textAlign: 'center',
   },
   bioContainer: {
@@ -502,7 +468,6 @@ const styles = StyleSheet.create({
   },
   bioText: {
     fontSize: 15,
-    color: '#333',
     lineHeight: 22,
     textAlign: 'center',
   },
@@ -513,17 +478,14 @@ const styles = StyleSheet.create({
   travelCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF8F0',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
     marginBottom: 8,
     borderRightWidth: 3,
-    borderRightColor: '#3A8DFF',
   },
   travelCardText: {
     fontSize: 14,
-    color: '#333',
     marginLeft: 10,
     flex: 1,
   },
@@ -572,7 +534,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 48,
     paddingTop: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
   messageButton: {
     flexDirection: 'row',
@@ -593,19 +554,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
   },
   expandedImage: {
-    width: '90%',
-    height: '90%',
-    borderRadius: 10,
-  },
-  modalImage: {
     width: '90%',
     height: '90%',
     borderRadius: 10,
@@ -614,7 +568,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 30,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 4,

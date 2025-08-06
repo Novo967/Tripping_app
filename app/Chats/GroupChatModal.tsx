@@ -407,7 +407,7 @@ const GroupChatModal = () => {
       <SafeAreaView
         style={[
           styles.container,
-          { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+          { backgroundColor: theme.isDark ? '#3D4D5C' : '#F8F9FA' },
         ]}
       >
         <StatusBar
@@ -417,7 +417,7 @@ const GroupChatModal = () => {
         <View
           style={[
             styles.errorContainer,
-            { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+            { backgroundColor: theme.isDark ? '#3D4D5C' : '#F8F9FA' },
           ]}
         >
           <View
@@ -495,8 +495,8 @@ const GroupChatModal = () => {
           styles.header,
           {
             paddingTop: insets.top + 10,
-            backgroundColor: theme.isDark ? '#1F2937' : '#3A8DFF',
-            shadowColor: theme.isDark ? '#1F2937' : '#3A8DFF',
+            backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF',
+            shadowColor: theme.isDark ? '#2C3946' : '#3A8DFF',
           },
         ]}
       >
@@ -637,7 +637,7 @@ const GroupChatModal = () => {
               inverted
               style={[
                 styles.flatListMain,
-                { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+                { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA' },
               ]}
             />
           </TouchableWithoutFeedback>
