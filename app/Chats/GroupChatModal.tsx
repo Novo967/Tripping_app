@@ -1,4 +1,3 @@
-// app/GroupChatModal.tsx
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,7 +14,13 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
-import { getDownloadURL, getStorage, listAll, ref, uploadBytes } from 'firebase/storage';
+import {
+  getDownloadURL,
+  getStorage,
+  listAll,
+  ref,
+  uploadBytes,
+} from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
@@ -36,6 +41,7 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../app/ProfileServices/ThemeContext'; // ✅ ייבוא useTheme
 import { app, db } from '../../firebaseConfig';
 import GroupImageModal from './GroupImageModal';
 
@@ -58,13 +64,15 @@ const GroupChatModal = () => {
   const [groupName, setGroupName] = useState(eventTitle);
   const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isGroupImageModalVisible, setIsGroupImageModalVisible] = useState(false); // State for the new modal
+  const [isGroupImageModalVisible, setIsGroupImageModalVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUid = currentUser?.uid;
-  const currentUsername = currentUser?.displayName || currentUser?.email || 'משתמש אנונימי';
+  const currentUsername =
+    currentUser?.displayName || currentUser?.email || 'משתמש אנונימי';
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme(); // ✅ שימוש ב-useTheme hook
 
   const openGroupImageModal = () => {
     setIsGroupImageModalVisible(true);
@@ -80,8 +88,9 @@ const GroupChatModal = () => {
       const folderRef = ref(storage, `group_images/${groupId}`);
       const result = await listAll(folderRef);
       if (result.items.length === 0) return null;
-      // Get the latest file. This logic might not be ideal if multiple files exist.
-      const latestFileRef = result.items.sort((a, b) => b.name.localeCompare(a.name))[0];
+      const latestFileRef = result.items.sort((a, b) =>
+        b.name.localeCompare(a.name)
+      )[0];
       const url = await getDownloadURL(latestFileRef);
       return url;
     } catch (e) {
@@ -100,15 +109,14 @@ const GroupChatModal = () => {
     }
 
     try {
-      // Check if URI is valid before fetching
       if (!uri) {
         throw new Error('Invalid image URI provided.');
       }
       const response = await fetch(uri);
       const blob = await response.blob();
-      
+
       const storageRef = ref(storage, `group_images/${eventTitle}/groupImage.jpg`);
-      
+
       await uploadBytes(storageRef, blob);
       const newImageUrl = await getDownloadURL(storageRef);
 
@@ -126,7 +134,7 @@ const GroupChatModal = () => {
   };
 
   const handleGroupImagePicker = () => {
-    closeGroupImageModal(); // Close the main modal before showing the action sheet
+    closeGroupImageModal();
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -198,7 +206,6 @@ const GroupChatModal = () => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setGroupName(data.name || eventTitle);
-          // Only fetch group image if it's not already set to avoid race conditions
           if (!groupImageUrl) {
             const imageUrl = await getGroupImageUrl(eventTitle);
             setGroupImageUrl(imageUrl);
@@ -218,7 +225,12 @@ const GroupChatModal = () => {
     const unsubscribeMessages = onSnapshot(
       q,
       (snapshot) => {
-        setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Message)));
+        setMessages(
+          snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Message[]
+        );
       },
       (error) => {
         console.error('Error listening to group messages:', error);
@@ -231,7 +243,8 @@ const GroupChatModal = () => {
   }, [eventTitle]);
 
   const sendMessage = async (imageUrl?: string) => {
-    if ((!input.trim() && !imageUrl) || !currentUid || typeof eventTitle !== 'string') return;
+    if ((!input.trim() && !imageUrl) || !currentUid || typeof eventTitle !== 'string')
+      return;
     const chatDocRef = doc(db, 'group_chats', eventTitle);
     const docSnap = await getDoc(chatDocRef);
     if (!docSnap.exists()) {
@@ -340,9 +353,27 @@ const GroupChatModal = () => {
           style={[
             styles.messageBubble,
             isMe ? styles.myMessage : styles.theirMessage,
+            {
+              backgroundColor: isMe
+                ? '#3A8DFF'
+                : theme.isDark
+                ? '#2C3E50'
+                : '#FFFFFF',
+              borderColor: theme.isDark && !isMe ? '#3E506B' : '#E8E8E8',
+              shadowColor: theme.isDark ? '#000' : '#000',
+            },
           ]}
         >
-          {!isMe && <Text style={styles.senderName}>{item.senderUsername}</Text>}
+          {!isMe && (
+            <Text
+              style={[
+                styles.senderName,
+                { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
+              ]}
+            >
+              {item.senderUsername}
+            </Text>
+          )}
           {item.imageUrl && (
             <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
           )}
@@ -351,6 +382,7 @@ const GroupChatModal = () => {
               style={[
                 styles.messageText,
                 isMe ? styles.myMessageText : styles.theirMessageText,
+                { color: isMe ? '#FFFFFF' : theme.isDark ? '#E0E0E0' : '#2C3E50' },
               ]}
             >
               {item.text}
@@ -360,6 +392,7 @@ const GroupChatModal = () => {
             style={[
               styles.messageTime,
               isMe ? styles.myMessageTime : styles.theirMessageTime,
+              { color: isMe ? '#FFE0B3' : theme.isDark ? '#BDC3C7' : '#95A5A6' },
             ]}
           >
             {formatTime(item.createdAt)}
@@ -371,14 +404,50 @@ const GroupChatModal = () => {
 
   if (!eventTitle || typeof eventTitle !== 'string') {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
-        <View style={styles.errorContainer}>
-          <View style={styles.errorIcon}>
-            <Ionicons name="alert-circle-outline" size={60} color="#E0E0E0" />
+      <SafeAreaView
+        style={[
+          styles.container,
+          { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+        ]}
+      >
+        <StatusBar
+          barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
+        />
+        <View
+          style={[
+            styles.errorContainer,
+            { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+          ]}
+        >
+          <View
+            style={[
+              styles.errorIcon,
+              { backgroundColor: theme.isDark ? '#2C3E50' : '#F5F5F5' },
+            ]}
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={60}
+              color={theme.isDark ? '#4A90E2' : '#E0E0E0'}
+            />
           </View>
-          <Text style={styles.errorTitle}>אירוע לא זוהה</Text>
-          <Text style={styles.errorSubtitle}>לא ניתן לטעון את הצאט הקבוצתי</Text>
+          <Text
+            style={[
+              styles.errorTitle,
+              { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
+            ]}
+          >
+            אירוע לא זוהה
+          </Text>
+          <Text
+            style={[
+              styles.errorSubtitle,
+              { color: theme.isDark ? '#BDC3C7' : '#95A5A6' },
+            ]}
+          >
+            לא ניתן לטעון את הצאט הקבוצתי
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -410,13 +479,33 @@ const GroupChatModal = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#3A8DFF" />
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+      ]}
+    >
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
+      />
 
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 10,
+            backgroundColor: theme.isDark ? '#1F2937' : '#3A8DFF',
+            shadowColor: theme.isDark ? '#1F2937' : '#3A8DFF',
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={goBack}
-          style={styles.backButton}
+          style={[
+            styles.backButton,
+            { backgroundColor: theme.isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)' },
+          ]}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
@@ -424,32 +513,77 @@ const GroupChatModal = () => {
 
         <View style={styles.groupInfo}>
           <TouchableOpacity
-            onPress={openGroupImageModal} // Changed to open the new modal
+            onPress={openGroupImageModal}
             style={styles.groupIconContainer}
             disabled={isUploading}
           >
             {isUploading ? (
-              <View style={styles.groupAvatarPlaceholder}>
-                <ActivityIndicator size="small" color="#3A8DFF" />
+              <View
+                style={[
+                  styles.groupAvatarPlaceholder,
+                  {
+                    backgroundColor: theme.isDark ? '#2C3E50' : '#fff',
+                    borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF',
+                    shadowColor: theme.isDark ? '#000' : '#000',
+                  },
+                ]}
+              >
+                <ActivityIndicator
+                  size="small"
+                  color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+                />
               </View>
             ) : groupImageUrl ? (
               <Image
                 source={{ uri: groupImageUrl }}
-                style={styles.groupAvatar}
+                style={[
+                  styles.groupAvatar,
+                  { borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF' },
+                ]}
               />
             ) : (
-              <View style={styles.groupAvatarPlaceholder}>
-                <Ionicons name="people" size={24} color="#3A8DFF" />
+              <View
+                style={[
+                  styles.groupAvatarPlaceholder,
+                  {
+                    backgroundColor: theme.isDark ? '#2C3E50' : '#fff',
+                    borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF',
+                    shadowColor: theme.isDark ? '#000' : '#000',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="people"
+                  size={24}
+                  color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+                />
               </View>
             )}
-            <View style={styles.onlineIndicator} />
+            <View
+              style={[
+                styles.onlineIndicator,
+                { borderColor: theme.isDark ? '#1F2937' : '#FFFFFF' },
+              ]}
+            />
           </TouchableOpacity>
           <View style={styles.groupTextInfo}>
-            <Text style={styles.groupName} numberOfLines={1}>
+            <Text
+              style={[
+                styles.groupName,
+                { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' },
+              ]}
+              numberOfLines={1}
+            >
               {groupName}
             </Text>
-            <Text style={styles.groupStatus}>
-              צאט קבוצתי • {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
+            <Text
+              style={[
+                styles.groupStatus,
+                { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
+              ]}
+            >
+              צאט קבוצתי •{' '}
+              {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
             </Text>
           </View>
         </View>
@@ -462,10 +596,31 @@ const GroupChatModal = () => {
       >
         {messages.length === 0 ? (
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={60} color="#E0E0E0" />
-              <Text style={styles.emptyStateTitle}>התחל שיחה קבוצתית</Text>
-              <Text style={styles.emptyStateSubtitle}>
+            <View
+              style={[
+                styles.emptyState,
+                { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+              ]}
+            >
+              <Ionicons
+                name="people-outline"
+                size={60}
+                color={theme.isDark ? '#4A90E2' : '#E0E0E0'}
+              />
+              <Text
+                style={[
+                  styles.emptyStateTitle,
+                  { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
+                ]}
+              >
+                התחל שיחה קבוצתית
+              </Text>
+              <Text
+                style={[
+                  styles.emptyStateSubtitle,
+                  { color: theme.isDark ? '#BDC3C7' : '#95A5A6' },
+                ]}
+              >
                 שלח הודעה ראשונה לקבוצת {groupName}
               </Text>
             </View>
@@ -480,29 +635,73 @@ const GroupChatModal = () => {
               contentContainerStyle={styles.messagesContainer}
               showsVerticalScrollIndicator={false}
               inverted
-              style={styles.flatListMain}
+              style={[
+                styles.flatListMain,
+                { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+              ]}
             />
           </TouchableWithoutFeedback>
         )}
 
-        <View style={styles.inputWrapper}>
-          <View style={styles.inputContainer}>
+        <View
+          style={[
+            styles.inputWrapper,
+            {
+              backgroundColor: theme.isDark ? '#1F2937' : '#FFFFFF',
+              borderTopColor: theme.isDark ? '#2C3E50' : '#E8E8E8',
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.inputContainer,
+              { backgroundColor: theme.isDark ? '#2C3E50' : '#F5F5F5' },
+            ]}
+          >
             <TouchableOpacity
               onPress={() => sendMessage()}
               style={[
                 styles.sendButton,
                 !input.trim() && styles.sendButtonDisabled,
+                {
+                  backgroundColor: input.trim()
+                    ? '#3A8DFF'
+                    : theme.isDark
+                    ? '#3E506B'
+                    : '#E8E8E8',
+                  shadowColor: input.trim()
+                    ? theme.isDark
+                      ? '#1F2937'
+                      : '#3A8DFF'
+                    : '#000',
+                  shadowOpacity: input.trim() ? 0.3 : 0,
+                  elevation: input.trim() ? 4 : 0,
+                },
               ]}
               activeOpacity={0.8}
               disabled={!input.trim()}
             >
-              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
+              <Ionicons
+                name="send"
+                size={20}
+                color={
+                  input.trim()
+                    ? '#FFFFFF'
+                    : theme.isDark
+                    ? '#BDC3C7'
+                    : '#CCC'
+                }
+                style={{ transform: [{ scaleX: -1 }] }}
+              />
             </TouchableOpacity>
 
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
+              ]}
               placeholder="הקלד הודעה קבוצתית..."
-              placeholderTextColor="#999"
+              placeholderTextColor={theme.isDark ? '#BDC3C7' : '#999'}
               value={input}
               onChangeText={setInput}
               onSubmitEditing={() => sendMessage()}
@@ -512,8 +711,22 @@ const GroupChatModal = () => {
               maxLength={500}
             />
 
-            <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} activeOpacity={0.7}>
-              <Ionicons name="camera" size={24} color="#3A8DFF" />
+            <TouchableOpacity
+              style={[
+                styles.cameraButton,
+                {
+                  backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF',
+                  shadowColor: theme.isDark ? '#000' : '#000',
+                },
+              ]}
+              onPress={handleImagePicker}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="camera"
+                size={24}
+                color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+              />
             </TouchableOpacity>
           </View>
         </View>
