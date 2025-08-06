@@ -370,7 +370,7 @@ export default function HomeScreen() {
         followsUserLocation={false}
         userLocationPriority="high"
         userLocationUpdateInterval={5000}
-        customMapStyle={theme.isDark ? darkMapStyle : undefined} // ✅ יישום סגנון המפה הכהה
+        customMapStyle={theme.isDark ? darkMapStyle : []} // ✅ יישום סגנון המפה הכהה
         onPress={(e) => {
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
