@@ -289,10 +289,10 @@ export default function ProfileScreen() {
       
       <Animated.View style={[styles.contentWrapper, { opacity: fadeAnim }]}>
         <View style={styles.topNav}>
-          <NotificationBell hasNotifications={pendingRequests.length > 0} onPress={toggleRequests} />
           <TouchableOpacity onPress={toggleSettings} style={styles.navButton}>
             <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>
+          <NotificationBell hasNotifications={pendingRequests.length > 0} onPress={toggleRequests} />
         </View>
 
         <Animated.View style={[styles.settingsPanel, {
@@ -383,10 +383,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse', // שינוי לכיוון ימין-שמאל
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingBottom: 10,
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 10,
+    top: Platform.OS === 'ios' ? 20 : 0, // moved up
     left: 0,
     right: 0,
     zIndex: 10,
