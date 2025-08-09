@@ -43,6 +43,7 @@ import Modal from 'react-native-modal';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../app/ProfileServices/ThemeContext'; // ✅ ייבוא useTheme
 import { app, db } from '../../firebaseConfig';
+import GroupDetailsModal from './GroupDetailsModal';
 import GroupImageModal from './GroupImageModal';
 
 const storage = getStorage(app);
@@ -65,6 +66,7 @@ const GroupChatModal = () => {
   const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isGroupImageModalVisible, setIsGroupImageModalVisible] = useState(false);
+  const [isGroupDetailsModalVisible, setIsGroupDetailsModalVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
@@ -80,6 +82,14 @@ const GroupChatModal = () => {
 
   const closeGroupImageModal = () => {
     setIsGroupImageModalVisible(false);
+  };
+  
+  const openGroupDetailsModal = () => {
+    setIsGroupDetailsModalVisible(true);
+  };
+
+  const closeGroupDetailsModal = () => {
+    setIsGroupDetailsModalVisible(false);
   };
 
   const getGroupImageUrl = async (groupId: string) => {
@@ -478,6 +488,20 @@ const GroupChatModal = () => {
     );
   }
 
+  if (isGroupDetailsModalVisible) {
+    return (
+      <Modal
+        isVisible={isGroupDetailsModalVisible}
+        style={styles.modal}
+        onBackButtonPress={closeGroupDetailsModal}
+        onSwipeComplete={closeGroupDetailsModal}
+        swipeDirection={['down']}
+      >
+        <GroupDetailsModal eventTitle={eventTitle} onClose={closeGroupDetailsModal} />
+      </Modal>
+    );
+  }
+
   return (
     <SafeAreaView
       style={[
@@ -513,7 +537,7 @@ const GroupChatModal = () => {
 
         <View style={styles.groupInfo}>
           <TouchableOpacity
-            onPress={openGroupImageModal}
+            onPress={openGroupDetailsModal}
             style={styles.groupIconContainer}
             disabled={isUploading}
           >
@@ -567,24 +591,26 @@ const GroupChatModal = () => {
             />
           </TouchableOpacity>
           <View style={styles.groupTextInfo}>
-            <Text
-              style={[
-                styles.groupName,
-                { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' },
-              ]}
-              numberOfLines={1}
-            >
-              {groupName}
-            </Text>
-            <Text
-              style={[
-                styles.groupStatus,
-                { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
-              ]}
-            >
-              צאט קבוצתי •{' '}
-              {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
-            </Text>
+            <TouchableOpacity onPress={openGroupDetailsModal}>
+              <Text
+                style={[
+                  styles.groupName,
+                  { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' },
+                ]}
+                numberOfLines={1}
+              >
+                {groupName}
+              </Text>
+              <Text
+                style={[
+                  styles.groupStatus,
+                  { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
+                ]}
+              >
+                צאט קבוצתי •{' '}
+                {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
