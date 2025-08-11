@@ -43,7 +43,7 @@ const { width, height } = Dimensions.get('window');
 const storage = getStorage(app);
 const db = getFirestore(app);
 
-// פונקציית עזר להעלאת תמונה ל-Firebase Storage
+// Helper function to upload image to Firebase Storage
 const uploadToFirebase = async (uri: string, path: string): Promise<string> => {
   const response = await fetch(uri);
   const blob = await response.blob();
@@ -52,7 +52,7 @@ const uploadToFirebase = async (uri: string, path: string): Promise<string> => {
   return getDownloadURL(uploadTask.ref);
 };
 
-// פונקציית עזר למחיקת תמונה מ-Firebase Storage
+// Helper function to delete image from Firebase Storage
 const deleteFromFirebase = async (imageUrl: string) => {
   try {
     const storageRefToDelete = ref(storage, imageUrl);
@@ -102,7 +102,7 @@ export default function ProfileScreen() {
       const userDocRef = doc(db, 'users', user.uid);
 
       if (isProfilePic) {
-        // מחיקת תמונת פרופיל קודמת אם קיימת
+        // Deleting the previous profile picture if it exists
         if (profilePic) {
           await deleteFromFirebase(profilePic);
         }
@@ -112,7 +112,7 @@ export default function ProfileScreen() {
         setProfilePic(firebaseImageUrl);
         Alert.alert('הצלחה', 'תמונת הפרופיל עודכנה בהצלחה!');
       } else {
-        // הוספת התמונה החדשה לגלריה ב-Firestore
+        // Adding the new image to the gallery in Firestore
         await updateDoc(userDocRef, {
           gallery: arrayUnion(firebaseImageUrl),
         });
@@ -198,7 +198,7 @@ export default function ProfileScreen() {
         setGallery(profileDataFromFirestore.gallery || []);
       } else {
         console.warn("User document not found in Firestore for UID:", user.uid);
-        // יצירת מסמך בסיסי אם לא קיים
+        // Create a basic document if one doesn't exist
         await updateDoc(userDocRef, {
           username: '',
           bio: '',
@@ -217,7 +217,7 @@ export default function ProfileScreen() {
     init();
   }, [init]);
 
-  // שימוש ב-onSnapshot כדי להאזין לבקשות בזמן אמת
+  // Use onSnapshot to listen for real-time requests
   useFocusEffect(useCallback(() => {
     const user = auth.currentUser;
     if (!user) {
@@ -303,6 +303,11 @@ export default function ProfileScreen() {
           left: 'auto',
           top: insets.top + (Platform.OS === 'ios' ? 50 : 60),
         }]}>
+          {/* New link to the Terms of Service page */}
+          <TouchableOpacity style={styles.settingsItem} onPress={() => { router.push('/ProfileServices/TermsOfServiceProfile'); toggleSettings(); }}>
+            <Ionicons name="document-text-outline" size={20} color={theme.colors.text} />
+            <Text style={[styles.settingsText, { color: theme.colors.text }]}>תנאי שימוש</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.settingsItem} onPress={() => { toggleTheme(); toggleSettings(); }}>
             <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
             <Text style={[styles.settingsText, { color: theme.colors.text }]}>
@@ -348,7 +353,7 @@ export default function ProfileScreen() {
         />
 
         <Gallery
-          gallery={gallery} // ✅ העברת מערך הגלריה המעודכן כ-prop
+          gallery={gallery}
           onImagePress={openImageModal}
         />
 
@@ -380,13 +385,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   topNav: {
-    flexDirection: 'row-reverse', // שינוי לכיוון ימין-שמאל
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingBottom: 10,
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 20 : 0, // moved up
+    top: Platform.OS === 'ios' ? 20 : 0,
     left: 0,
     right: 0,
     zIndex: 10,
