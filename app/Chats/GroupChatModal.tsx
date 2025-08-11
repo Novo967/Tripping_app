@@ -64,6 +64,7 @@ const GroupChatModal = () => {
   const [input, setInput] = useState('');
   const [groupName, setGroupName] = useState(eventTitle);
   const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
+  const [memberCount, setMemberCount] = useState(0); // שינוי: מצב חדש למספר חברים
   const [isUploading, setIsUploading] = useState(false);
   const [isGroupImageModalVisible, setIsGroupImageModalVisible] = useState(false);
   const [isGroupDetailsModalVisible, setIsGroupDetailsModalVisible] = useState(false);
@@ -216,6 +217,7 @@ const GroupChatModal = () => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setGroupName(data.name || eventTitle);
+          setMemberCount(data.members?.length || 0); // שינוי: עדכון מספר החברים
           if (!groupImageUrl) {
             const imageUrl = await getGroupImageUrl(eventTitle);
             setGroupImageUrl(imageUrl);
@@ -223,6 +225,7 @@ const GroupChatModal = () => {
         } else {
           setGroupName(eventTitle);
           setGroupImageUrl(null);
+          setMemberCount(0); // שינוי: איפוס מספר החברים
         }
       },
       (error) => {
@@ -583,12 +586,6 @@ const GroupChatModal = () => {
                 />
               </View>
             )}
-            <View
-              style={[
-                styles.onlineIndicator,
-                { borderColor: theme.isDark ? '#1F2937' : '#FFFFFF' },
-              ]}
-            />
           </TouchableOpacity>
           <View style={styles.groupTextInfo}>
             <TouchableOpacity onPress={openGroupDetailsModal}>
@@ -607,8 +604,7 @@ const GroupChatModal = () => {
                   { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
                 ]}
               >
-                צאט קבוצתי •{' '}
-                {messages.length > 0 ? `${messages.length} הודעות` : 'אין הודעות'}
+                צאט קבוצתי • {memberCount} משתתפים
               </Text>
             </TouchableOpacity>
           </View>
@@ -828,17 +824,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   groupTextInfo: {
     flex: 1,

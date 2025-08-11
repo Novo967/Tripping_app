@@ -256,7 +256,6 @@ const ChatModal = () => {
               }}
               style={styles.avatar}
             />
-            <View style={styles.onlineIndicator} />
           </View>
           <View style={styles.userTextInfo}>
             <Text style={[styles.username, { color: theme.isDark ? '#FFFFFF' : '#2C3E50' }]}>{otherUsername}</Text>
@@ -370,17 +369,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#4CAF50',
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },

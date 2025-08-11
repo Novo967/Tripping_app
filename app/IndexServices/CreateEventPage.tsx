@@ -1,12 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
+import * as ImagePicker from 'expo-image-picker'; // Import ImagePicker
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { addDoc, collection, getFirestore } from 'firebase/firestore';
+import { addDoc, collection, doc, getFirestore, setDoc } from 'firebase/firestore';
+import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'; // Import storage functions
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -43,9 +47,12 @@ export default function CreateEventPage() {
   const [cityCountry, setCityCountry] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [eventImageUri, setEventImageUri] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const db = getFirestore(app);
   const auth = getAuth(app);
+  const storage = getStorage(app);
 
   useEffect(() => {
     if (latitude && longitude) {
@@ -85,9 +92,45 @@ export default function CreateEventPage() {
     }
   };
 
+  const handleImagePicker = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת גלריה כדי לבחור תמונות.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setEventImageUri(result.assets[0].uri);
+    }
+  };
+
+  const uploadImage = async (uri: string, eventId: string) => {
+    setIsUploadingImage(true);
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const fileRef = ref(storage, `event_images/${eventId}/${Date.now()}`);
+      await uploadBytes(fileRef, blob);
+      const downloadURL = await getDownloadURL(fileRef);
+      return downloadURL;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      Alert.alert("שגיאה", "העלאת התמונה נכשלה.");
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleCreateEvent = async () => {
     if (!eventTitle.trim() || !eventType) {
-      Alert.alert('שגיאה', 'אנא מלא את כל השדות');
+      Alert.alert('שגיאה', 'אנא מלא את כל השדות הנדרשים');
       return;
     }
 
@@ -100,6 +143,16 @@ export default function CreateEventPage() {
     }
 
     setIsLoading(true);
+    let imageUrl = null;
+    if (eventImageUri) {
+      const eventId = eventTitle + '_' + Date.now(); // A simple unique ID for the event
+      imageUrl = await uploadImage(eventImageUri, eventId);
+      if (!imageUrl) {
+        setIsLoading(false);
+        return;
+      }
+    }
+
     try {
       // יצירת אובייקט הנתונים לשמירה ב-Firestore
       const eventData = {
@@ -114,10 +167,19 @@ export default function CreateEventPage() {
         location: eventLocation,
         city_country: cityCountry,
         created_at: new Date().toISOString(),
+        ...(imageUrl && { eventImageUrl: imageUrl }), // Add image URL if available
       };
 
       // שמירת האובייקט ישירות בקולקשן 'pins' ב-Firestore
       await addDoc(collection(db, 'pins'), eventData);
+
+      // Create a document in 'group_chats' for this event
+      await setDoc(doc(db, 'group_chats', eventTitle), {
+        name: eventTitle,
+        members: [userId],
+        groupImage: imageUrl || null, // Use the uploaded image as the group image
+        createdAt: new Date().toISOString(),
+      });
 
       Alert.alert('הצלחה', 'האירוע נוצר בהצלחה ונוסף ל-Firestore!', [
         { text: 'אוקיי', onPress: () => router.replace('/home') },
@@ -232,6 +294,25 @@ export default function CreateEventPage() {
             <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
           </TouchableOpacity>
         </View>
+        
+        {/*  Image Picker Section */}
+        <View style={styles.imagePickerContainer}>
+          <TouchableOpacity style={styles.imagePickerButton} onPress={handleImagePicker}>
+            {eventImageUri ? (
+              <Image source={{ uri: eventImageUri }} style={styles.eventImagePreview} />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="camera-outline" size={30} color="#3A8DFF" />
+                <Text style={styles.imagePlaceholderText}>הוסף תמונה לאירוע</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {isUploadingImage && (
+            <View style={styles.imageLoadingOverlay}>
+              <ActivityIndicator size="small" color="#fff" />
+            </View>
+          )}
+        </View>
 
         <TextInput
           style={styles.input}
@@ -270,7 +351,7 @@ export default function CreateEventPage() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-        {/* Align date text to the right inside the date button */}
+
         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', width: '100%' }}>
           <TouchableOpacity
             style={[styles.dateButton, { flex: 1, flexDirection: 'row-reverse', justifyContent: 'flex-end' }]}
@@ -404,6 +485,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  imagePickerContainer: {
+    marginVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePickerButton: {
+    width: '100%',
+    height: 180,
+    borderRadius: 20,
+    backgroundColor: '#E8F0FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#3A8DFF',
+    borderStyle: 'dashed',
+  },
+  imagePlaceholder: {
+    alignItems: 'center',
+  },
+  imagePlaceholderText: {
+    color: '#3A8DFF',
+    marginTop: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  eventImagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   input: {
     backgroundColor: 'white',
     borderRadius: 10,
@@ -456,7 +576,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  dateText: { marginLeft: 10 ,fontSize: 16, color: '#333', fontWeight: '500' },
+  dateText: { marginRight: 10, fontSize: 16, color: '#333', fontWeight: '500' },
   createButton: {
     backgroundColor: '#3A8DFF',
     padding: 15,
