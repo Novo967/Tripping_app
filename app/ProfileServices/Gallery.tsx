@@ -202,7 +202,12 @@ export default function Gallery({ onImagePress }: Props) {
     );
   };
 
-  const handleImagePress = (index: number) => {
+  const handleItemPress = (index: number, isAddButton: boolean) => {
+    if (isAddButton) {
+      handlePickImage();
+      return;
+    }
+
     if (longPressActive) {
       const newSelected = new Set(selectedImages);
       if (newSelected.has(index)) {
@@ -216,7 +221,9 @@ export default function Gallery({ onImagePress }: Props) {
     }
   };
 
-  const handleLongPress = (index: number) => {
+  const handleLongPress = (index: number, isAddButton: boolean) => {
+    if (isAddButton) return;
+    
     setLongPressActive(true);
     const newSelected = new Set(selectedImages);
     if (!newSelected.has(index)) {
@@ -225,7 +232,36 @@ export default function Gallery({ onImagePress }: Props) {
     }
   };
 
-  const renderGridItem = ({ item, index }: ListRenderItemInfo<string>) => {
+  const renderAddButton = () => (
+    <TouchableOpacity
+      style={[
+        styles.galleryItem,
+        styles.addImageButton,
+        { 
+          backgroundColor: theme.isDark ? '#1F2937' : '#F8FAFF',
+          borderColor: theme.isDark ? '#374151' : '#E5E7EB',
+        }
+      ]}
+      onPress={() => handleItemPress(-1, true)}
+      disabled={uploading}
+      activeOpacity={0.7}
+    >
+      {uploading ? (
+        <ActivityIndicator size="large" color="#3A8DFF" />
+      ) : (
+        <>
+          <View style={[styles.addIconContainer, { backgroundColor: '#3A8DFF' }]}>
+            <Ionicons name="add" size={28} color="white" />
+          </View>
+          <Text style={[styles.addText, { color: theme.colors.textSecondary }]}>
+            הוסף תמונה
+          </Text>
+        </>
+      )}
+    </TouchableOpacity>
+  );
+
+  const renderGalleryImage = ({ item, index }: ListRenderItemInfo<string>) => {
     const isSelected = selectedImages.has(index);
 
     return (
@@ -235,8 +271,8 @@ export default function Gallery({ onImagePress }: Props) {
           { backgroundColor: theme.colors.surface },
           isSelected && { opacity: 0.7 },
         ]}
-        onPress={() => handleImagePress(index)}
-        onLongPress={() => handleLongPress(index)}
+        onPress={() => handleItemPress(index, false)}
+        onLongPress={() => handleLongPress(index, false)}
         activeOpacity={0.8}
       >
         <Image
@@ -254,7 +290,7 @@ export default function Gallery({ onImagePress }: Props) {
             <View
               style={[
                 styles.selectionIndicator,
-                { backgroundColor: theme.colors.primary },
+                { backgroundColor: '#3A8DFF' },
               ]}
             >
               <Ionicons name="checkmark" size={16} color="white" />
@@ -280,45 +316,55 @@ export default function Gallery({ onImagePress }: Props) {
   };
 
   const renderHeader = () => (
-    <View style={[styles.galleryHeader, { backgroundColor: theme.colors.surface }]}>
-      <View style={styles.headerLeft}></View>
-      <View style={styles.headerCenter}>
-        <Text style={[styles.galleryCount, { color: theme.colors.text }]}>
-          {firebaseGalleryImages.length} תמונות
-        </Text>
-      </View>
-      <View style={styles.headerRight}>
-        {selectedImages.size > 0 || longPressActive ? (
+    <View style={[styles.galleryHeader, { backgroundColor: theme.colors.background }]}>
+      <View style={styles.headerContent}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="images" size={20} color="#3A8DFF" />
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>גלריה</Text>
+        </View>
+        
+        {longPressActive && selectedImages.size > 0 && (
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
+            style={[styles.deleteButton, { backgroundColor: '#FF3B30' }]}
             onPress={handleDeleteSelected}
-            accessibilityLabel={`מחק ${selectedImages.size} תמונות שנבחרו`}
           >
             <Ionicons name="trash" size={16} color="white" />
-            <Text style={styles.actionButtonText}>{selectedImages.size}</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-            onPress={handlePickImage}
-            disabled={uploading}
-            accessibilityLabel={uploading ? 'מעלה תמונה' : 'הוסף תמונה חדשה'}
-          >
-            {uploading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Ionicons name="add" size={20} color="white" />
-            )}
+            <Text style={styles.deleteButtonText}>{selectedImages.size}</Text>
           </TouchableOpacity>
         )}
       </View>
+      
+      <View style={[styles.separator, { backgroundColor: theme.isDark ? '#374151' : '#E5E7EB' }]} />
     </View>
   );
+
+  const getAllItems = () => {
+    return [renderAddButton(), ...firebaseGalleryImages];
+  };
+
+  const renderItem = ({ item, index }: ListRenderItemInfo<any>) => {
+    if (index === 0) {
+      return item; // זה כפתור ההוספה
+    }
+    
+    const imageUrl = item as string;
+    const adjustedIndex = index - 1; // התאמת האינדקס כי האיטם הראשון הוא כפתור ההוספה
+    
+    return renderGalleryImage({
+      item: imageUrl,
+      index: adjustedIndex,
+      separators: {
+        highlight: () => {},
+        unhighlight: () => {},
+        updateProps: () => {},
+      },
+    });
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <LinearGradient
-        colors={[theme.colors.primary + '20', theme.colors.secondary + '20']}
+        colors={['#3A8DFF20', '#3A8DFF10']}
         style={styles.emptyGradient}
       >
         <Ionicons name="images-outline" size={64} color={theme.colors.textSecondary} />
@@ -329,9 +375,8 @@ export default function Gallery({ onImagePress }: Props) {
           הוסף תמונות כדי לשתף עם חברים
         </Text>
         <TouchableOpacity
-          style={[styles.emptyButton, { backgroundColor: theme.colors.primary }]}
+          style={[styles.emptyButton, { backgroundColor: '#3A8DFF' }]}
           onPress={handlePickImage}
-          accessibilityLabel="הוסף תמונה ראשונה"
         >
           <Ionicons name="camera" size={20} color="white" />
           <Text style={styles.emptyButtonText}>הוסף תמונה ראשונה</Text>
@@ -343,7 +388,7 @@ export default function Gallery({ onImagePress }: Props) {
   if (loadingGallery) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color="#3A8DFF" />
       </View>
     );
   }
@@ -361,11 +406,14 @@ export default function Gallery({ onImagePress }: Props) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {renderHeader()}
       <FlatList
-        data={firebaseGalleryImages}
-        keyExtractor={(item, index) => item || index.toString()}
+        data={getAllItems()}
+        keyExtractor={(item, index) => {
+          if (index === 0) return 'add-button';
+          return (item as string) || index.toString();
+        }}
         numColumns={3}
         key={'grid'}
-        renderItem={renderGridItem}
+        renderItem={renderItem}
         contentContainerStyle={styles.flatListContent}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
@@ -377,7 +425,6 @@ export default function Gallery({ onImagePress }: Props) {
             setSelectedImages(new Set());
             setLongPressActive(false);
           }}
-          accessibilityLabel="בטל בחירה של תמונות"
         >
           <BlurView
             intensity={80}
@@ -397,57 +444,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   galleryHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  headerContent: {
     flexDirection: 'row-reverse',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  headerLeft: {
-    flexDirection: 'row-reverse',
-    gap: 8,
-  },
-  headerCenter: {
-    flex: 1,
+  sectionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  headerRight: {
-    minWidth: 50,
-    alignItems: 'flex-end',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
-  viewModeButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  galleryCount: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  addButton: {
-    padding: 8,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  actionButton: {
-    flexDirection: 'row-reverse',
+  deleteButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     gap: 4,
   },
-  actionButtonText: {
+  deleteButtonText: {
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
+  },
+  separator: {
+    height: 1,
   },
   flatListContent: {
     padding: 16,
@@ -459,6 +488,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
+  },
+  addImageButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+  },
+  addIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   galleryImage: {
     width: '100%',
