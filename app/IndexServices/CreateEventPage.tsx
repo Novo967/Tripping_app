@@ -1,4 +1,3 @@
-// app/create-event/index.tsx
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
@@ -40,7 +39,7 @@ export default function CreateEventPage() {
   const [eventType, setEventType] = useState<EventType | ''>('');
   const [eventDate, setEventDate] = useState(new Date());
   const [eventDescription, setEventDescription] = useState('');
-  const [eventLocation, setEventLocation] = useState('');
+  const [eventLocation, setEventLocation] = useState('טוען מיקום...');
   const [cityCountry, setCityCountry] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,9 +55,11 @@ export default function CreateEventPage() {
 
   const reverseGeocode = async () => {
     try {
+      // Mapbox access token
+      const mapboxToken = 'pk.eyJ1Ijoibm9hbS1sZTE3IiwiYSI6ImNtZTczeG4wdzAwZjcya3Nod2U2d3M4OTUifQ.0ybxsmWtdKP95wmyMw491w';
+      
       const response = await fetch(
-        // You MUST replace 'YOUR_MAPBOX_TOKEN' with your actual Mapbox access token
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=YOUR_MAPBOX_TOKEN&language=he`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxToken}&language=he`
       );
       const data = await response.json();
       if (data.features?.length > 0) {
@@ -70,13 +71,17 @@ export default function CreateEventPage() {
         const country = contexts.find((c: any) => c.id.includes('country'));
         if (place && country) {
           setCityCountry(`${place.text_he || place.text}, ${country.text_he || country.text}`);
+        } else {
+          setCityCountry('');
         }
+      } else {
+        setEventLocation('לא נמצאה כתובת');
+        setCityCountry('');
       }
     } catch (error) {
       console.error('Error during reverse geocoding:', error);
-      setEventLocation(
-        `${parseFloat(latitude as string).toFixed(4)}, ${parseFloat(longitude as string).toFixed(4)}`
-      );
+      setEventLocation('שגיאה בטעינת המיקום');
+      setCityCountry('');
     }
   };
 
@@ -173,10 +178,16 @@ export default function CreateEventPage() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.header}>
+        {/* Back button */}
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-forward" size={24} color="white" />
         </TouchableOpacity>
+        
+        {/* Header Title */}
         <Text style={styles.headerTitle}>יצירת אירוע</Text>
+
+        {/* Placeholder to balance the header layout */}
+        <View style={styles.backButton} />
       </View>
 
       <ScrollView style={styles.scrollView}>
@@ -203,14 +214,24 @@ export default function CreateEventPage() {
           </Marker>
         </MapView>
 
-        <View style={styles.locationBox}>
-          <Text style={styles.locationText}>{eventLocation}</Text>
-        </View>
-        {cityCountry && (
-          <View style={styles.cityBox}>
-            <Text style={styles.cityText}>{cityCountry}</Text>
+        {/* Updated Location Section with "Edit Location" button */}
+        <View style={styles.locationContainer}>
+          <View style={styles.locationInfo}>
+            <Ionicons name="location-outline" size={20} color="#333" style={{ marginRight: 8 }} />
+            <View style={styles.locationTextContainer}>
+              <Text style={styles.locationText}>{eventLocation}</Text>
+              {cityCountry ? (
+                <Text style={styles.cityText}>{cityCountry}</Text>
+              ) : null}
+            </View>
           </View>
-        )}
+          <TouchableOpacity
+            style={styles.editLocationButton}
+            onPress={() => router.back()} // Navigate back to the previous screen (map selection)
+          >
+            <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
+          </TouchableOpacity>
+        </View>
 
         <TextInput
           style={styles.input}
@@ -249,12 +270,18 @@ export default function CreateEventPage() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-
-        <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
-          <Ionicons name="calendar" size={20} color="#3A8DFF" />
-          <Text style={styles.dateText}>{eventDate.toLocaleDateString('he-IL')}</Text>
-        </TouchableOpacity>
-
+        {/* Align date text to the right inside the date button */}
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', width: '100%' }}>
+          <TouchableOpacity
+            style={[styles.dateButton, { flex: 1, flexDirection: 'row-reverse', justifyContent: 'flex-end' }]}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Ionicons name="calendar" size={20} color="#3A8DFF" style={{ marginLeft: 10 }} />
+            <Text style={[styles.dateText, { flex: 1, textAlign: 'right' }]}>
+              {eventDate.toLocaleDateString('he-IL')}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <TextInput
           style={[styles.input, { height: 100, marginBottom: 20 }]}
           placeholder="תיאור האירוע"
@@ -318,6 +345,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 5,
+    width: 40, // Ensure the placeholder view has the same width
   },
   headerTitle: {
     flex: 1,
@@ -325,22 +353,57 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
-    marginRight: 40,
   },
   scrollView: { padding: 20 },
   map: { height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 15 },
   customMarker: { alignItems: 'center', justifyContent: 'center' },
-  locationBox: {
+  
+  // Updated Styles for Location Section
+  locationContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: 'white',
-    padding: 10,
-    marginVertical: 8,
+    padding: 12,
+    marginVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#ddd',
   },
-  locationText: { color: '#333', textAlign: 'center', fontWeight: '500' },
-  cityBox: { backgroundColor: '#f5f5f5', padding: 8, marginBottom: 15, borderRadius: 8 },
-  cityText: { color: '#666', textAlign: 'center', fontSize: 12 },
+  locationInfo: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    flexShrink: 1, // Allows text to wrap
+  },
+  locationTextContainer: {
+    flexShrink: 1,
+  },
+  locationText: {
+    color: '#333',
+    textAlign: 'right',
+    fontWeight: '600',
+    fontSize: 16,
+    flexShrink: 1,
+  },
+  cityText: {
+    color: '#666',
+    textAlign: 'right',
+    fontSize: 12,
+    marginTop: 2,
+    flexShrink: 1,
+  },
+  editLocationButton: {
+    backgroundColor: '#E8F0FE',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  editLocationButtonText: {
+    color: '#3A8DFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+
   input: {
     backgroundColor: 'white',
     borderRadius: 10,
@@ -393,7 +456,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  dateText: { marginRight: 10, fontSize: 16, color: '#333', fontWeight: '500' },
+  dateText: { marginLeft: 10 ,fontSize: 16, color: '#333', fontWeight: '500' },
   createButton: {
     backgroundColor: '#3A8DFF',
     padding: 15,
