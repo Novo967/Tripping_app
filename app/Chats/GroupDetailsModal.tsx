@@ -4,16 +4,16 @@ import { getAuth } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../app/ProfileServices/ThemeContext';
@@ -206,6 +206,8 @@ const GroupDetailsModal = ({
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
       />
+      
+      {/* Header section */}
       <View
         style={[
           styles.header,
@@ -222,6 +224,7 @@ const GroupDetailsModal = ({
         <TouchableOpacity style={{ width: 24 }} />
       </View>
 
+      {/* Scrollable content section */}
       <ScrollView
         style={styles.flexContainer}
         contentContainerStyle={styles.scrollContent}
@@ -403,7 +406,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     paddingTop: 12,
-    position: 'absolute',
     backgroundColor: '#3A8DFF',
     elevation: 4,
     minHeight: 60,
@@ -422,10 +424,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   groupHeader: {
-    position: 'relative',
-    paddingTop: 70,
-    alignItems: 'center',
     padding: 20,
+    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#E8E8E8',
   },
