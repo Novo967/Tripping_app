@@ -66,10 +66,6 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         return null;
     }, [userLocation, selectedEvent]);
 
-    /**
-     * ✅ שינוי מרכזי: הפונקציה יוצרת בקשת הצטרפות באוסף event_requests ב-Firestore,
-     * במקום לאשר הצטרפות ישירות. היא גם בודקת מראש אם קיימת בקשה ממתינה.
-     */
     const handleSendRequest = async () => {
         if (!user || !selectedEvent || !currentUserUsername) {
             Alert.alert('שגיאה', 'לא ניתן לשלוח בקשה כרגע. נתונים חסרים.');
@@ -81,14 +77,12 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             return;
         }
 
-        // בדיקה 1: האם המשתמש כבר אושר לאירוע.
         if (selectedEvent.approved_users?.includes(user.uid)) {
             Alert.alert('שים לב', 'אתה כבר חלק מהאירוע.');
             onClose();
             return;
         }
 
-        // בדיקה 2: האם קיימת כבר בקשה ממתינה מהמשתמש הזה לאירוע זה.
         const q = query(
             collection(db, 'event_requests'),
             where('sender_uid', '==', user.uid),
@@ -103,7 +97,6 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         }
 
         try {
-            // יצירת מסמך חדש באוסף event_requests
             await addDoc(collection(db, 'event_requests'), {
                 sender_uid: user.uid,
                 sender_username: currentUserUsername,
@@ -115,7 +108,6 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             });
 
         } catch (error: any) {
-            // ✅ שינוי מרכזי: הצגת שגיאה מפורטת
             console.error('Error sending request:', error);
             const errorMessage = error.message || 'אירעה שגיאה לא ידועה בשליחת הבקשה.';
             Alert.alert('שגיאה בשליחת בקשה', `אירעה שגיאה: ${errorMessage}\n\nאנא ודא שחוקי האבטחה של Firebase מעודכנים כראוי.`);
@@ -186,12 +178,15 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+                        {/* UPDATED HEADER CONTAINER */}
                         <View style={styles.headerContainer}>
-                            <View style={styles.closeButtonPlaceholder} />
-                            <Text style={styles.modalTitle}>{selectedEvent.event_title}</Text>
                             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                                 <Ionicons name="close-circle-outline" size={28} color="#999" />
                             </TouchableOpacity>
+                            <Text style={styles.modalTitle} numberOfLines={2}>
+                                {selectedEvent.event_title}
+                            </Text>
+                            <View style={styles.closeButtonPlaceholder} />
                         </View>
 
                         <View style={styles.detailsContainer}>
@@ -258,14 +253,13 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
     },
     headerContainer: {
-        flexDirection: 'row',
+        flexDirection: 'row-reverse',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         marginBottom: 15,
         paddingBottom: 10,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
-        position: 'relative',
     },
     modalTitle: {
         fontSize: 24,
@@ -273,12 +267,7 @@ const styles = StyleSheet.create({
         color: '#333',
         flex: 1,
         textAlign: 'center',
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0,
-        textAlignVertical: 'center',
+        marginHorizontal: 10,
     },
     closeButton: {
         padding: 5,
