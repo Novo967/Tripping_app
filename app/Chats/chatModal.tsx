@@ -244,7 +244,7 @@ const ChatModal = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={statusBarStyle} backgroundColor="#1F2937" />
 
-      <View style={[styles.header, { paddingTop: insets.top -20 +  (Platform.OS === 'ios' ? 0 : 10), backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { paddingTop: insets.top -20+  (Platform.OS === 'ios' ? 0 : 10), backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="arrow-forward" size={24} color={theme.isDark ? '#FFFFFF' : '#FFFFFF'} />
         </TouchableOpacity>

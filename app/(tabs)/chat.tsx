@@ -46,6 +46,7 @@ interface ChatItem {
   lastMessageTimestamp: number;
   isGroup?: boolean;
   hasUnreadMessages: boolean;
+  unreadCount: number; // הוספת ספירת הודעות שלא נקראו
 }
 
 const ChatsList = () => {
@@ -58,7 +59,6 @@ const ChatsList = () => {
   const chatListeners = useRef<(() => void)[]>([]);
   const storage = getStorage(app);
   const { theme } = useTheme();
-  // ✅ שימוש במשתנה ref כדי לשמור את מצב הצ'אטים
   const chatMapRef = useRef<Map<string, ChatItem>>(new Map());
 
   const getProfileImageUrl = async (userId: string) => {
@@ -84,6 +84,38 @@ const ChatsList = () => {
     } catch (e) {
       console.warn(`Error fetching user image for ${userId}:`, e);
       return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
+    }
+  };
+
+  // פונקציה לספירת הודעות שלא נקראו
+  const countUnreadMessages = async (chatId: string, isGroup: boolean, lastReadTimestamp?: Date) => {
+    try {
+      const collectionName = isGroup ? 'group_chats' : 'chats';
+      const messagesRef = collection(db, collectionName, chatId, 'messages');
+      
+      let unreadQuery;
+      if (lastReadTimestamp) {
+        unreadQuery = query(
+          messagesRef,
+          where('createdAt', '>', lastReadTimestamp),
+          where('senderId', '!=', user?.uid)
+        );
+      } else {
+        unreadQuery = query(
+          messagesRef,
+          where('senderId', '!=', user?.uid)
+        );
+      }
+
+      return new Promise<number>((resolve) => {
+        const unsubscribe = onSnapshot(unreadQuery, (snapshot) => {
+          resolve(snapshot.docs.length);
+          unsubscribe();
+        });
+      });
+    } catch (error) {
+      console.error('Error counting unread messages:', error);
+      return 0;
     }
   };
 
@@ -116,7 +148,7 @@ const ChatsList = () => {
     setLoading(true);
     chatListeners.current.forEach((unsubscribe) => unsubscribe());
     chatListeners.current = [];
-    chatMapRef.current = new Map(); // ✅ איפוס המפה בטעינה מחדש
+    chatMapRef.current = new Map();
 
     const loadChats = () => {
       const privateChatsQuery = query(
@@ -153,10 +185,9 @@ const ChatsList = () => {
               limit(1)
             );
 
-            // ✅ מאזין להודעה האחרונה בתוך כל צ'אט
             const unsubscribeMsg = onSnapshot(
               lastMsgQuery,
-              (lastMsgSnapshot) => {
+              async (lastMsgSnapshot) => {
                 let newChatItem: ChatItem;
                 if (lastMsgSnapshot.empty) {
                   newChatItem = {
@@ -168,6 +199,7 @@ const ChatsList = () => {
                     lastMessageTimestamp: chatData.lastUpdate?.toDate().getTime() || 0,
                     isGroup: false,
                     hasUnreadMessages: false,
+                    unreadCount: 0,
                   };
                 } else {
                   const msg = lastMsgSnapshot.docs[0].data();
@@ -178,6 +210,10 @@ const ChatsList = () => {
                     msg.senderId !== user.uid &&
                     (!lastReadTimestamp || lastReadTimestamp < lastMessageTimestamp);
 
+                  // ספירת הודעות שלא נקראו
+                  const unreadCount = hasUnreadMessages ? 
+                    await countUnreadMessages(chatId, false, lastReadTimestamp) : 0;
+
                   newChatItem = {
                     chatId,
                     otherUserId,
@@ -187,10 +223,10 @@ const ChatsList = () => {
                     lastMessageTimestamp: lastMessageTimestamp?.getTime() || 0,
                     isGroup: false,
                     hasUnreadMessages,
+                    unreadCount,
                   };
                 }
 
-                // ✅ עדכון המפה ורשימת הצ'אטים
                 chatMapRef.current.set(chatId, newChatItem);
                 setChats(sortChats(Array.from(chatMapRef.current.values())));
                 setLoading(false);
@@ -230,10 +266,9 @@ const ChatsList = () => {
               limit(1)
             );
 
-            // ✅ מאזין להודעה האחרונה בתוך כל קבוצה
             const unsubscribeGroupMsg = onSnapshot(
               lastMsgQuery,
-              (lastMsgSnapshot) => {
+              async (lastMsgSnapshot) => {
                 let newGroupChatItem: ChatItem;
                 if (lastMsgSnapshot.empty) {
                   newGroupChatItem = {
@@ -246,6 +281,7 @@ const ChatsList = () => {
                     lastMessageTimestamp: groupData.lastUpdate?.toDate().getTime() || 0,
                     isGroup: true,
                     hasUnreadMessages: false,
+                    unreadCount: 0,
                   };
                 } else {
                   const msg = lastMsgSnapshot.docs[0].data();
@@ -255,6 +291,10 @@ const ChatsList = () => {
                   const hasUnreadMessages =
                     msg.senderId !== user.uid &&
                     (!lastReadTimestamp || lastReadTimestamp < lastMessageTimestamp);
+
+                  // ספירת הודעות שלא נקראו בקבוצה
+                  const unreadCount = hasUnreadMessages ? 
+                    await countUnreadMessages(groupId, true, lastReadTimestamp) : 0;
 
                   newGroupChatItem = {
                     chatId: groupId,
@@ -266,10 +306,10 @@ const ChatsList = () => {
                     lastMessageTimestamp: lastMessageTimestamp?.getTime() || 0,
                     isGroup: true,
                     hasUnreadMessages,
+                    unreadCount,
                   };
                 }
 
-                // ✅ עדכון המפה ורשימת הצ'אטים
                 chatMapRef.current.set(groupId, newGroupChatItem);
                 setChats(sortChats(Array.from(chatMapRef.current.values())));
                 setLoading(false);
@@ -399,7 +439,6 @@ const ChatsList = () => {
     );
   };
 
-
   const renderChatItem = ({ item }: { item: ChatItem }) => (
     <TouchableOpacity
       style={[
@@ -426,15 +465,6 @@ const ChatsList = () => {
           >
             {item.otherUsername}
           </Text>
-          {item.hasUnreadMessages && <View style={styles.unreadDot} />}
-          <Text
-            style={[
-              styles.time,
-              { color: theme.isDark ? '#95A5A6' : '#95A5A6' },
-            ]}
-          >
-            {formatTimestamp(item.lastMessageTimestamp)}
-          </Text>
         </View>
         <Text
           style={[
@@ -446,11 +476,29 @@ const ChatsList = () => {
           {item.lastMessage || 'התחל שיחה חדשה'}
         </Text>
       </View>
-      <Ionicons
-        name="chevron-back"
-        size={20}
-        color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
-      />
+
+      <View style={styles.rightContainer}>
+        <View style={styles.timeRow}>
+          <Text
+            style={[
+              styles.time,
+              { color: theme.isDark ? '#95A5A6' : '#95A5A6' },
+            ]}
+          >
+            {formatTimestamp(item.lastMessageTimestamp)}
+          </Text>
+          {item.hasUnreadMessages && item.unreadCount > 0 && (
+            <View style={[
+              styles.unreadBadge,
+              { backgroundColor: theme.isDark ? '#4A90E2' : '#3A8DFF' }
+            ]}>
+              <Text style={styles.unreadText}>
+                {item.unreadCount > 99 ? '99+' : item.unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
@@ -700,7 +748,7 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     position: 'relative',
-    marginLeft: 16,
+    marginLeft: 12,
   },
   avatar: {
     width: 56,
@@ -711,7 +759,8 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
-    marginRight: 16,
+    paddingTop: 20,
+    marginRight: 12,
   },
   headerRow: {
     flexDirection: 'row-reverse',
@@ -724,20 +773,44 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2C3E50',
     textAlign: 'right',
-    marginRight: 8,
-  },
-  time: {
-    fontSize: 12,
-    color: '#95A5A6',
-    fontWeight: '500',
-    flex: 1,
-    textAlign: 'left',
   },
   lastMessage: {
     fontSize: 14,
     color: '#7F8C8D',
     textAlign: 'right',
     lineHeight: 20,
+    paddingBottom: 18,
+  },
+  rightContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 60,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minWidth: 80,
+  },
+  time: {
+    fontSize: 12,
+    color: '#95A5A6',
+    fontWeight: '500',
+    textAlign: 'left',
+  },
+  unreadBadge: {
+    backgroundColor: '#3A8DFF',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   emptyState: {
     flex: 1,
@@ -776,12 +849,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  unreadDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#3A8DFF',
-    marginRight: 10,
   },
 });
