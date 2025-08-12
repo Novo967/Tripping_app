@@ -9,6 +9,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
@@ -29,7 +30,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../app/ProfileServices/ThemeContext'; // ✅ ייבוא useTheme
+import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { app, db } from '../../firebaseConfig';
 
 moment.locale('he');
@@ -44,6 +45,7 @@ interface ChatItem {
   lastMessage: string;
   lastMessageTimestamp: number;
   isGroup?: boolean;
+  hasUnreadMessages: boolean;
 }
 
 const ChatsList = () => {
@@ -55,7 +57,9 @@ const ChatsList = () => {
 
   const chatListeners = useRef<(() => void)[]>([]);
   const storage = getStorage(app);
-  const { theme } = useTheme(); // ✅ שימוש ב-useTheme hook
+  const { theme } = useTheme();
+  // ✅ שימוש במשתנה ref כדי לשמור את מצב הצ'אטים
+  const chatMapRef = useRef<Map<string, ChatItem>>(new Map());
 
   const getProfileImageUrl = async (userId: string) => {
     if (!userId) {
@@ -112,9 +116,9 @@ const ChatsList = () => {
     setLoading(true);
     chatListeners.current.forEach((unsubscribe) => unsubscribe());
     chatListeners.current = [];
-    const chatMap = new Map<string, ChatItem>();
+    chatMapRef.current = new Map(); // ✅ איפוס המפה בטעינה מחדש
 
-    const loadChats = async () => {
+    const loadChats = () => {
       const privateChatsQuery = query(
         collection(db, 'chats'),
         where('participants', 'array-contains', user.uid)
@@ -122,82 +126,81 @@ const ChatsList = () => {
 
       const unsubscribePrivateChats = onSnapshot(
         privateChatsQuery,
-        async (chatsSnapshot) => {
-          const privateChatPromises = chatsSnapshot.docs.map(
-            async (chatDoc) => {
-              const chatId = chatDoc.id;
-              const chatData = chatDoc.data();
-              const otherUserId = chatData.participants.find(
-                (p: string) => p !== user.uid
-              );
+        (chatsSnapshot) => {
+          chatsSnapshot.docChanges().forEach(async (change) => {
+            const chatDoc = change.doc;
+            const chatId = chatDoc.id;
+            const chatData = chatDoc.data();
+            const otherUserId = chatData.participants.find(
+              (p: string) => p !== user.uid
+            );
 
-              if (!otherUserId) return null;
+            if (!otherUserId) return;
 
-              const userDocRef = doc(db, 'users', otherUserId);
-              const userDoc = await getDoc(userDocRef);
-
-              if (!userDoc.exists()) {
-                console.error('User data not found for ID:', otherUserId);
-                return null;
-              }
-              const userData = userDoc.data();
-
-              const profileImageUrl = await getProfileImageUrl(otherUserId);
-
-              const messagesRef = collection(db, 'chats', chatId, 'messages');
-              const lastMsgQuery = query(
-                messagesRef,
-                orderBy('createdAt', 'desc'),
-                limit(1)
-              );
-
-              return new Promise<ChatItem | null>((resolve) => {
-                const unsubscribeMsg = onSnapshot(
-                  lastMsgQuery,
-                  (lastMsgSnapshot) => {
-                    if (lastMsgSnapshot.empty) {
-                      unsubscribeMsg();
-                      return resolve({
-                        chatId,
-                        otherUserId,
-                        otherUsername: userData.username || 'משתמש',
-                        otherUserImage: profileImageUrl,
-                        lastMessage: 'התחל שיחה חדשה',
-                        lastMessageTimestamp:
-                          chatData.lastUpdate?.toDate().getTime() || 0,
-                        isGroup: false,
-                      });
-                    }
-
-                    const msg = lastMsgSnapshot.docs[0].data();
-                    const newChatItem: ChatItem = {
-                      chatId,
-                      otherUserId,
-                      otherUsername: userData.username || 'משתמש',
-                      otherUserImage: profileImageUrl,
-                      lastMessage: msg.text || '',
-                      lastMessageTimestamp:
-                        msg.createdAt?.toDate().getTime() || 0,
-                      isGroup: false,
-                    };
-                    resolve(newChatItem);
-                  },
-                  (error) => {
-                    console.error('Error fetching last message:', error);
-                    resolve(null);
-                  }
-                );
-                chatListeners.current.push(unsubscribeMsg);
-              });
+            const userDocRef = doc(db, 'users', otherUserId);
+            const userDoc = await getDoc(userDocRef);
+            if (!userDoc.exists()) {
+              console.error('User data not found for ID:', otherUserId);
+              return;
             }
-          );
+            const userData = userDoc.data();
+            const profileImageUrl = await getProfileImageUrl(otherUserId);
 
-          const newPrivateChats = (await Promise.all(privateChatPromises)).filter(
-            Boolean
-          );
-          newPrivateChats.forEach((chat) => chatMap.set(chat!.chatId, chat!));
-          setChats(sortChats(Array.from(chatMap.values())));
-          setLoading(false);
+            const messagesRef = collection(db, 'chats', chatId, 'messages');
+            const lastMsgQuery = query(
+              messagesRef,
+              orderBy('createdAt', 'desc'),
+              limit(1)
+            );
+
+            // ✅ מאזין להודעה האחרונה בתוך כל צ'אט
+            const unsubscribeMsg = onSnapshot(
+              lastMsgQuery,
+              (lastMsgSnapshot) => {
+                let newChatItem: ChatItem;
+                if (lastMsgSnapshot.empty) {
+                  newChatItem = {
+                    chatId,
+                    otherUserId,
+                    otherUsername: userData.username || 'משתמש',
+                    otherUserImage: profileImageUrl,
+                    lastMessage: 'התחל שיחה חדשה',
+                    lastMessageTimestamp: chatData.lastUpdate?.toDate().getTime() || 0,
+                    isGroup: false,
+                    hasUnreadMessages: false,
+                  };
+                } else {
+                  const msg = lastMsgSnapshot.docs[0].data();
+                  const lastReadTimestamp = chatData.lastReadMessageTimestamp?.[user.uid]?.toDate();
+                  const lastMessageTimestamp = msg.createdAt?.toDate();
+                  
+                  const hasUnreadMessages =
+                    msg.senderId !== user.uid &&
+                    (!lastReadTimestamp || lastReadTimestamp < lastMessageTimestamp);
+
+                  newChatItem = {
+                    chatId,
+                    otherUserId,
+                    otherUsername: userData.username || 'משתמש',
+                    otherUserImage: profileImageUrl,
+                    lastMessage: msg.text || '',
+                    lastMessageTimestamp: lastMessageTimestamp?.getTime() || 0,
+                    isGroup: false,
+                    hasUnreadMessages,
+                  };
+                }
+
+                // ✅ עדכון המפה ורשימת הצ'אטים
+                chatMapRef.current.set(chatId, newChatItem);
+                setChats(sortChats(Array.from(chatMapRef.current.values())));
+                setLoading(false);
+              },
+              (error) => {
+                console.error('Error fetching last message:', error);
+              }
+            );
+            chatListeners.current.push(unsubscribeMsg);
+          });
         },
         (error) => {
           console.error('Error listening to private chats:', error);
@@ -214,8 +217,9 @@ const ChatsList = () => {
 
       const unsubscribeGroupChats = onSnapshot(
         groupChatsQuery,
-        async (groupSnapshot) => {
-          const groupChatPromises = groupSnapshot.docs.map(async (groupDoc) => {
+        (groupSnapshot) => {
+          groupSnapshot.docChanges().forEach(async (change) => {
+            const groupDoc = change.doc;
             const groupId = groupDoc.id;
             const groupData = groupDoc.data();
 
@@ -226,54 +230,56 @@ const ChatsList = () => {
               limit(1)
             );
 
-            return new Promise<ChatItem | null>((resolve) => {
-              const unsubscribeGroupMsg = onSnapshot(
-                lastMsgQuery,
-                (lastMsgSnapshot) => {
-                  if (lastMsgSnapshot.empty) {
-                    unsubscribeGroupMsg();
-                    return resolve({
-                      chatId: groupId,
-                      otherUsername: groupData.name || 'קבוצה',
-                      otherUserImage:
-                        groupData.groupImage ||
-                        'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
-                      lastMessage: 'התחל שיחה חדשה',
-                      lastMessageTimestamp:
-                        groupData.lastUpdate?.toDate().getTime() || 0,
-                      isGroup: true,
-                    });
-                  }
-
+            // ✅ מאזין להודעה האחרונה בתוך כל קבוצה
+            const unsubscribeGroupMsg = onSnapshot(
+              lastMsgQuery,
+              (lastMsgSnapshot) => {
+                let newGroupChatItem: ChatItem;
+                if (lastMsgSnapshot.empty) {
+                  newGroupChatItem = {
+                    chatId: groupId,
+                    otherUsername: groupData.name || 'קבוצה',
+                    otherUserImage:
+                      groupData.groupImage ||
+                      'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
+                    lastMessage: 'התחל שיחה חדשה',
+                    lastMessageTimestamp: groupData.lastUpdate?.toDate().getTime() || 0,
+                    isGroup: true,
+                    hasUnreadMessages: false,
+                  };
+                } else {
                   const msg = lastMsgSnapshot.docs[0].data();
-                  const newGroupChatItem: ChatItem = {
+                  const lastReadTimestamp = groupData.lastReadMessageTimestamp?.[user.uid]?.toDate();
+                  const lastMessageTimestamp = msg.createdAt?.toDate();
+                  
+                  const hasUnreadMessages =
+                    msg.senderId !== user.uid &&
+                    (!lastReadTimestamp || lastReadTimestamp < lastMessageTimestamp);
+
+                  newGroupChatItem = {
                     chatId: groupId,
                     otherUsername: groupData.name || 'קבוצה',
                     otherUserImage:
                       groupData.groupImage ||
                       'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
                     lastMessage: msg.text || '',
-                    lastMessageTimestamp:
-                      msg.createdAt?.toDate().getTime() || 0,
+                    lastMessageTimestamp: lastMessageTimestamp?.getTime() || 0,
                     isGroup: true,
+                    hasUnreadMessages,
                   };
-                  resolve(newGroupChatItem);
-                },
-                (error) => {
-                  console.error('Error fetching last group message:', error);
-                  resolve(null);
                 }
-              );
-              chatListeners.current.push(unsubscribeGroupMsg);
-            });
-          });
 
-          const newGroupChats = (await Promise.all(groupChatPromises)).filter(
-            Boolean
-          );
-          newGroupChats.forEach((chat) => chatMap.set(chat!.chatId, chat!));
-          setChats(sortChats(Array.from(chatMap.values())));
-          setLoading(false);
+                // ✅ עדכון המפה ורשימת הצ'אטים
+                chatMapRef.current.set(groupId, newGroupChatItem);
+                setChats(sortChats(Array.from(chatMapRef.current.values())));
+                setLoading(false);
+              },
+              (error) => {
+                console.error('Error fetching last group message:', error);
+              }
+            );
+            chatListeners.current.push(unsubscribeGroupMsg);
+          });
         },
         (error) => {
           console.error('Error listening to group chats:', error);
@@ -299,6 +305,14 @@ const ChatsList = () => {
   }, [searchQuery, chats]);
 
   const openChat = (chat: ChatItem) => {
+    if (user && chat.hasUnreadMessages) {
+      const collectionName = chat.isGroup ? 'group_chats' : 'chats';
+      const chatDocRef = doc(db, collectionName, chat.chatId);
+      updateDoc(chatDocRef, {
+        [`lastReadMessageTimestamp.${user.uid}`]: new Date(),
+      }).catch(e => console.error("Error updating read timestamp:", e));
+    }
+
     if (chat.isGroup) {
       router.push({
         pathname: '/Chats/GroupChatModal',
@@ -334,12 +348,8 @@ const ChatsList = () => {
     }
   };
 
-  /**
-   * ✅ פונקציה חדשה שמוסיפה לוגיקה לתמונות של קבוצות
-   */
   const renderChatAvatar = (item: ChatItem) => {
     if (item.isGroup) {
-      // אם יש תמונה לקבוצה, נציג אותה
       if (item.otherUserImage && item.otherUserImage !== 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png') {
         return (
           <Image
@@ -353,7 +363,6 @@ const ChatsList = () => {
           />
         );
       }
-      // אם אין תמונה, נציג אייקון של קבוצה
       return (
         <View
           style={[
@@ -373,8 +382,6 @@ const ChatsList = () => {
         </View>
       );
     }
-
-    // אם זה צ'אט פרטי, נציג את תמונת הפרופיל של המשתמש
     return (
       <Image
         source={{
@@ -398,15 +405,14 @@ const ChatsList = () => {
       style={[
         styles.chatItem,
         {
-          backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF', // צבע רקע
-          shadowColor: theme.isDark ? '#1F2937' : '#000', // צבע צל
+          backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF',
+          shadowColor: theme.isDark ? '#1F2937' : '#000',
         },
       ]}
       onPress={() => openChat(item)}
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        {/* ✅ נחליף את הלוגיקה כאן בקריאה לפונקציה החדשה */}
         {renderChatAvatar(item)}
       </View>
 
@@ -420,6 +426,7 @@ const ChatsList = () => {
           >
             {item.otherUsername}
           </Text>
+          {item.hasUnreadMessages && <View style={styles.unreadDot} />}
           <Text
             style={[
               styles.time,
@@ -708,7 +715,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     marginBottom: 4,
   },
@@ -717,11 +724,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2C3E50',
     textAlign: 'right',
+    marginRight: 8,
   },
   time: {
     fontSize: 12,
     color: '#95A5A6',
     fontWeight: '500',
+    flex: 1,
+    textAlign: 'left',
   },
   lastMessage: {
     fontSize: 14,
@@ -766,5 +776,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3A8DFF',
+    marginRight: 10,
   },
 });
