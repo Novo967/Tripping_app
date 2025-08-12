@@ -34,6 +34,10 @@ export default function EventFilterButton({
   setVisible 
 }: Props) {
   
+  // Create a filtered list to ensure only valid event types are considered
+  const eventTypeIds = EVENT_TYPES.map(type => type.id);
+  const validSelectedTypes = selectedEventTypes.filter(typeId => eventTypeIds.includes(typeId));
+  
   const toggleEventType = (eventTypeId: string) => {
     if (selectedEventTypes.includes(eventTypeId)) {
       // אם הסוג כבר נבחר, נסיר אותו
@@ -218,7 +222,7 @@ export default function EventFilterButton({
               textAlign: 'center',
               fontWeight: '500'
             }}>
-              נבחרו {selectedEventTypes.length} מתוך {EVENT_TYPES.length} סוגי אירועים
+              נבחרו {validSelectedTypes.length} מתוך {EVENT_TYPES.length} סוגי אירועים
             </Text>
           </View>
 
