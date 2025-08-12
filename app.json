@@ -33,6 +33,11 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+    "locales": {
+      "he": {
+        "supportsRTL": true
+      }
+    },
     "plugins": [
       "expo-router",
       [
@@ -55,5 +60,6 @@
         "projectId": "b1f09d27-4461-43f4-9fa5-cc2e132c8afc"
       }
     }
+    
   }
 }
