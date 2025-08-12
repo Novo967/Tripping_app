@@ -49,7 +49,7 @@ interface ChatItem {
   unreadCount: number; // הוספת ספירת הודעות שלא נקראו
 }
 
-const ChatsList = () => {
+const Chat = () => {
   const [user, setUser] = useState<User | null>(null);
   const [chats, setChats] = useState<ChatItem[]>([]);
   const [filteredChats, setFilteredChats] = useState<ChatItem[]>([]);
@@ -396,9 +396,7 @@ const ChatsList = () => {
             source={{ uri: item.otherUserImage }}
             style={[
               styles.avatar,
-              {
-                borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
-              },
+              { borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF', },
             ]}
           />
         );
@@ -414,26 +412,16 @@ const ChatsList = () => {
             },
           ]}
         >
-          <Ionicons
-            name="people"
-            size={24}
-            color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
-          />
+          <Ionicons name="people" size={24} color={theme.isDark ? '#A0C4FF' : '#3A8DFF'} />
         </View>
       );
     }
     return (
       <Image
-        source={{
-          uri:
-            item.otherUserImage ||
-            'https://cdn-icons-png.flaticon.com/512/1946/1946429.png',
-        }}
+        source={{ uri: item.otherUserImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png', }}
         style={[
           styles.avatar,
-          {
-            borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF',
-          },
+          { borderColor: theme.isDark ? '#4A90E2' : '#3A8DFF', },
         ]}
       />
     );
@@ -454,7 +442,6 @@ const ChatsList = () => {
       <View style={styles.avatarContainer}>
         {renderChatAvatar(item)}
       </View>
-
       <View style={styles.textContainer}>
         <View style={styles.headerRow}>
           <Text
@@ -476,7 +463,6 @@ const ChatsList = () => {
           {item.lastMessage || 'התחל שיחה חדשה'}
         </Text>
       </View>
-
       <View style={styles.rightContainer}>
         <View style={styles.timeRow}>
           <Text
@@ -515,10 +501,7 @@ const ChatsList = () => {
           backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
         />
         <View style={styles.loadingContent}>
-          <ActivityIndicator
-            size="large"
-            color={theme.isDark ? '#4A90E2' : '#3A8DFF'}
-          />
+          <ActivityIndicator size="large" color={theme.isDark ? '#4A90E2' : '#3A8DFF'} />
           <Text
             style={[
               styles.loadingText,
@@ -582,64 +565,41 @@ const ChatsList = () => {
           <Ionicons
             name="search"
             size={20}
-            color={theme.isDark ? '#BDC3C7' : '#999'}
-            style={styles.searchIcon}
+            color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
+            style={{ marginLeft: 10 }}
           />
           <TextInput
             style={[
               styles.searchInput,
-              {
-                color: theme.isDark ? '#E0E0E0' : '#333',
-              },
+              { color: theme.isDark ? '#E0E0E0' : '#333' },
             ]}
-            placeholder="חפש חברים..."
-            placeholderTextColor={theme.isDark ? '#BDC3C7' : '#999'}
+            placeholder="חיפוש צ'אטים"
+            placeholderTextColor={theme.isDark ? '#BDC3C7' : '#95A5A6'}
             value={searchQuery}
             onChangeText={setSearchQuery}
             textAlign="right"
           />
         </View>
       </View>
-      <View style={styles.listContainer}>
-        {filteredChats.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons
-              name="chatbubbles-outline"
-              size={80}
-              color={theme.isDark ? '#4A90E2' : '#E0E0E0'}
-            />
-            <Text
-              style={[
-                styles.emptyStateTitle,
-                { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
-              ]}
-            >
-              אין צאטים עדיין
-            </Text>
-            <Text
-              style={[
-                styles.emptyStateSubtitle,
-                { color: theme.isDark ? '#BDC3C7' : '#95A5A6' },
-              ]}
-            >
-              {searchQuery ? 'לא נמצאו תוצאות חיפוש' : 'התחל שיחה חדשה עם חברים'}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredChats}
-            keyExtractor={(item) => item.chatId}
-            renderItem={renderChatItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-          />
-        )}
-      </View>
+      <FlatList
+        data={filteredChats}
+        renderItem={renderChatItem}
+        keyExtractor={(item) => item.chatId}
+        style={styles.chatList}
+        contentContainerStyle={styles.chatListContent}
+        ListEmptyComponent={
+          !loading && (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: theme.isDark ? '#BDC3C7' : '#666' }]}>
+                אין לך עדיין צ'אטים.
+              </Text>
+            </View>
+          )
+        }
+      />
     </SafeAreaView>
   );
 };
-
-export default ChatsList;
 
 const styles = StyleSheet.create({
   container: {
@@ -648,208 +608,166 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8F9FA',
   },
   loadingContent: {
-    justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 10,
     fontSize: 16,
     color: '#666',
-    fontWeight: '500',
   },
   header: {
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     backgroundColor: '#3A8DFF',
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#3A8DFF',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
   },
   headerTitle: {
-    paddingTop: 20,
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'right',
-    marginBottom: 4,
+    color: 'white',
+    marginBottom: 5,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.6,
-    textAlign: 'right',
-    fontWeight: '500',
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '400',
   },
   searchContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 16,
+    padding: 15,
   },
   searchBar: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderRadius: 30,
+    paddingHorizontal: 15,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  searchIcon: {
-    marginLeft: 12,
+    shadowRadius: 3,
+    elevation: 5,
   },
   searchInput: {
     flex: 1,
+    paddingVertical: 12,
     fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    textAlign: 'right',
   },
-  listContainer: {
+  chatList: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
   },
-  listContent: {
-    paddingBottom: 20,
+  chatListContent: {
+    paddingTop: 10,
   },
   chatItem: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginVertical: 4,
-    marginHorizontal: 8,
-    borderRadius: 16,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 3,
   },
   avatarContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
-    marginLeft: 12,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 3,
+    width: '100%',
+    height: '100%',
+    borderRadius: 30,
+    borderWidth: 2,
     borderColor: '#3A8DFF',
+  },
+  groupIcon: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 30,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   textContainer: {
     flex: 1,
-    paddingTop: 20,
-    marginRight: 12,
+    justifyContent: 'center',
   },
   headerRow: {
     flexDirection: 'row-reverse',
-    justifyContent: 'flex-start',
     alignItems: 'center',
-    marginBottom: 4,
+    justifyContent: 'space-between',
+    marginBottom: 5,
   },
   username: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2C3E50',
-    textAlign: 'right',
   },
   lastMessage: {
     fontSize: 14,
     color: '#7F8C8D',
-    textAlign: 'right',
-    lineHeight: 20,
-    paddingBottom: 18,
   },
   rightContainer: {
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'center',
-    minWidth: 60,
   },
   timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minWidth: 80,
+    flexDirection: 'column',
+    alignItems: 'flex-end',
   },
   time: {
     fontSize: 12,
     color: '#95A5A6',
-    fontWeight: '500',
-    textAlign: 'left',
+    marginBottom: 3,
   },
   unreadBadge: {
     backgroundColor: '#3A8DFF',
     borderRadius: 12,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
     minWidth: 24,
-    height: 24,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    justifyContent: 'center',
   },
   unreadText: {
-    color: '#FFFFFF',
+    color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
   },
-  emptyState: {
+  emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    marginTop: 50,
   },
-  emptyStateTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2C3E50',
+  emptyText: {
+    fontSize: 18,
     textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  emptyStateSubtitle: {
-    fontSize: 16,
-    color: '#95A5A6',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  groupIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#3A8DFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    color: '#666',
   },
 });
+
+export default Chat;

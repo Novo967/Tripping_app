@@ -291,48 +291,28 @@ const GroupDetailsModal = ({
               ]}
             >
               <View style={styles.detailRow}>
-                <Ionicons
-                  name="location-outline"
-                  size={20}
-                  color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
-                  style={styles.detailIcon}
-                />
+                <Ionicons name="location-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                 <View style={styles.detailTextContainer}>
                   <Text style={[styles.detailTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>מיקום</Text>
                   <Text style={[styles.detailValue, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{eventDetails.location}</Text>
                 </View>
               </View>
               <View style={styles.detailRow}>
-                <Ionicons
-                  name="calendar-outline"
-                  size={20}
-                  color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
-                  style={styles.detailIcon}
-                />
+                <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                 <View style={styles.detailTextContainer}>
                   <Text style={[styles.detailTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>תאריך</Text>
                   <Text style={[styles.detailValue, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{eventDetails.date}</Text>
                 </View>
               </View>
               <View style={styles.detailRow}>
-                <Ionicons
-                  name="time-outline"
-                  size={20}
-                  color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
-                  style={styles.detailIcon}
-                />
+                <Ionicons name="time-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                 <View style={styles.detailTextContainer}>
                   <Text style={[styles.detailTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>שעה</Text>
                   <Text style={[styles.detailValue, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{eventDetails.time}</Text>
                 </View>
               </View>
               <View style={styles.detailRow}>
-                <Ionicons
-                  name="information-circle-outline"
-                  size={20}
-                  color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
-                  style={styles.detailIcon}
-                />
+                <Ionicons name="information-circle-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                 <View style={styles.detailTextContainer}>
                   <Text style={[styles.detailTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>תיאור</Text>
                   <Text style={[styles.detailValue, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{eventDetails.description}</Text>
@@ -341,7 +321,6 @@ const GroupDetailsModal = ({
             </View>
           </View>
         )}
-
         <View
           style={[
             styles.membersSection,
@@ -363,7 +342,6 @@ const GroupDetailsModal = ({
             scrollEnabled={false}
           />
         </View>
-
         <TouchableOpacity
           style={[
             styles.leaveGroupButton,
@@ -374,14 +352,12 @@ const GroupDetailsModal = ({
           onPress={leaveGroup}
         >
           <Ionicons name="log-out" size={20} color="#FFFFFF" />
-          <Text style={styles.leaveGroupButtonText}>יציאה מהקבוצה</Text>
+          <Text style={styles.leaveGroupButtonText}>עזוב קבוצה</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 };
-
-export default GroupDetailsModal;
 
 const styles = StyleSheet.create({
   container: {
@@ -398,55 +374,56 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
+    alignItems: 'center',
   },
   header: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    paddingTop: 12,
-    backgroundColor: '#3A8DFF',
+    paddingBottom: 16,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     elevation: 4,
-    minHeight: 60,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   backButton: {
     padding: 8,
-    minWidth: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
-    flex: 1,
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    textAlign: 'center',
   },
   groupHeader: {
-    padding: 20,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
+    marginTop: 20,
+    marginBottom: 20,
   },
   groupImageContainer: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    marginBottom: 12,
-    backgroundColor: '#E0E0E0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
+    marginBottom: 10,
+    borderWidth: 3,
+    borderColor: '#3A8DFF',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   groupImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 60,
   },
   groupImagePlaceholder: {
     width: '100%',
     height: '100%',
-    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -454,7 +431,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#2C3E50',
   },
   memberCount: {
     fontSize: 16,
@@ -462,20 +438,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   detailsSection: {
-    marginTop: 20,
-    paddingHorizontal: 16,
+    width: '90%',
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 20,
   },
   detailCard: {
-    padding: 16,
-    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E8E8E8',
-    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
@@ -483,51 +457,43 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   detailIcon: {
-    marginRight: 10,
+    marginRight: 15,
   },
   detailTextContainer: {
     flex: 1,
   },
   detailTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2C3E50',
-    textAlign: 'right',
+    fontWeight: '600',
+    marginBottom: 2,
   },
   detailValue: {
     fontSize: 14,
-    color: '#95A5A6',
-    textAlign: 'right',
   },
   membersSection: {
-    marginTop: 20,
-    paddingHorizontal: 16,
+    width: '90%',
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#3A8DFF',
-    marginBottom: 10,
+    marginBottom: 15,
     textAlign: 'right',
   },
   memberItem: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#E8E8E8',
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
@@ -536,31 +502,37 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
+    marginLeft: 15,
   },
   memberInfo: {
     flex: 1,
-    marginRight: 12,
   },
   memberName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#2C3E50',
+    fontWeight: 'bold',
     textAlign: 'right',
   },
   leaveGroupButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF5252',
-    borderRadius: 10,
-    paddingVertical: 14,
-    marginHorizontal: 16,
-    marginTop: 20,
+    paddingVertical: 15,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+    width: '90%',
+    marginTop: 10,
+    shadowColor: '#FF5252',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
   leaveGroupButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginRight: 8,
+    marginRight: 10,
   },
 });
+
+export default GroupDetailsModal;
