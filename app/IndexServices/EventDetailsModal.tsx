@@ -1,12 +1,12 @@
 // app/IndexServices/EventDetailsModal.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { arrayUnion, doc, getFirestore, updateDoc } from 'firebase/firestore';
+// Note: We need all these imports to handle the Firebase logic
+import { addDoc, collection, getDocs, getFirestore, query, serverTimestamp, where } from 'firebase/firestore';
 import React from 'react';
 import { Alert, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { app } from '../../firebaseConfig';
 
-// הגדרת ממשק (interface) עבור selectedEvent
 interface SelectedEventType {
     id: string;
     latitude: number;
@@ -30,10 +30,6 @@ interface EventDetailsModalProps {
     userLocation: { latitude: number; longitude: number } | null;
 }
 
-/**
- * קומפוננטת מודל להצגת פרטי אירוע.
- * מאפשרת שליחת בקשת הצטרפות לאירוע או פתיחת צ'אט קבוצתי.
- */
 const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
     visible,
     selectedEvent,
@@ -42,14 +38,10 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
     currentUserUsername,
     userLocation,
 }) => {
-
     const db = getFirestore(app);
 
-    /**
-     * פונקציה לחישוב מרחק בין שתי נקודות על פני כדור הארץ (Haversine formula).
-     */
     const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371; // Radius of Earth in kilometers
+        const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a =
@@ -58,7 +50,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distance = R * c;
-        return distance; // Distance in kilometers
+        return distance;
     };
 
     const eventDistance = React.useMemo(() => {
@@ -69,14 +61,14 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 selectedEvent.latitude,
                 selectedEvent.longitude
             );
-            return dist.toFixed(1); // Keep 1 decimal place for cleaner look
+            return dist.toFixed(1);
         }
         return null;
     }, [userLocation, selectedEvent]);
 
     /**
-     * הפונקציה מעדכנת את הנתונים ב-Firestore.
-     * מוסיף את ה-UID של המשתמש לרשימת approved_users של האירוע.
+     * ✅ שינוי מרכזי: הפונקציה יוצרת בקשת הצטרפות באוסף event_requests ב-Firestore,
+     * במקום לאשר הצטרפות ישירות. היא גם בודקת מראש אם קיימת בקשה ממתינה.
      */
     const handleSendRequest = async () => {
         if (!user || !selectedEvent || !currentUserUsername) {
@@ -89,25 +81,49 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             return;
         }
 
+        // בדיקה 1: האם המשתמש כבר אושר לאירוע.
+        if (selectedEvent.approved_users?.includes(user.uid)) {
+            Alert.alert('שים לב', 'אתה כבר חלק מהאירוע.');
+            onClose();
+            return;
+        }
+
+        // בדיקה 2: האם קיימת כבר בקשה ממתינה מהמשתמש הזה לאירוע זה.
+        const q = query(
+            collection(db, 'event_requests'),
+            where('sender_uid', '==', user.uid),
+            where('event_id', '==', selectedEvent.id),
+            where('status', '==', 'pending')
+        );
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            Alert.alert('שים לב', 'כבר שלחת בקשה לאירוע זה. אנא המתן לאישור.');
+            onClose();
+            return;
+        }
+
         try {
-            const eventRef = doc(db, 'pins', selectedEvent.id);
-            await updateDoc(eventRef, {
-                approved_users: arrayUnion(user.uid)
+            // יצירת מסמך חדש באוסף event_requests
+            await addDoc(collection(db, 'event_requests'), {
+                sender_uid: user.uid,
+                sender_username: currentUserUsername,
+                event_id: selectedEvent.id,
+                event_title: selectedEvent.event_title,
+                receiver_uid: selectedEvent.owner_uid,
+                status: 'pending',
+                createdAt: serverTimestamp(),
             });
 
-            Alert.alert('הצלחה', 'הבקשה נשלחה למנהל האירוע!');
-        } catch (error) {
+        } catch (error: any) {
+            // ✅ שינוי מרכזי: הצגת שגיאה מפורטת
             console.error('Error sending request:', error);
-            Alert.alert('שגיאה', 'אירעה שגיאה בשליחת הבקשה.');
+            const errorMessage = error.message || 'אירעה שגיאה לא ידועה בשליחת הבקשה.';
+            Alert.alert('שגיאה בשליחת בקשה', `אירעה שגיאה: ${errorMessage}\n\nאנא ודא שחוקי האבטחה של Firebase מעודכנים כראוי.`);
         } finally {
             onClose();
         }
     };
 
-    /**
-     * פותח צ'אט קבוצתי עבור אירוע נבחר.
-     * @param eventTitle כותרת האירוע
-     */
     const handleOpenGroupChat = (eventTitle: string) => {
         if (eventTitle) {
             onClose();
@@ -118,22 +134,15 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         }
     };
 
-    /**
-     * ✅ שינוי: פונקציה חדשה לנווט לפרופיל המשתמש עם בדיקה
-     * נווטת לעמוד הפרופיל של יוצר האירוע. אם מדובר במשתמש עצמו, מעבירה אותו לנתיב '/profile',
-     * ואחרת לנתיב '/ProfileServices/OtherUserProfile' עם ה-UID של היוצר.
-     */
     const handleAuthorPress = () => {
         if (!selectedEvent || !user) return;
 
         const isMyEvent = user.uid === selectedEvent.owner_uid;
-        onClose(); // סגור את המודל לפני הניווט
+        onClose();
 
         if (isMyEvent) {
-            // אם המשתמש לוחץ על האירוע שלו, נווט לעמוד הפרופיל האישי
             router.push('/profile');
         } else {
-            // אם המשתמש לוחץ על אירוע של מישהו אחר, נווט לעמוד פרופיל של משתמש אחר
             router.push({
                 pathname: '/ProfileServices/OtherUserProfile',
                 params: { uid: selectedEvent.owner_uid }
@@ -141,10 +150,6 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         }
     };
 
-    /**
-     * מציג את כפתור הפעולה המתאים לאירוע (שליחת בקשה או פתיחת צ'אט).
-     * @returns רכיב TouchableOpacity או null
-     */
     const renderEventActionButton = () => {
         if (!user || !selectedEvent) return null;
 
@@ -189,12 +194,10 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                             </TouchableOpacity>
                         </View>
 
-                        {/* פרטי האירוע */}
                         <View style={styles.detailsContainer}>
                             <View style={styles.detailRow}>
                                 <Ionicons name="person-outline" size={18} color="#555" style={styles.detailIcon} />
                                 <Text style={styles.modalAuthorPrefix}>מאת: </Text>
-                                {/* ✅ שינוי: עוטף את שם המשתמש ב-TouchableOpacity ומקשר אותו לפונקציה החדשה */}
                                 <TouchableOpacity onPress={handleAuthorPress}>
                                     <Text style={styles.modalAuthorLink}>{selectedEvent.username}</Text>
                                 </TouchableOpacity>
@@ -227,7 +230,6 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                             )}
                         </View>
 
-                        {/* כפתורי פעולה */}
                         {renderEventActionButton()}
                     </View>
                 </View>
@@ -300,15 +302,13 @@ const styles = StyleSheet.create({
         width: 20,
         textAlign: 'center',
     },
-    // ✅ שינוי: סגנון חדש לקישור של שם המשתמש
     modalAuthorLink: {
         fontSize: 16,
-        color: '#3A8DFF', // צבע כחול כדי להדגיש שמדובר בקישור
+        color: '#3A8DFF',
         textAlign: 'right',
         fontWeight: 'bold',
-        textDecorationLine: 'underline', // קו תחתון
+        textDecorationLine: 'underline',
     },
-    // ✅ שינוי: סגנון חדש לטקסט הקבוע "מאת:"
     modalAuthorPrefix: {
         fontSize: 16,
         color: '#555',

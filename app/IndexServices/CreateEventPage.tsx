@@ -1,10 +1,11 @@
+// app/IndexServices/CreateEventPage.tsx
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { addDoc, collection, doc, getFirestore, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
@@ -23,7 +24,6 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-
 import { app } from '../../firebaseConfig';
 
 // Define event types according to your requirements
@@ -110,14 +110,11 @@ export default function CreateEventPage() {
         }
     };
 
-    // ✅ שינוי: מעדכן את הנתיב לתיקיית group_images
     const uploadImage = async (uri: string, eventTitle: string) => {
         setIsUploadingImage(true);
         try {
             const response = await fetch(uri);
             const blob = await response.blob();
-            // שינוי כאן: הנתיב הוא event_images בתוך ה-group_images
-            // כדי למנוע כפילות מיותרת, בחרתי לשנות לנתיב group_images/eventTitle/groupImage.jpg
             const fileRef = ref(storage, `group_images/${eventTitle}/groupImage.jpg`);
             await uploadBytes(fileRef, blob);
             const downloadURL = await getDownloadURL(fileRef);
@@ -148,7 +145,6 @@ export default function CreateEventPage() {
         setIsLoading(true);
         let imageUrl = null;
         if (eventImageUri) {
-            // ✅ שינוי: מעביר את eventTitle כפרמטר לפונקציה
             imageUrl = await uploadImage(eventImageUri, eventTitle);
             if (!imageUrl) {
                 setIsLoading(false);
@@ -157,7 +153,7 @@ export default function CreateEventPage() {
         }
 
         try {
-            // יצירת אובייקט הנתונים לשמירה ב-Firestore
+            // ✅ שינוי מרכזי: הוספת השדה 'approved_users' עם ה-ID של היוצר
             const eventData = {
                 owner_uid: userId,
                 username: username,
@@ -170,22 +166,22 @@ export default function CreateEventPage() {
                 location: eventLocation,
                 city_country: cityCountry,
                 created_at: new Date().toISOString(),
-                // ✅ שינוי: שמירת קישור התמונה ב-eventImageUrl
+                // ✅ שינוי: הוספת השדה approved_users עם ה-uid של המשתמש היוצר.
+                approved_users: [userId],
                 ...(imageUrl && { eventImageUrl: imageUrl }),
             };
 
-            // שמירת האובייקט ישירות בקולקשן 'pins' ב-Firestore
             await addDoc(collection(db, 'pins'), eventData);
 
-            // Create a document in 'group_chats' for this event
+            // ✅ שינוי: הוספת ה-uid של היוצר לרשימת חברי הצ'אט
             await setDoc(doc(db, 'group_chats', eventTitle), {
                 name: eventTitle,
                 members: [userId],
-                // ✅ שינוי: שימוש בקישור שהועלה ב-groupImage
                 groupImage: imageUrl || null,
-                createdAt: new Date().toISOString(),
+                createdAt: serverTimestamp(),
             });
-            router.replace('/home'); // Navigate to home after creation
+
+            router.replace('/home');
         } catch (error) {
             console.error('Firestore error:', error);
             Alert.alert(
@@ -197,7 +193,7 @@ export default function CreateEventPage() {
         }
     };
 
-    // Updated event types with Hebrew labels and appropriate icons
+    // ... (rest of the component and styles)
     const typeLabels: Record<EventType, string> = {
         trip: 'טיול',
         party: 'מסיבה',
@@ -208,8 +204,7 @@ export default function CreateEventPage() {
         sport: 'ספורט',
         other: 'אחר',
     };
-
-    // Icon mapping for each event type
+    
     const getEventIcon = (type: EventType): keyof typeof Ionicons.glyphMap => {
         const iconMap: Record<EventType, keyof typeof Ionicons.glyphMap> = {
             trip: 'car',
@@ -223,8 +218,7 @@ export default function CreateEventPage() {
         };
         return iconMap[type];
     };
-
-    // Event types array in the specified order
+    
     const eventTypesArray: EventType[] = [
         'trip',
         'party',
@@ -235,25 +229,22 @@ export default function CreateEventPage() {
         'sport',
         'other',
     ];
-
+    
     return (
         <KeyboardAvoidingView
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <View style={styles.header}>
-                {/* Back button */}
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Ionicons name="arrow-forward" size={24} color="white" />
                 </TouchableOpacity>
-
-                {/* Header Title */}
+    
                 <Text style={styles.headerTitle}>יצירת אירוע</Text>
-
-                {/* Placeholder to balance the header layout */}
+    
                 <View style={styles.backButton} />
             </View>
-
+    
             <ScrollView style={styles.scrollView}>
                 <MapView
                     style={styles.map}
@@ -277,8 +268,7 @@ export default function CreateEventPage() {
                         </View>
                     </Marker>
                 </MapView>
-
-                {/* Updated Location Section with "Edit Location" button */}
+    
                 <View style={styles.locationContainer}>
                     <View style={styles.locationInfo}>
                         <Ionicons name="location-outline" size={20} color="#333" style={{ marginRight: 8 }} />
@@ -291,13 +281,12 @@ export default function CreateEventPage() {
                     </View>
                     <TouchableOpacity
                         style={styles.editLocationButton}
-                        onPress={() => router.back()} // Navigate back to the previous screen (map selection)
+                        onPress={() => router.back()}
                     >
                         <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
                     </TouchableOpacity>
                 </View>
-
-                {/* Image Picker Section */}
+    
                 <View style={styles.imagePickerContainer}>
                     <TouchableOpacity style={styles.imagePickerButton} onPress={handleImagePicker}>
                         {eventImageUri ? (
@@ -315,7 +304,7 @@ export default function CreateEventPage() {
                         </View>
                     )}
                 </View>
-
+    
                 <TextInput
                     style={styles.input}
                     placeholder="כותרת האירוע"
@@ -323,8 +312,7 @@ export default function CreateEventPage() {
                     onChangeText={setEventTitle}
                     placeholderTextColor="#999"
                 />
-
-                {/* RTL horizontal scroll for event types */}
+    
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -353,7 +341,7 @@ export default function CreateEventPage() {
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
-
+    
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', width: '100%' }}>
                     <TouchableOpacity
                         style={[styles.dateButton, { flex: 1, flexDirection: 'row-reverse', justifyContent: 'flex-end' }]}
@@ -373,7 +361,7 @@ export default function CreateEventPage() {
                     multiline
                     placeholderTextColor="#999"
                 />
-
+    
                 <TouchableOpacity
                     style={[styles.createButton, isLoading && { opacity: 0.6 }]}
                     onPress={handleCreateEvent}
@@ -384,7 +372,7 @@ export default function CreateEventPage() {
                     </Text>
                 </TouchableOpacity>
             </ScrollView>
-
+    
             <Modal visible={showDatePicker} transparent animationType="fade">
                 <TouchableOpacity
                     style={styles.modalOverlay}
@@ -405,8 +393,8 @@ export default function CreateEventPage() {
             </Modal>
         </KeyboardAvoidingView>
     );
+    
 }
-
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f8f9fa' },
     header: {
@@ -507,7 +495,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     imagePlaceholderText: {
-        color: '#3A8DFF',
+            color: '#3A8DFF',
         marginTop: 8,
         fontSize: 16,
         fontWeight: 'bold',
