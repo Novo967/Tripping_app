@@ -244,9 +244,9 @@ const ChatModal = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={statusBarStyle} backgroundColor="#1F2937" />
 
-      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'ios' ? 0 : 10), backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF', borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'ios' ? 0 : 10), backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
-          <Ionicons name="arrow-forward" size={24} color={theme.isDark ? '#FFFFFF' : '#3A8DFF'} />
+          <Ionicons name="arrow-forward" size={24} color={theme.isDark ? '#FFFFFF' : '#FFFFFF'} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.userInfo} onPress={handleUserProfilePress} activeOpacity={0.7}>
           <View style={styles.avatarContainer}>
@@ -258,7 +258,7 @@ const ChatModal = () => {
             />
           </View>
           <View style={styles.userTextInfo}>
-            <Text style={[styles.username, { color: theme.isDark ? '#FFFFFF' : '#2C3E50' }]}>{otherUsername}</Text>
+            <Text style={[styles.username, { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' }]}>{otherUsername}</Text>
             <Text style={[styles.userStatus, { color: theme.isDark ? '#D0D0D0' : '#95A5A6' }]}>פעיל עכשיו</Text>
           </View>
         </TouchableOpacity>
@@ -336,12 +336,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    // ✅ שינוי צבעי הרקע כאן
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    shadowColor: '#2C3946',
+    shadowColor: '#3A8DFF',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -378,7 +377,6 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 18,
     fontWeight: 'bold',
-    // ✅ צבע הטקסט כאן
     color: '#FFFFFF', 
     textAlign: 'right',
   },
