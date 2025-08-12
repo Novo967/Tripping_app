@@ -1,6 +1,6 @@
 // app/(tabs)/home/index.tsx
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
   collection,
@@ -96,7 +96,7 @@ export default function HomeScreen() {
   const [eventFilterModalVisible, setEventFilterModalVisible] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [currentUserUsername, setCurrentUserUsername] = useState('');
-
+  const { isChoosingLocation: shouldChooseLocationParam } = useLocalSearchParams();
   const { theme } = useTheme(); // ✅ שימוש ב-useTheme hook
 
   const auth = getAuth();
@@ -166,7 +166,11 @@ export default function HomeScreen() {
       Alert.alert('שגיאה', 'לא ניתן לטעון את המיקום הנוכחי.');
     }
   }, []);
-
+  useEffect(() => {
+      if (shouldChooseLocationParam === 'true') {
+          setIsChoosingLocation(true);
+      }
+  }, [shouldChooseLocationParam]);
   useEffect(() => {
     const loadInitialData = async () => {
       await fetchLocation();

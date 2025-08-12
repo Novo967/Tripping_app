@@ -279,12 +279,15 @@ export default function CreateEventPage() {
                             ) : null}
                         </View>
                     </View>
-                    <TouchableOpacity
-                        style={styles.editLocationButton}
-                        onPress={() => router.back()}
-                    >
-                        <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
-                    </TouchableOpacity>
+                   <TouchableOpacity
+                      style={styles.editLocationButton}
+                      onPress={() => router.replace({
+                          pathname: '/home',
+                          params: { isChoosingLocation: 'true' }
+                      })}
+                  >
+                      <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
+                  </TouchableOpacity>
                 </View>
     
                 <View style={styles.imagePickerContainer}>
