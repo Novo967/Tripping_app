@@ -9,19 +9,19 @@ import { addDoc, collection, doc, getFirestore, serverTimestamp, setDoc } from '
 import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { app } from '../../firebaseConfig';
@@ -313,6 +313,7 @@ export default function CreateEventPage() {
                     placeholder="כותרת האירוע"
                     value={eventTitle}
                     onChangeText={setEventTitle}
+                    maxLength={23}
                     placeholderTextColor="#999"
                 />
     
