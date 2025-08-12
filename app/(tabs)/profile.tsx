@@ -161,22 +161,30 @@ export default function ProfileScreen() {
     setSelectedImage(null);
   };
 
-  const saveBio = async () => {
+  const saveBio = async (newBio: string) => {
     try {
       const user = auth.currentUser;
       if (!user) return;
 
       const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, {
-        bio: bio,
+        bio: newBio,
       });
 
+      setBio(newBio);
       setIsEditingBio(false);
       Alert.alert('הצלחה', 'הביוגרפיה נשמרה בהצלחה!');
     } catch (error: any) {
       Alert.alert('שגיאה', `לא הצלחנו לשמור את הביוגרפיה: ${error.message}`);
       console.error('Save Bio Error:', error);
+      throw error; // זורק את השגיאה חזרה לקומפוננטת הביו
     }
+  };
+
+  // פונקציה חדשה לפתיחת עריכת ביו מההגדרות
+  const handleEditBioFromSettings = () => {
+    setShowSettings(false); // סגירת ההגדרות
+    setIsEditingBio(true); // פתיחת עריכת הביו
   };
 
   const init = useCallback(async () => {
@@ -303,20 +311,39 @@ export default function ProfileScreen() {
           left: 'auto',
           top: insets.top + (Platform.OS === 'ios' ? 50 : 60),
         }]}>
-          {/* New link to the Terms of Service page */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => { router.push('/ProfileServices/TermsOfServiceProfile'); toggleSettings(); }}>
-            <Ionicons name="document-text-outline" size={20} color={theme.colors.text} />
-            <Text style={[styles.settingsText, { color: theme.colors.text }]}>תנאי שימוש</Text>
+        {/* New line for editing bio */}
+          <TouchableOpacity style={styles.settingsItem} onPress={() => {
+            handleEditBioFromSettings();
+            toggleSettings(); // Close settings panel
+          }}>
+          <Ionicons name="create-outline" size={20} color={theme.colors.text} />
+          <Text style={[styles.settingsText, { color: theme.colors.text }]}>עריכת ביו</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingsItem} onPress={() => { toggleTheme(); toggleSettings(); }}>
-            <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
-            <Text style={[styles.settingsText, { color: theme.colors.text }]}>
-              {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
-            </Text>
+          {/* Link to the Terms of Service page */}
+          <TouchableOpacity style={styles.settingsItem} onPress={() => {
+            router.push('/ProfileServices/TermsOfServiceProfile');
+            toggleSettings();
+          }}>
+          <Ionicons name="document-text-outline" size={20} color={theme.colors.text} />
+          <Text style={[styles.settingsText, { color: theme.colors.text }]}>תנאי שימוש</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingsItem} onPress={() => { toggleSettings(); fadeOutAndLogout(); }}>
-            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-            <Text style={[styles.settingsText, { color: '#FF3B30' }]}>התנתקות</Text>
+          {/* Dark/Light mode toggle */}
+          <TouchableOpacity style={styles.settingsItem} onPress={() => {
+            toggleTheme();
+            toggleSettings(); // Close settings panel
+          }}>
+          <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
+          <Text style={[styles.settingsText, { color: theme.colors.text }]}>
+            {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
+          </Text>
+          </TouchableOpacity>
+          {/* Sign Out */}
+          <TouchableOpacity style={styles.settingsItem} onPress={() => {
+            toggleSettings();
+            fadeOutAndLogout();
+          }}>
+          <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+          <Text style={[styles.settingsText, { color: '#FF3B30' }]}>התנתקות</Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -328,7 +355,6 @@ export default function ProfileScreen() {
           <EventRequestsHandler
             isVisible={showRequests}
             onClose={toggleRequests}
-            pendingRequests={pendingRequests}
             setPendingRequests={setPendingRequests}
           />
         </Animated.View>

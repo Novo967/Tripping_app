@@ -37,10 +37,12 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
   const textInputRef = useRef<TextInput>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // העבר את הגדרת המשתנים הללו לכאן, לפני השימוש בהם בפונקציות
+  // הגדרות חדשות - מינימום 20 תווים במקום מקסימום 150
   const maxLength = 150;
+  const minLength = 20;
   const isNearLimit = characterCount > maxLength * 0.8;
   const isOverLimit = characterCount > maxLength;
+  const isUnderMinimum = characterCount < minLength;
 
   // אפקט לטיפול בשינוי מצב העריכה
   React.useEffect(() => {
@@ -71,8 +73,11 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
   }, [onChange]);
 
   const handleSave = useCallback(async () => {
-    // isOverLimit זמין כאן כעת
-    if (isOverLimit || isSaving) {
+    // בדיקה אם יש פחות מ-20 תווים או יותר ממקסימום
+    if (isOverLimit || isUnderMinimum || isSaving) {
+      if (isUnderMinimum) {
+        Alert.alert("שגיאה", `הביוגרפיה חייבת להכיל לפחות ${minLength} תווים`);
+      }
       return;
     }
 
@@ -101,7 +106,7 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
         setIsSaving(false);
       }
     });
-  }, [isOverLimit, onSave, tempBio, fadeAnim, isSaving]);
+  }, [isOverLimit, isUnderMinimum, onSave, tempBio, fadeAnim, isSaving, minLength]);
 
   const handleCancel = useCallback(() => {
     setTempBio(bio);
@@ -111,12 +116,13 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
     onEditToggle();
   }, [bio, onChange, onEditToggle]);
 
-  // שים לב: המשתנים האלה הועברו למעלה, מחיקה מכאן:
-  // const maxLength = 150;
-  // const isNearLimit = characterCount > maxLength * 0.8;
-  // const isOverLimit = characterCount > maxLength;
-
-  // שאר הקוד נשאר כפי שהוא
+  // פונקציה לטיפול בלחיצה על הביו - רק במצב שאין ביו
+  const handleBioPress = useCallback(() => {
+    // רק אם אין ביו, מתחילים עריכה
+    if (!bio || bio.trim() === '') {
+      onEditToggle();
+    }
+  }, [bio, onEditToggle]);
 
   const bioContent = (
     <Animated.View
@@ -125,6 +131,9 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
         {
           backgroundColor: theme.colors.surface,
           opacity: fadeAnim,
+          // מסגרת כחולה דקה
+          borderWidth: 1,
+          borderColor: theme.colors.primary + '30', // שקיפות 30%
         }
       ]}
     >
@@ -144,15 +153,17 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
                 style={[
                   styles.counterText,
                   {
-                    color: isOverLimit // isOverLimit זמין כאן כעת
+                    color: isOverLimit
                       ? theme.colors.error
-                      : isNearLimit // isNearLimit זמין כאן כעת
+                      : isUnderMinimum
                         ? theme.colors.warning
-                        : theme.colors.textSecondary
+                        : isNearLimit
+                          ? theme.colors.warning
+                          : theme.colors.textSecondary
                   }
                 ]}
               >
-                {characterCount}/{maxLength}
+                {characterCount}/{maxLength} (מינימום {minLength})
               </Text>
             </View>
           </View>
@@ -165,9 +176,11 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
                 {
                   backgroundColor: theme.colors.background,
                   color: theme.colors.text,
-                  borderColor: isOverLimit // isOverLimit זמין כאן כעת
+                  borderColor: isOverLimit
                     ? theme.colors.error
-                    : theme.colors.border,
+                    : isUnderMinimum
+                      ? theme.colors.warning
+                      : theme.colors.border,
                 }
               ]}
               value={tempBio}
@@ -183,7 +196,7 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
               returnKeyType="done"
               onSubmitEditing={dismissKeyboard}
               accessibilityLabel="שדה עריכת ביוגרפיה"
-              accessibilityHint={`ניתן להזין עד ${maxLength} תווים. נכון לעכשיו, ישנם ${characterCount} תווים.`}
+              accessibilityHint={`ניתן להזין בין ${minLength} ל-${maxLength} תווים. נכון לעכשיו, ישנם ${characterCount} תווים.`}
             />
           </Animated.View>
 
@@ -204,12 +217,12 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
               style={[
                 styles.saveButton,
                 {
-                  backgroundColor: isOverLimit || isSaving
+                  backgroundColor: isOverLimit || isUnderMinimum || isSaving
                     ? theme.colors.textSecondary
                     : theme.colors.primary
                 }
               ]}
-              disabled={isOverLimit || isSaving}
+              disabled={isOverLimit || isUnderMinimum || isSaving}
               accessibilityLabel={isSaving ? "שומר..." : "שמור שינויים בביוגרפיה"}
             >
               {isSaving ? (
@@ -225,12 +238,13 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
         </View>
       ) : (
         <TouchableOpacity
-          onPress={onEditToggle}
+          onPress={handleBioPress}
           style={styles.displayContainer}
-          accessibilityLabel={bio ? "הצג ביוגרפיה, לחץ לעריכה" : "הוסף ביוגרפיה"}
+          accessibilityLabel={bio ? "הצג ביוגרפיה" : "הוסף ביוגרפיה"}
+          disabled={!!bio && bio.trim() !== ''} // מבטל לחיצה אם יש ביו
         >
           <View style={styles.bioContent}>
-            {bio ? (
+            {bio && bio.trim() !== '' ? (
               <>
                 <Text style={[styles.bioText, { color: theme.colors.text }]}>
                   {bio}
@@ -245,15 +259,12 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
               <View style={styles.emptyBio}>
                 <Ionicons name="create-outline" size={20} color={theme.colors.textSecondary} />
                 <Text style={[styles.emptyBioText, { color: theme.colors.textSecondary }]}>
-                  הוסף תיאור אישי...
+                  הוסף תיאור אישי... (לחץ כאן)
                 </Text>
               </View>
             )}
           </View>
-
-          <View style={[styles.editIndicator, { backgroundColor: theme.colors.primary }]}>
-            <Ionicons name="pencil" size={14} color="white" />
-          </View>
+          {/* הוסרה האייקון של העיפרון */}
         </TouchableOpacity>
       )}
     </Animated.View>
@@ -401,9 +412,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontStyle: 'italic',
   },
-  editIndicator: {
-    padding: 8,
-    borderRadius: 16,
-    marginLeft: 12,
-  },
+  // הוסר editIndicator style כי לא צריך יותר את העיפרון
 });
