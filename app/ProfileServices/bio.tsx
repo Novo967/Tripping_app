@@ -251,7 +251,6 @@ export default function Bio({ bio, isEditing, onChange, onSave, onEditToggle }: 
                 </Text>
                 <View style={styles.bioMeta}>
                   <Text style={[styles.bioLength, { color: theme.colors.textSecondary }]}>
-                    {bio.length} תווים
                   </Text>
                 </View>
               </>
