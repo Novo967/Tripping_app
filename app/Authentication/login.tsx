@@ -66,7 +66,6 @@ export default function LoginScreen() {
       // קריאה לפונקציה המאוחדת לשמירת מיקום במקום שליחה לשרת חיצוני
       await saveLocationToFirestore(user);
       
-      Alert.alert('התחברת בהצלחה!');
       router.push('/(tabs)/home');
     } catch (error) {
       console.error("שגיאה בהתחברות:", error);

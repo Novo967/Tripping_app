@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
-import * as ImagePicker from 'expo-image-picker'; // Import ImagePicker
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { addDoc, collection, doc, getFirestore, setDoc } from 'firebase/firestore';
-import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'; // Import storage functions
+import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,574 +28,575 @@ import { app } from '../../firebaseConfig';
 
 // Define event types according to your requirements
 type EventType =
-  | 'trip'
-  | 'party'
-  | 'attraction'
-  | 'food'
-  | 'nightlife'
-  | 'beach'
-  | 'sport'
-  | 'other';
+    | 'trip'
+    | 'party'
+    | 'attraction'
+    | 'food'
+    | 'nightlife'
+    | 'beach'
+    | 'sport'
+    | 'other';
 
 export default function CreateEventPage() {
-  const { latitude, longitude } = useLocalSearchParams();
-  const [eventTitle, setEventTitle] = useState('');
-  const [eventType, setEventType] = useState<EventType | ''>('');
-  const [eventDate, setEventDate] = useState(new Date());
-  const [eventDescription, setEventDescription] = useState('');
-  const [eventLocation, setEventLocation] = useState('טוען מיקום...');
-  const [cityCountry, setCityCountry] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [eventImageUri, setEventImageUri] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const { latitude, longitude } = useLocalSearchParams();
+    const [eventTitle, setEventTitle] = useState('');
+    const [eventType, setEventType] = useState<EventType | ''>('');
+    const [eventDate, setEventDate] = useState(new Date());
+    const [eventDescription, setEventDescription] = useState('');
+    const [eventLocation, setEventLocation] = useState('טוען מיקום...');
+    const [cityCountry, setCityCountry] = useState('');
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [eventImageUri, setEventImageUri] = useState<string | null>(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-  const storage = getStorage(app);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const storage = getStorage(app);
 
-  useEffect(() => {
-    if (latitude && longitude) {
-      reverseGeocode();
-    }
-  }, [latitude, longitude]);
-
-  const reverseGeocode = async () => {
-    try {
-      // Mapbox access token
-      const mapboxToken = 'pk.eyJ1Ijoibm9hbS1sZTE3IiwiYSI6ImNtZTczeG4wdzAwZjcya3Nod2U2d3M4OTUifQ.0ybxsmWtdKP95wmyMw491w';
-      
-      const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxToken}&language=he`
-      );
-      const data = await response.json();
-      if (data.features?.length > 0) {
-        const feature = data.features[0];
-        setEventLocation(feature.place_name_he || feature.place_name);
-
-        const contexts = feature.context || [];
-        const place = contexts.find((c: any) => c.id.includes('place'));
-        const country = contexts.find((c: any) => c.id.includes('country'));
-        if (place && country) {
-          setCityCountry(`${place.text_he || place.text}, ${country.text_he || country.text}`);
-        } else {
-          setCityCountry('');
+    useEffect(() => {
+        if (latitude && longitude) {
+            reverseGeocode();
         }
-      } else {
-        setEventLocation('לא נמצאה כתובת');
-        setCityCountry('');
-      }
-    } catch (error) {
-      console.error('Error during reverse geocoding:', error);
-      setEventLocation('שגיאה בטעינת המיקום');
-      setCityCountry('');
-    }
-  };
+    }, [latitude, longitude]);
 
-  const handleImagePicker = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת גלריה כדי לבחור תמונות.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    const reverseGeocode = async () => {
+        try {
+            // Mapbox access token
+            const mapboxToken = 'pk.eyJ1Ijoibm9hbS1sZTE3IiwiYSI6ImNtZTczeG4wdzAwZjcya3Nod2U2d3M4OTUifQ.0ybxsmWtdKP95wmyMw491w';
 
-    if (!result.canceled && result.assets && result.assets[0]) {
-      setEventImageUri(result.assets[0].uri);
-    }
-  };
+            const response = await fetch(
+                `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxToken}&language=he`
+            );
+            const data = await response.json();
+            if (data.features?.length > 0) {
+                const feature = data.features[0];
+                setEventLocation(feature.place_name_he || feature.place_name);
 
-  const uploadImage = async (uri: string, eventId: string) => {
-    setIsUploadingImage(true);
-    try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const fileRef = ref(storage, `event_images/${eventId}/${Date.now()}`);
-      await uploadBytes(fileRef, blob);
-      const downloadURL = await getDownloadURL(fileRef);
-      return downloadURL;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      Alert.alert("שגיאה", "העלאת התמונה נכשלה.");
-      return null;
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
-
-  const handleCreateEvent = async () => {
-    if (!eventTitle.trim() || !eventType) {
-      Alert.alert('שגיאה', 'אנא מלא את כל השדות הנדרשים');
-      return;
-    }
-
-    const userId = auth.currentUser?.uid;
-    const username = auth.currentUser?.displayName || 'משתמש';
-
-    if (!userId) {
-      Alert.alert('שגיאה', 'אין משתמש מחובר. אנא התחבר ונסה שוב.');
-      return;
-    }
-
-    setIsLoading(true);
-    let imageUrl = null;
-    if (eventImageUri) {
-      const eventId = eventTitle + '_' + Date.now(); // A simple unique ID for the event
-      imageUrl = await uploadImage(eventImageUri, eventId);
-      if (!imageUrl) {
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    try {
-      // יצירת אובייקט הנתונים לשמירה ב-Firestore
-      const eventData = {
-        owner_uid: userId,
-        username: username,
-        latitude: parseFloat(latitude as string),
-        longitude: parseFloat(longitude as string),
-        event_title: eventTitle,
-        event_type: eventType,
-        event_date: eventDate.toISOString(),
-        description: eventDescription,
-        location: eventLocation,
-        city_country: cityCountry,
-        created_at: new Date().toISOString(),
-        ...(imageUrl && { eventImageUrl: imageUrl }), // Add image URL if available
-      };
-
-      // שמירת האובייקט ישירות בקולקשן 'pins' ב-Firestore
-      await addDoc(collection(db, 'pins'), eventData);
-
-      // Create a document in 'group_chats' for this event
-      await setDoc(doc(db, 'group_chats', eventTitle), {
-        name: eventTitle,
-        members: [userId],
-        groupImage: imageUrl || null, // Use the uploaded image as the group image
-        createdAt: new Date().toISOString(),
-      });
-
-      Alert.alert('הצלחה', 'האירוע נוצר בהצלחה ונוסף ל-Firestore!', [
-        { text: 'אוקיי', onPress: () => router.replace('/home') },
-      ]);
-    } catch (error) {
-      console.error('Firestore error:', error);
-      Alert.alert(
-        'שגיאה',
-        'אירעה שגיאה ביצירת האירוע או בשמירה במסד הנתונים.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Updated event types with Hebrew labels and appropriate icons
-  const typeLabels: Record<EventType, string> = {
-    trip: 'טיול',
-    party: 'מסיבה',
-    attraction: 'אטרקציה',
-    food: 'אוכל',
-    nightlife: 'חיי לילה',
-    beach: 'ים/בריכה',
-    sport: 'ספורט',
-    other: 'אחר',
-  };
-
-  // Icon mapping for each event type
-  const getEventIcon = (type: EventType): keyof typeof Ionicons.glyphMap => {
-    const iconMap: Record<EventType, keyof typeof Ionicons.glyphMap> = {
-      trip: 'car',
-      party: 'musical-notes',
-      attraction: 'star',
-      food: 'restaurant',
-      nightlife: 'wine',
-      beach: 'water',
-      sport: 'fitness',
-      other: 'ellipsis-horizontal-circle',
+                const contexts = feature.context || [];
+                const place = contexts.find((c: any) => c.id.includes('place'));
+                const country = contexts.find((c: any) => c.id.includes('country'));
+                if (place && country) {
+                    setCityCountry(`${place.text_he || place.text}, ${country.text_he || country.text}`);
+                } else {
+                    setCityCountry('');
+                }
+            } else {
+                setEventLocation('לא נמצאה כתובת');
+                setCityCountry('');
+            }
+        } catch (error) {
+            console.error('Error during reverse geocoding:', error);
+            setEventLocation('שגיאה בטעינת המיקום');
+            setCityCountry('');
+        }
     };
-    return iconMap[type];
-  };
 
-  // Event types array in the specified order
-  const eventTypesArray: EventType[] = [
-    'trip',
-    'party',
-    'attraction',
-    'food',
-    'nightlife',
-    'beach',
-    'sport',
-    'other',
-  ];
+    const handleImagePicker = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת גלריה כדי לבחור תמונות.');
+            return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.header}>
-        {/* Back button */}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-forward" size={24} color="white" />
-        </TouchableOpacity>
-        
-        {/* Header Title */}
-        <Text style={styles.headerTitle}>יצירת אירוע</Text>
+        if (!result.canceled && result.assets && result.assets[0]) {
+            setEventImageUri(result.assets[0].uri);
+        }
+    };
 
-        {/* Placeholder to balance the header layout */}
-        <View style={styles.backButton} />
-      </View>
+    // ✅ שינוי: מעדכן את הנתיב לתיקיית group_images
+    const uploadImage = async (uri: string, eventTitle: string) => {
+        setIsUploadingImage(true);
+        try {
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            // שינוי כאן: הנתיב הוא event_images בתוך ה-group_images
+            // כדי למנוע כפילות מיותרת, בחרתי לשנות לנתיב group_images/eventTitle/groupImage.jpg
+            const fileRef = ref(storage, `group_images/${eventTitle}/groupImage.jpg`);
+            await uploadBytes(fileRef, blob);
+            const downloadURL = await getDownloadURL(fileRef);
+            return downloadURL;
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            Alert.alert('שגיאה', 'העלאת התמונה נכשלה.');
+            return null;
+        } finally {
+            setIsUploadingImage(false);
+        }
+    };
 
-      <ScrollView style={styles.scrollView}>
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: parseFloat(latitude as string),
-            longitude: parseFloat(longitude as string),
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          scrollEnabled={false}
-          zoomEnabled={false}
+    const handleCreateEvent = async () => {
+        if (!eventTitle.trim() || !eventType) {
+            Alert.alert('שגיאה', 'אנא מלא את כל השדות הנדרשים');
+            return;
+        }
+
+        const userId = auth.currentUser?.uid;
+        const username = auth.currentUser?.displayName || 'משתמש';
+
+        if (!userId) {
+            Alert.alert('שגיאה', 'אין משתמש מחובר. אנא התחבר ונסה שוב.');
+            return;
+        }
+
+        setIsLoading(true);
+        let imageUrl = null;
+        if (eventImageUri) {
+            // ✅ שינוי: מעביר את eventTitle כפרמטר לפונקציה
+            imageUrl = await uploadImage(eventImageUri, eventTitle);
+            if (!imageUrl) {
+                setIsLoading(false);
+                return;
+            }
+        }
+
+        try {
+            // יצירת אובייקט הנתונים לשמירה ב-Firestore
+            const eventData = {
+                owner_uid: userId,
+                username: username,
+                latitude: parseFloat(latitude as string),
+                longitude: parseFloat(longitude as string),
+                event_title: eventTitle,
+                event_type: eventType,
+                event_date: eventDate.toISOString(),
+                description: eventDescription,
+                location: eventLocation,
+                city_country: cityCountry,
+                created_at: new Date().toISOString(),
+                // ✅ שינוי: שמירת קישור התמונה ב-eventImageUrl
+                ...(imageUrl && { eventImageUrl: imageUrl }),
+            };
+
+            // שמירת האובייקט ישירות בקולקשן 'pins' ב-Firestore
+            await addDoc(collection(db, 'pins'), eventData);
+
+            // Create a document in 'group_chats' for this event
+            await setDoc(doc(db, 'group_chats', eventTitle), {
+                name: eventTitle,
+                members: [userId],
+                // ✅ שינוי: שימוש בקישור שהועלה ב-groupImage
+                groupImage: imageUrl || null,
+                createdAt: new Date().toISOString(),
+            });
+            router.replace('/home'); // Navigate to home after creation
+        } catch (error) {
+            console.error('Firestore error:', error);
+            Alert.alert(
+                'שגיאה',
+                'אירעה שגיאה ביצירת האירוע או בשמירה במסד הנתונים.'
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Updated event types with Hebrew labels and appropriate icons
+    const typeLabels: Record<EventType, string> = {
+        trip: 'טיול',
+        party: 'מסיבה',
+        attraction: 'אטרקציה',
+        food: 'אוכל',
+        nightlife: 'חיי לילה',
+        beach: 'ים/בריכה',
+        sport: 'ספורט',
+        other: 'אחר',
+    };
+
+    // Icon mapping for each event type
+    const getEventIcon = (type: EventType): keyof typeof Ionicons.glyphMap => {
+        const iconMap: Record<EventType, keyof typeof Ionicons.glyphMap> = {
+            trip: 'car',
+            party: 'musical-notes',
+            attraction: 'star',
+            food: 'restaurant',
+            nightlife: 'wine',
+            beach: 'water',
+            sport: 'fitness',
+            other: 'ellipsis-horizontal-circle',
+        };
+        return iconMap[type];
+    };
+
+    // Event types array in the specified order
+    const eventTypesArray: EventType[] = [
+        'trip',
+        'party',
+        'attraction',
+        'food',
+        'nightlife',
+        'beach',
+        'sport',
+        'other',
+    ];
+
+    return (
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <Marker
-            coordinate={{
-              latitude: parseFloat(latitude as string),
-              longitude: parseFloat(longitude as string),
-            }}
-          >
-            <View style={styles.customMarker}>
-              <Ionicons name="location" size={30} color="#3A8DFF" />
+            <View style={styles.header}>
+                {/* Back button */}
+                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                    <Ionicons name="arrow-forward" size={24} color="white" />
+                </TouchableOpacity>
+
+                {/* Header Title */}
+                <Text style={styles.headerTitle}>יצירת אירוע</Text>
+
+                {/* Placeholder to balance the header layout */}
+                <View style={styles.backButton} />
             </View>
-          </Marker>
-        </MapView>
 
-        {/* Updated Location Section with "Edit Location" button */}
-        <View style={styles.locationContainer}>
-          <View style={styles.locationInfo}>
-            <Ionicons name="location-outline" size={20} color="#333" style={{ marginRight: 8 }} />
-            <View style={styles.locationTextContainer}>
-              <Text style={styles.locationText}>{eventLocation}</Text>
-              {cityCountry ? (
-                <Text style={styles.cityText}>{cityCountry}</Text>
-              ) : null}
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.editLocationButton}
-            onPress={() => router.back()} // Navigate back to the previous screen (map selection)
-          >
-            <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/*  Image Picker Section */}
-        <View style={styles.imagePickerContainer}>
-          <TouchableOpacity style={styles.imagePickerButton} onPress={handleImagePicker}>
-            {eventImageUri ? (
-              <Image source={{ uri: eventImageUri }} style={styles.eventImagePreview} />
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <Ionicons name="camera-outline" size={30} color="#3A8DFF" />
-                <Text style={styles.imagePlaceholderText}>הוסף תמונה לאירוע</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          {isUploadingImage && (
-            <View style={styles.imageLoadingOverlay}>
-              <ActivityIndicator size="small" color="#fff" />
-            </View>
-          )}
-        </View>
+            <ScrollView style={styles.scrollView}>
+                <MapView
+                    style={styles.map}
+                    initialRegion={{
+                        latitude: parseFloat(latitude as string),
+                        longitude: parseFloat(longitude as string),
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                    }}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                >
+                    <Marker
+                        coordinate={{
+                            latitude: parseFloat(latitude as string),
+                            longitude: parseFloat(longitude as string),
+                        }}
+                    >
+                        <View style={styles.customMarker}>
+                            <Ionicons name="location" size={30} color="#3A8DFF" />
+                        </View>
+                    </Marker>
+                </MapView>
 
-        <TextInput
-          style={styles.input}
-          placeholder="כותרת האירוע"
-          value={eventTitle}
-          onChangeText={setEventTitle}
-          placeholderTextColor="#999"
-        />
+                {/* Updated Location Section with "Edit Location" button */}
+                <View style={styles.locationContainer}>
+                    <View style={styles.locationInfo}>
+                        <Ionicons name="location-outline" size={20} color="#333" style={{ marginRight: 8 }} />
+                        <View style={styles.locationTextContainer}>
+                            <Text style={styles.locationText}>{eventLocation}</Text>
+                            {cityCountry ? (
+                                <Text style={styles.cityText}>{cityCountry}</Text>
+                            ) : null}
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.editLocationButton}
+                        onPress={() => router.back()} // Navigate back to the previous screen (map selection)
+                    >
+                        <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
+                    </TouchableOpacity>
+                </View>
 
-        {/* RTL horizontal scroll for event types */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.typeSelector}
-          contentContainerStyle={styles.typeSelectorContent}
-        >
-          {eventTypesArray.map((type: EventType) => (
-            <TouchableOpacity
-              key={type}
-              style={[styles.typeButton, eventType === type && styles.typeSelected]}
-              onPress={() => setEventType(type)}
-            >
-              <Ionicons
-                name={getEventIcon(type)}
-                size={20}
-                color={eventType === type ? 'white' : '#3A8DFF'}
-              />
-              <Text
-                style={[
-                  styles.typeText,
-                  { color: eventType === type ? 'white' : '#333' },
-                ]}
-              >
-                {typeLabels[type]}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                {/* Image Picker Section */}
+                <View style={styles.imagePickerContainer}>
+                    <TouchableOpacity style={styles.imagePickerButton} onPress={handleImagePicker}>
+                        {eventImageUri ? (
+                            <Image source={{ uri: eventImageUri }} style={styles.eventImagePreview} />
+                        ) : (
+                            <View style={styles.imagePlaceholder}>
+                                <Ionicons name="camera-outline" size={30} color="#3A8DFF" />
+                                <Text style={styles.imagePlaceholderText}>הוסף תמונה לאירוע</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                    {isUploadingImage && (
+                        <View style={styles.imageLoadingOverlay}>
+                            <ActivityIndicator size="small" color="#fff" />
+                        </View>
+                    )}
+                </View>
 
-        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', width: '100%' }}>
-          <TouchableOpacity
-            style={[styles.dateButton, { flex: 1, flexDirection: 'row-reverse', justifyContent: 'flex-end' }]}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Ionicons name="calendar" size={20} color="#3A8DFF" style={{ marginLeft: 10 }} />
-            <Text style={[styles.dateText, { flex: 1, textAlign: 'right' }]}>
-              {eventDate.toLocaleDateString('he-IL')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <TextInput
-          style={[styles.input, { height: 100, marginBottom: 20 }]}
-          placeholder="תיאור האירוע"
-          value={eventDescription}
-          onChangeText={setEventDescription}
-          multiline
-          placeholderTextColor="#999"
-        />
+                <TextInput
+                    style={styles.input}
+                    placeholder="כותרת האירוע"
+                    value={eventTitle}
+                    onChangeText={setEventTitle}
+                    placeholderTextColor="#999"
+                />
 
-        <TouchableOpacity
-          style={[styles.createButton, isLoading && { opacity: 0.6 }]}
-          onPress={handleCreateEvent}
-          disabled={isLoading}
-        >
-          <Text style={styles.createButtonText}>
-            {isLoading ? 'יוצר...' : 'צור אירוע'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+                {/* RTL horizontal scroll for event types */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.typeSelector}
+                    contentContainerStyle={styles.typeSelectorContent}
+                >
+                    {eventTypesArray.map((type: EventType) => (
+                        <TouchableOpacity
+                            key={type}
+                            style={[styles.typeButton, eventType === type && styles.typeSelected]}
+                            onPress={() => setEventType(type)}
+                        >
+                            <Ionicons
+                                name={getEventIcon(type)}
+                                size={20}
+                                color={eventType === type ? 'white' : '#3A8DFF'}
+                            />
+                            <Text
+                                style={[
+                                    styles.typeText,
+                                    { color: eventType === type ? 'white' : '#333' },
+                                ]}
+                            >
+                                {typeLabels[type]}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
 
-      <Modal visible={showDatePicker} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          onPress={() => setShowDatePicker(false)}
-        >
-          <View style={styles.datePickerModal}>
-            <DateTimePicker
-              value={eventDate}
-              mode="date"
-              onChange={(e, d) => {
-                setShowDatePicker(false);
-                if (d) setEventDate(d);
-              }}
-              minimumDate={new Date()}
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </KeyboardAvoidingView>
-  );
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', width: '100%' }}>
+                    <TouchableOpacity
+                        style={[styles.dateButton, { flex: 1, flexDirection: 'row-reverse', justifyContent: 'flex-end' }]}
+                        onPress={() => setShowDatePicker(true)}
+                    >
+                        <Ionicons name="calendar" size={20} color="#3A8DFF" style={{ marginLeft: 10 }} />
+                        <Text style={[styles.dateText, { flex: 1, textAlign: 'right' }]}>
+                            {eventDate.toLocaleDateString('he-IL')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+                <TextInput
+                    style={[styles.input, { height: 100, marginBottom: 20 }]}
+                    placeholder="תיאור האירוע"
+                    value={eventDescription}
+                    onChangeText={setEventDescription}
+                    multiline
+                    placeholderTextColor="#999"
+                />
+
+                <TouchableOpacity
+                    style={[styles.createButton, isLoading && { opacity: 0.6 }]}
+                    onPress={handleCreateEvent}
+                    disabled={isLoading}
+                >
+                    <Text style={styles.createButtonText}>
+                        {isLoading ? 'יוצר...' : 'צור אירוע'}
+                    </Text>
+                </TouchableOpacity>
+            </ScrollView>
+
+            <Modal visible={showDatePicker} transparent animationType="fade">
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    onPress={() => setShowDatePicker(false)}
+                >
+                    <View style={styles.datePickerModal}>
+                        <DateTimePicker
+                            value={eventDate}
+                            mode="date"
+                            onChange={(e, d) => {
+                                setShowDatePicker(false);
+                                if (d) setEventDate(d);
+                            }}
+                            minimumDate={new Date()}
+                        />
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </KeyboardAvoidingView>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  header: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingTop:
-      Platform.OS === 'android'
-        ? (StatusBar.currentHeight ?? 24) + 10
-        : Constants.statusBarHeight + 10,
-    paddingBottom: 10,
-    backgroundColor: '#3A8DFF',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  backButton: {
-    padding: 5,
-    width: 40, // Ensure the placeholder view has the same width
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  scrollView: { padding: 20 },
-  map: { height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 15 },
-  customMarker: { alignItems: 'center', justifyContent: 'center' },
-  
-  // Updated Styles for Location Section
-  locationContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    padding: 12,
-    marginVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  locationInfo: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    flexShrink: 1, // Allows text to wrap
-  },
-  locationTextContainer: {
-    flexShrink: 1,
-  },
-  locationText: {
-    color: '#333',
-    textAlign: 'right',
-    fontWeight: '600',
-    fontSize: 16,
-    flexShrink: 1,
-  },
-  cityText: {
-    color: '#666',
-    textAlign: 'right',
-    fontSize: 12,
-    marginTop: 2,
-    flexShrink: 1,
-  },
-  editLocationButton: {
-    backgroundColor: '#E8F0FE',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  editLocationButtonText: {
-    color: '#3A8DFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
+    container: { flex: 1, backgroundColor: '#f8f9fa' },
+    header: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 10,
+        paddingTop:
+            Platform.OS === 'android'
+                ? (StatusBar.currentHeight ?? 24) + 10
+                : Constants.statusBarHeight + 10,
+        paddingBottom: 10,
+        backgroundColor: '#3A8DFF',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    backButton: {
+        padding: 5,
+        width: 40,
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+        color: 'white',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    scrollView: { padding: 20 },
+    map: { height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 15 },
+    customMarker: { alignItems: 'center', justifyContent: 'center' },
 
-  imagePickerContainer: {
-    marginVertical: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imagePickerButton: {
-    width: '100%',
-    height: 180,
-    borderRadius: 20,
-    backgroundColor: '#E8F0FE',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#3A8DFF',
-    borderStyle: 'dashed',
-  },
-  imagePlaceholder: {
-    alignItems: 'center',
-  },
-  imagePlaceholderText: {
-    color: '#3A8DFF',
-    marginTop: 8,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  eventImagePreview: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  imageLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+    locationContainer: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: 'white',
+        padding: 12,
+        marginVertical: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#ddd',
+    },
+    locationInfo: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        flexShrink: 1,
+    },
+    locationTextContainer: {
+        flexShrink: 1,
+    },
+    locationText: {
+        color: '#333',
+        textAlign: 'right',
+        fontWeight: '600',
+        fontSize: 16,
+        flexShrink: 1,
+    },
+    cityText: {
+        color: '#666',
+        textAlign: 'right',
+        fontSize: 12,
+        marginTop: 2,
+        flexShrink: 1,
+    },
+    editLocationButton: {
+        backgroundColor: '#E8F0FE',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+    },
+    editLocationButtonText: {
+        color: '#3A8DFF',
+        fontWeight: '600',
+        fontSize: 14,
+    },
 
-  input: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 12,
-    marginVertical: 8,
-    color: '#333',
-    textAlign: 'right',
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    marginVertical: 15,
-  },
-  typeSelectorContent: {
-    flexDirection: 'row-reverse',
-    paddingHorizontal: 5,
-  },
-  typeButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    marginLeft: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    minWidth: 80,
-  },
-  typeSelected: {
-    backgroundColor: '#3A8DFF',
-    borderColor: '#3A8DFF',
-  },
-  typeText: {
-    marginRight: 8,
-    fontSize: 15,
-    fontWeight: '500',
-    textAlign: 'right',
-  },
-  dateButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    marginVertical: 15,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  dateText: { marginRight: 10, fontSize: 16, color: '#333', fontWeight: '500' },
-  createButton: {
-    backgroundColor: '#3A8DFF',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 30,
-  },
-  createButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  datePickerModal: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    margin: 20,
-  },
+    imagePickerContainer: {
+        marginVertical: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    imagePickerButton: {
+        width: '100%',
+        height: 180,
+        borderRadius: 20,
+        backgroundColor: '#E8F0FE',
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: '#3A8DFF',
+        borderStyle: 'dashed',
+    },
+    imagePlaceholder: {
+        alignItems: 'center',
+    },
+    imagePlaceholderText: {
+        color: '#3A8DFF',
+        marginTop: 8,
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    eventImagePreview: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    imageLoadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+    input: {
+        backgroundColor: 'white',
+        borderRadius: 10,
+        padding: 12,
+        marginVertical: 8,
+        color: '#333',
+        textAlign: 'right',
+        fontSize: 16,
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    typeSelector: {
+        flexDirection: 'row',
+        marginVertical: 15,
+    },
+    typeSelectorContent: {
+        flexDirection: 'row-reverse',
+        paddingHorizontal: 5,
+    },
+    typeButton: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 20,
+        marginLeft: 10,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        minWidth: 80,
+    },
+    typeSelected: {
+        backgroundColor: '#3A8DFF',
+        borderColor: '#3A8DFF',
+    },
+    typeText: {
+        marginRight: 8,
+        fontSize: 15,
+        fontWeight: '500',
+        textAlign: 'right',
+    },
+    dateButton: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 12,
+        backgroundColor: 'white',
+        borderRadius: 10,
+        marginVertical: 15,
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    dateText: { marginRight: 10, fontSize: 16, color: '#333', fontWeight: '500' },
+    createButton: {
+        backgroundColor: '#3A8DFF',
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 30,
+    },
+    createButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    datePickerModal: {
+        backgroundColor: 'white',
+        borderRadius: 15,
+        padding: 20,
+        margin: 20,
+    },
 });

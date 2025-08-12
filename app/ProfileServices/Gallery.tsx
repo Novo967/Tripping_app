@@ -144,7 +144,6 @@ export default function Gallery({ onImagePress }: Props) {
         const uri = result.assets[0].uri;
         const newImageUrl = await uploadImageToFirebaseStorage(uri);
         setFirebaseGalleryImages((prevImages) => [...prevImages, newImageUrl]);
-        Alert.alert('הצלחה', 'התמונה הועלתה בהצלחה!');
       }
     } catch (error) {
       console.error('Error picking or uploading image:', error);
@@ -191,7 +190,6 @@ export default function Gallery({ onImagePress }: Props) {
               );
               setSelectedImages(new Set());
               setLongPressActive(false);
-              Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה!');
             } catch (error) {
               console.error('שגיאה במחיקת תמונות:', error);
               Alert.alert('שגיאה', 'אירעה שגיאה במחיקת התמונות. אנא נסה שוב.');
@@ -251,7 +249,7 @@ export default function Gallery({ onImagePress }: Props) {
       ) : (
         <>
           <View style={[styles.addIconContainer, { backgroundColor: '#3A8DFF' }]}>
-            <Ionicons name="add" size={28} color="white" />
+            <Ionicons name="add" size={18} color="white" />
           </View>
           <Text style={[styles.addText, { color: theme.colors.textSecondary }]}>
             הוסף תמונה
@@ -496,8 +494,8 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   addIconContainer: {
-    width: 50,
-    height: 50,
+    width: 35,
+    height: 35,
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
