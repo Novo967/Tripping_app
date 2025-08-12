@@ -13,11 +13,10 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
-import { useTheme } from '../../../app/ProfileServices/ThemeContext'; // ✅ ייבוא useTheme
+import { useTheme } from '../../../app/ProfileServices/ThemeContext';
 import { app } from '../../../firebaseConfig';
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
 import { calculateDistance } from '../../IndexServices/MapUtils';
-import UserDetailsModal from '../../IndexServices/UserDetailsModal';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventFilterButton from '../../MapButtons/EventFilterButton';
 import MyLocationButton from '../../MapButtons/MyLocationButton';
@@ -28,9 +27,6 @@ import UserMarker from '../../components/UserMarker';
 
 const db = getFirestore(app);
 
-// כאן נגדיר את סגנון המפה הכהה.
-// זהו סגנון לדוגמה, תוכל ליצור סגנון מותאם אישית משלך
-// באמצעות כלי כמו Google Maps Styling Wizard.
 const darkMapStyle = [
   { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
@@ -89,7 +85,6 @@ export default function HomeScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [selectedUser, setSelectedUser] = useState<SelectedUserType | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null);
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
@@ -97,7 +92,7 @@ export default function HomeScreen() {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [currentUserUsername, setCurrentUserUsername] = useState('');
   const { isChoosingLocation: shouldChooseLocationParam } = useLocalSearchParams();
-  const { theme } = useTheme(); // ✅ שימוש ב-useTheme hook
+  const { theme } = useTheme();
 
   const auth = getAuth();
   const user = auth.currentUser;
@@ -300,24 +295,8 @@ export default function HomeScreen() {
     []
   );
 
-  const handleOpenPrivateChat = useCallback(
-    (targetUserUid: string, targetUsername: string) => {
-      if (user && targetUserUid && targetUsername) {
-        setSelectedUser(null);
-        router.push({
-          pathname: '/Chats/chatModal',
-          params: { targetUserUid: targetUserUid, targetUsername: targetUsername },
-        });
-      } else {
-        Alert.alert('שגיאה', "לא ניתן לפתוח צ'אט. נתונים חסרים.");
-      }
-    },
-    [user]
-  );
-
   const handleMarkerPress = useCallback(
     async (pinId: string) => {
-      setSelectedUser(null);
       try {
         const pinDocRef = doc(db, 'pins', pinId);
         const pinDocSnap = await getDoc(pinDocRef);
@@ -374,7 +353,7 @@ export default function HomeScreen() {
         followsUserLocation={false}
         userLocationPriority="high"
         userLocationUpdateInterval={5000}
-        customMapStyle={theme.isDark ? darkMapStyle : []} // ✅ יישום סגנון המפה הכהה
+        customMapStyle={theme.isDark ? darkMapStyle : []}
         onPress={(e) => {
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
@@ -423,7 +402,7 @@ export default function HomeScreen() {
               currentUserUid={user?.uid}
               onPress={(u) => {
                 setSelectedEvent(null);
-                setSelectedUser(u);
+                router.push({ pathname: '/ProfileServices/OtherUserProfile', params: { uid: u.uid } });
               }}
             />
           ))}
@@ -451,14 +430,6 @@ export default function HomeScreen() {
         user={user}
         currentUserUsername={currentUserUsername}
         userLocation={currentLocation}
-      />
-
-      <UserDetailsModal
-        visible={!!selectedUser}
-        selectedUser={selectedUser}
-        onClose={() => setSelectedUser(null)}
-        currentUserUid={user?.uid}
-        onOpenPrivateChat={handleOpenPrivateChat}
       />
 
       <DistanceFilterButton
