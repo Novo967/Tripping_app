@@ -558,12 +558,12 @@ const ChatsList = () => {
             { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' },
           ]}
         >
-          הצאטים שלך
+          הצ'אטים שלך
         </Text>
         <Text
           style={[
             styles.headerSubtitle,
-            { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
+            { color: theme.isDark ? '#A0C4FF' : '#FFFFFF' },
           ]}
         >
           התחבר עם חברים למסע
@@ -679,6 +679,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   headerTitle: {
+    paddingTop: 20,
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
@@ -686,8 +687,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: '#FFE0B3',
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.6,
     textAlign: 'right',
     fontWeight: '500',
   },
