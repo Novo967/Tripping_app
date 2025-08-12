@@ -521,7 +521,7 @@ const GroupChatModal = () => {
         style={[
           styles.header,
           {
-            paddingTop: insets.top + 10,
+            paddingTop: insets.top -20,
             backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF',
             shadowColor: theme.isDark ? '#2C3946' : '#3A8DFF',
           },
@@ -604,7 +604,7 @@ const GroupChatModal = () => {
                   { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
                 ]}
               >
-                צאט קבוצתי • {memberCount} משתתפים
+              {memberCount} משתתפים
               </Text>
             </TouchableOpacity>
           </View>
