@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { arrayRemove, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   SafeAreaView,
@@ -36,9 +37,11 @@ interface EventDetails {
 const GroupDetailsModal = ({
   eventTitle,
   onClose,
+  onOpenImageModal,
 }: {
   eventTitle: string;
   onClose: () => void;
+  onOpenImageModal: (url: string | null) => void;
 }) => {
   const [groupName, setGroupName] = useState('');
   const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
@@ -58,7 +61,7 @@ const GroupDetailsModal = ({
     }
 
     const groupDocRef = doc(db, 'group_chats', eventTitle);
-    const eventDocRef = doc(db, 'events', eventTitle);
+    const eventDocRef = doc(db, 'pins', eventTitle);
 
     const unsubscribeGroup = onSnapshot(
       groupDocRef,
@@ -103,16 +106,20 @@ const GroupDetailsModal = ({
     );
 
     const fetchEventDetails = async () => {
-      const docSnap = await getDoc(eventDocRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setEventDetails({
-          description: data.description || 'אין תיאור',
-          location: data.location || 'לא צוין',
-          time: data.time || 'לא צוין',
-          date: data.date || 'לא צוין',
-          organizer: data.organizer || 'לא צוין',
-        });
+      try {
+        const docSnap = await getDoc(eventDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setEventDetails({
+            description: data.description || 'אין תיאור',
+            location: data.location || 'לא צוין',
+            time: data.time || 'לא צוין',
+            date: data.date || 'לא צוין',
+            organizer: data.organizer || 'לא צוין',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching event details:', error);
       }
     };
 
@@ -121,21 +128,47 @@ const GroupDetailsModal = ({
     return () => unsubscribeGroup();
   }, [eventTitle]);
 
-  const leaveGroup = async () => {
-    if (!currentUid || !eventTitle) return;
-    const groupDocRef = doc(db, 'group_chats', eventTitle);
-    const groupDocSnap = await getDoc(groupDocRef);
-
-    if (groupDocSnap.exists()) {
-      const groupData = groupDocSnap.data();
-      const newMembers = groupData.members.filter(
-        (memberId: string) => memberId !== currentUid
-      );
-      await updateDoc(groupDocRef, { members: newMembers });
-      router.back();
+  const handleLeaveGroup = () => {
+    if (!currentUid) {
+      Alert.alert('שגיאה', 'יש להתחבר כדי לבצע פעולה זו.');
+      return;
     }
-  };
 
+    Alert.alert(
+      'יציאה מהקבוצה',
+      'האם אתה בטוח שברצונך לצאת מהקבוצה? לא תוכל לשלוח או לקבל הודעות נוספות.',
+      [
+        {
+          text: 'ביטול',
+          style: 'cancel',
+        },
+        {
+          text: 'יציאה',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const groupDocRef = doc(db, 'group_chats', eventTitle);
+              await updateDoc(groupDocRef, {
+                members: arrayRemove(currentUid),
+              });
+              Alert.alert('יצאת מהקבוצה בהצלחה.', '', [
+                {
+                  text: 'אישור',
+                  onPress: () => {
+                    onClose();
+                    router.replace('/(tabs)/chat');
+                  },
+                },
+              ]);
+            } catch (error) {
+              console.error('Error leaving group:', error);
+              Alert.alert('שגיאה', 'הייתה בעיה ביציאה מהקבוצה. אנא נסה שוב.');
+            }
+          },
+        },
+      ]
+    );
+  };
   const renderMember = ({ item }: { item: Member }) => {
     return (
       <View
@@ -163,7 +196,7 @@ const GroupDetailsModal = ({
               },
             ]}
           >
-            <Ionicons name="people" size={32} color="#A0A0A0" />
+            <Ionicons name="person" size={32} color="#A0A0A0" />
           </View>
         )}
         <View style={styles.memberInfo}>
@@ -230,24 +263,26 @@ const GroupDetailsModal = ({
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.groupHeader}>
-          <View style={styles.groupImageContainer}>
-            {groupImageUrl ? (
-              <Image source={{ uri: groupImageUrl }} style={styles.groupImage} />
-            ) : (
-              <View
-                style={[
-                  styles.groupImagePlaceholder,
-                  { backgroundColor: theme.isDark ? '#2C3E50' : '#E0E0E0' },
-                ]}
-              >
-                <Ionicons
-                  name="people"
-                  size={60}
-                  color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
-                />
-              </View>
-            )}
-          </View>
+          <TouchableOpacity onPress={() => onOpenImageModal(groupImageUrl)}>
+            <View style={styles.groupImageContainer}>
+              {groupImageUrl ? (
+                <Image source={{ uri: groupImageUrl }} style={styles.groupImage} />
+              ) : (
+                <View
+                  style={[
+                    styles.groupImagePlaceholder,
+                    { backgroundColor: theme.isDark ? '#2C3E50' : '#E0E0E0' },
+                  ]}
+                >
+                  <Ionicons
+                    name="people"
+                    size={60}
+                    color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
+                  />
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
           <Text
             style={[
               styles.groupName,
@@ -349,7 +384,7 @@ const GroupDetailsModal = ({
               backgroundColor: theme.isDark ? '#E57373' : '#FF5252',
             },
           ]}
-          onPress={leaveGroup}
+          onPress={handleLeaveGroup}
         >
           <Ionicons name="log-out" size={20} color="#FFFFFF" />
           <Text style={styles.leaveGroupButtonText}>עזוב קבוצה</Text>

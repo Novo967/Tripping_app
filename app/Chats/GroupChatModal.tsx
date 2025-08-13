@@ -500,7 +500,11 @@ const GroupChatModal = () => {
         onSwipeComplete={closeGroupDetailsModal}
         swipeDirection={['down']}
       >
-        <GroupDetailsModal eventTitle={eventTitle} onClose={closeGroupDetailsModal} />
+        <GroupDetailsModal
+          eventTitle={eventTitle}
+          onClose={closeGroupDetailsModal}
+          onOpenImageModal={openGroupImageModal} // ✅ זה ה-prop שצריך להוסיף
+        />
       </Modal>
     );
   }
