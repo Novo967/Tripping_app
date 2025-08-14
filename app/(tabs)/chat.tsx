@@ -92,7 +92,7 @@ const Chat = () => {
     try {
       const collectionName = isGroup ? 'group_chats' : 'chats';
       const messagesRef = collection(db, collectionName, chatId, 'messages');
-      
+
       let unreadQuery;
       if (lastReadTimestamp) {
         unreadQuery = query(
@@ -205,13 +205,13 @@ const Chat = () => {
                   const msg = lastMsgSnapshot.docs[0].data();
                   const lastReadTimestamp = chatData.lastReadMessageTimestamp?.[user.uid]?.toDate();
                   const lastMessageTimestamp = msg.createdAt?.toDate();
-                  
+
                   const hasUnreadMessages =
                     msg.senderId !== user.uid &&
                     (!lastReadTimestamp || lastReadTimestamp < lastMessageTimestamp);
 
                   // ספירת הודעות שלא נקראו
-                  const unreadCount = hasUnreadMessages ? 
+                  const unreadCount = hasUnreadMessages ?
                     await countUnreadMessages(chatId, false, lastReadTimestamp) : 0;
 
                   newChatItem = {
@@ -287,13 +287,13 @@ const Chat = () => {
                   const msg = lastMsgSnapshot.docs[0].data();
                   const lastReadTimestamp = groupData.lastReadMessageTimestamp?.[user.uid]?.toDate();
                   const lastMessageTimestamp = msg.createdAt?.toDate();
-                  
+
                   const hasUnreadMessages =
                     msg.senderId !== user.uid &&
                     (!lastReadTimestamp || lastReadTimestamp < lastMessageTimestamp);
 
                   // ספירת הודעות שלא נקראו בקבוצה
-                  const unreadCount = hasUnreadMessages ? 
+                  const unreadCount = hasUnreadMessages ?
                     await countUnreadMessages(groupId, true, lastReadTimestamp) : 0;
 
                   newGroupChatItem = {
@@ -442,17 +442,17 @@ const Chat = () => {
       <View style={styles.avatarContainer}>
         {renderChatAvatar(item)}
       </View>
-      <View style={styles.textContainer}>
-        <View style={styles.headerRow}>
-          <Text
-            style={[
-              styles.username,
-              { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
-            ]}
-          >
-            {item.otherUsername}
-          </Text>
-        </View>
+      <View style={
+        Platform.OS === 'android' ? styles.androidTextContainer : styles.textContainer
+      }>
+        <Text
+          style={[
+            styles.username,
+            { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
+          ]}
+        >
+          {item.otherUsername}
+        </Text>
         <Text
           style={[
             styles.lastMessage,
@@ -715,6 +715,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  // סטייל חדש עבור אנדרואיד
+  androidTextContainer: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    marginRight: 10,
+    gap: 5,
+  },
   headerRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
@@ -729,6 +737,7 @@ const styles = StyleSheet.create({
   lastMessage: {
     fontSize: 14,
     color: '#7F8C8D',
+    textAlign: 'right', // מבטיח יישור לימין גם ב-iOS במידה וזה משתנה
   },
   rightContainer: {
     alignItems: 'flex-end',
