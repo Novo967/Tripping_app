@@ -1,9 +1,13 @@
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, I18nManager, View } from 'react-native';
 import { auth } from '../firebaseConfig';
 import SplashScreen from './SplashScreen';
+
+// מונע מהאפליקציה להפוך לכיוון RTL (מימין לשמאל)
+I18nManager.allowRTL(false);
+I18nManager.forceRTL(false);
 
 export default function AppEntry() {
   const router = useRouter();
@@ -18,7 +22,7 @@ export default function AppEntry() {
     // Firebase auth listener
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAuthChecked(true);
-      
+
       // Only navigate after splash is done
       if (!showSplash) {
         if (user) {
