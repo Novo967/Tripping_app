@@ -442,9 +442,7 @@ const Chat = () => {
       <View style={styles.avatarContainer}>
         {renderChatAvatar(item)}
       </View>
-      <View style={
-        Platform.OS === 'android' ? styles.androidTextContainer : styles.textContainer
-      }>
+      <View style={styles.textContainer}>
         <Text
           style={[
             styles.username,
@@ -713,31 +711,20 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
-    justifyContent: 'center',
-  },
-  // סטייל חדש עבור אנדרואיד
-  androidTextContainer: {
-    flex: 1,
-    flexDirection: 'column',
     alignItems: 'flex-end',
-    marginRight: 10,
-    gap: 5,
-  },
-  headerRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 5,
+    justifyContent: 'center',
   },
   username: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2C3E50',
+    textAlign: 'right',
+    marginBottom: 4,
   },
   lastMessage: {
     fontSize: 14,
     color: '#7F8C8D',
-    textAlign: 'right', // מבטיח יישור לימין גם ב-iOS במידה וזה משתנה
+    textAlign: 'right',
   },
   rightContainer: {
     alignItems: 'flex-end',
