@@ -2,15 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { doc, getDoc } from 'firebase/firestore';
-import {
-  deleteObject,
-  getDownloadURL,
-  getStorage,
-  listAll,
-  ref,
-  uploadBytes,
-} from 'firebase/storage';
+import { arrayRemove, arrayUnion, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteObject, getDownloadURL, getStorage, listAll, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -37,18 +30,58 @@ type Props = {
 };
 
 const GALLERY_STORAGE_PATH = 'gallery_images';
+const LIKES_COLLECTION = 'imageLikes';
+
+interface LikesData {
+  [key: string]: number; // Store like count for each image URI
+}
+
+interface IsLikedData {
+  [key: string]: boolean; // Store liked status for each image URI
+}
 
 export default function Gallery({ onImagePress }: Props) {
   const { theme } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [longPressActive, setLongPressActive] = useState(false);
-  const [likeCounts, setLikeCounts] = useState<number[]>([]);
   const [firebaseGalleryImages, setFirebaseGalleryImages] = useState<string[]>([]);
   const [loadingGallery, setLoadingGallery] = useState(true);
+  const [likesData, setLikesData] = useState<LikesData>({});
+  const [isLikedData, setIsLikedData] = useState<IsLikedData>({});
+
+  const user = auth.currentUser;
+
+  const fetchLikesData = useCallback(async (imageUrls: string[]) => {
+    const newLikesData: LikesData = {};
+    const newIsLikedData: IsLikedData = {};
+    if (!user) return;
+
+    const currentUserId = user.uid;
+
+    for (const [index, url] of imageUrls.entries()) {
+      try {
+        const imageDocRef = doc(db, LIKES_COLLECTION, `${user.uid}_${index}`);
+        const imageDoc = await getDoc(imageDocRef);
+
+        if (imageDoc.exists()) {
+          const data = imageDoc.data();
+          const likes = data.likes || [];
+          newLikesData[url] = likes.length;
+          newIsLikedData[url] = likes.includes(currentUserId);
+        } else {
+          newLikesData[url] = 0;
+          newIsLikedData[url] = false;
+        }
+      } catch (error) {
+        console.error(`Error fetching likes for image ${index}:`, error);
+      }
+    }
+    setLikesData(newLikesData);
+    setIsLikedData(newIsLikedData);
+  }, [user]);
 
   const fetchFirebaseGalleryImages = useCallback(async () => {
-    const user = auth.currentUser;
     if (!user) {
       console.log('User not logged in, cannot fetch gallery.');
       setLoadingGallery(false);
@@ -64,45 +97,20 @@ export default function Gallery({ onImagePress }: Props) {
         res.items.map((itemRef) => getDownloadURL(itemRef))
       );
       setFirebaseGalleryImages(urls);
-      console.log('Fetched gallery images from Firebase Storage:', urls);
+      await fetchLikesData(urls);
     } catch (error) {
       console.error('Error fetching gallery images from Firebase Storage:', error);
       Alert.alert('שגיאה', 'אירעה שגיאה בטעינת התמונות מהגלריה.');
     } finally {
       setLoadingGallery(false);
     }
-  }, []);
+  }, [user, fetchLikesData]);
 
   useEffect(() => {
     fetchFirebaseGalleryImages();
   }, [fetchFirebaseGalleryImages]);
 
-  useEffect(() => {
-    const fetchLikesForGallery = async () => {
-      const user = auth.currentUser;
-      if (!user || firebaseGalleryImages.length === 0) return;
-
-      const promises = firebaseGalleryImages.map(async (imageUrl) => {
-        const fileRef = ref(storage, imageUrl);
-        const imagePath = fileRef.fullPath;
-        const docRef = doc(db, 'imageLikes', imagePath);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          return Array.isArray(data.likes) ? data.likes.length : 0;
-        }
-        return 0;
-      });
-
-      const results = await Promise.all(promises);
-      setLikeCounts(results);
-    };
-
-    fetchLikesForGallery();
-  }, [firebaseGalleryImages]);
-
   const uploadImageToFirebaseStorage = async (uri: string) => {
-    const user = auth.currentUser;
     if (!user) {
       throw new Error('משתמש לא מחובר');
     }
@@ -114,7 +122,6 @@ export default function Gallery({ onImagePress }: Props) {
       const imageRef = ref(storage, `${GALLERY_STORAGE_PATH}/${user.uid}/${filename}`);
       await uploadBytes(imageRef, blob);
       const downloadUrl = await getDownloadURL(imageRef);
-      console.log('Uploaded image to Firebase Storage:', downloadUrl);
       return downloadUrl;
     } catch (error) {
       console.error('Error uploading image to Firebase Storage:', error);
@@ -182,12 +189,7 @@ export default function Gallery({ onImagePress }: Props) {
 
             try {
               await Promise.all(deletePromises);
-              console.log(
-                `Successfully deleted ${toDeleteUrls.length} images from Firebase Storage.`
-              );
-              setFirebaseGalleryImages((prevImages) =>
-                prevImages.filter((url) => !toDeleteUrls.includes(url))
-              );
+              setFirebaseGalleryImages((prevImages) => prevImages.filter((url) => !toDeleteUrls.includes(url)));
               setSelectedImages(new Set());
               setLongPressActive(false);
             } catch (error) {
@@ -221,7 +223,7 @@ export default function Gallery({ onImagePress }: Props) {
 
   const handleLongPress = (index: number, isAddButton: boolean) => {
     if (isAddButton) return;
-    
+
     setLongPressActive(true);
     const newSelected = new Set(selectedImages);
     if (!newSelected.has(index)) {
@@ -230,12 +232,60 @@ export default function Gallery({ onImagePress }: Props) {
     }
   };
 
+  const handleLike = async (imageUri: string, imageIndex: number) => {
+    if (!user) {
+      Alert.alert('שגיאה', 'עליך להתחבר כדי לאהוב תמונות');
+      return;
+    }
+
+    const currentUserId = user.uid;
+    const isCurrentlyLiked = isLikedData[imageUri];
+    const imageDocRef = doc(db, LIKES_COLLECTION, `${user.uid}_${imageIndex}`);
+
+    try {
+      // Optimistically update the UI
+      setLikesData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked ? prev[imageUri] - 1 : prev[imageUri] + 1 }));
+      setIsLikedData(prev => ({ ...prev, [imageUri]: !isCurrentlyLiked }));
+
+      if (!isCurrentlyLiked) {
+        // User is liking the image
+        const existingDoc = await getDoc(imageDocRef);
+        if (!existingDoc.exists()) {
+          await setDoc(imageDocRef, {
+            likes: [currentUserId],
+            imageUri,
+            profileOwnerId: user.uid,
+            imageIndex,
+            lastUpdated: new Date().toISOString(),
+          });
+        } else {
+          await updateDoc(imageDocRef, {
+            likes: arrayUnion(currentUserId),
+            lastUpdated: new Date().toISOString(),
+          });
+        }
+      } else {
+        // User is unliking the image
+        await updateDoc(imageDocRef, {
+          likes: arrayRemove(currentUserId),
+          lastUpdated: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('Error updating like:', error);
+      // Revert UI on error
+      setLikesData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked ? prev[imageUri] + 1 : prev[imageUri] - 1 }));
+      setIsLikedData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked }));
+      Alert.alert('שגיאה', 'לא הצלחנו לעדכן את הלייק');
+    }
+  };
+
   const renderAddButton = () => (
     <TouchableOpacity
       style={[
         styles.galleryItem,
         styles.addImageButton,
-        { 
+        {
           backgroundColor: theme.isDark ? '#1F2937' : '#F8FAFF',
           borderColor: theme.isDark ? '#374151' : '#E5E7EB',
         }
@@ -261,6 +311,8 @@ export default function Gallery({ onImagePress }: Props) {
 
   const renderGalleryImage = ({ item, index }: ListRenderItemInfo<string>) => {
     const isSelected = selectedImages.has(index);
+    const likeCount = likesData[item] || 0;
+    const isLiked = isLikedData[item];
 
     return (
       <TouchableOpacity
@@ -273,11 +325,17 @@ export default function Gallery({ onImagePress }: Props) {
         onLongPress={() => handleLongPress(index, false)}
         activeOpacity={0.8}
       >
-        <Image
-          source={{ uri: item }}
-          style={styles.galleryImage}
-          resizeMode="cover"
-        />
+        <Image source={{ uri: item }} style={styles.image} />
+
+        {/* Displaying likes information */}
+        <View style={styles.likeOverlay}>
+          <TouchableOpacity onPress={() => handleLike(item, index)} disabled={longPressActive}>
+            <Ionicons name={'heart'} size={18} color={isLiked ? '#FF3B30' : '#FFF'} style={styles.iconShadow} />
+          </TouchableOpacity>
+          {likeCount > 0 && (
+            <Text style={styles.likeCount}>{likeCount}</Text>
+          )}
+        </View>
 
         {isSelected && (
           <View style={styles.selectionOverlay}>
@@ -295,20 +353,6 @@ export default function Gallery({ onImagePress }: Props) {
             </View>
           </View>
         )}
-
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.4)']}
-          style={styles.imageOverlay}
-        >
-          <View style={styles.imageStats}>
-            <View style={styles.statItem}>
-              <Ionicons name="heart" size={12} color="white" />
-              <Text style={styles.statText}>
-                {likeCounts[index] !== undefined ? likeCounts[index] : 0}
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
       </TouchableOpacity>
     );
   };
@@ -320,7 +364,7 @@ export default function Gallery({ onImagePress }: Props) {
           <Ionicons name="images" size={20} color="#3A8DFF" />
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>גלריה</Text>
         </View>
-        
+
         {longPressActive && selectedImages.size > 0 && (
           <TouchableOpacity
             style={[styles.deleteButton, { backgroundColor: '#FF3B30' }]}
@@ -331,7 +375,7 @@ export default function Gallery({ onImagePress }: Props) {
           </TouchableOpacity>
         )}
       </View>
-      
+
       <View style={[styles.separator, { backgroundColor: theme.isDark ? '#374151' : '#E5E7EB' }]} />
     </View>
   );
@@ -342,12 +386,11 @@ export default function Gallery({ onImagePress }: Props) {
 
   const renderItem = ({ item, index }: ListRenderItemInfo<any>) => {
     if (index === 0) {
-      return item; // זה כפתור ההוספה
+      return item;
     }
-    
+
     const imageUrl = item as string;
-    const adjustedIndex = index - 1; // התאמת האינדקס כי האיטם הראשון הוא כפתור ההוספה
-    
+    const adjustedIndex = index - 1;
     return renderGalleryImage({
       item: imageUrl,
       index: adjustedIndex,
@@ -391,31 +434,26 @@ export default function Gallery({ onImagePress }: Props) {
     );
   }
 
-  if (firebaseGalleryImages.length === 0) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {renderHeader()}
-        {renderEmptyState()}
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {renderHeader()}
-      <FlatList
-        data={getAllItems()}
-        keyExtractor={(item, index) => {
-          if (index === 0) return 'add-button';
-          return (item as string) || index.toString();
-        }}
-        numColumns={3}
-        key={'grid'}
-        renderItem={renderItem}
-        contentContainerStyle={styles.flatListContent}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
-      />
+      {firebaseGalleryImages.length === 0 ? (
+        renderEmptyState()
+      ) : (
+        <FlatList
+          data={getAllItems()}
+          keyExtractor={(item, index) => {
+            if (index === 0) return 'add-button';
+            return (item as string) || index.toString();
+          }}
+          numColumns={3}
+          key={'grid'}
+          renderItem={renderItem}
+          contentContainerStyle={styles.flatListContent}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
+        />
+      )}
       {(selectedImages.size > 0 || longPressActive) && (
         <TouchableOpacity
           style={styles.floatingClearButton}
@@ -506,9 +544,32 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  galleryImage: {
+  image: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
+  },
+  likeOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  likeCount: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  iconShadow: {
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   selectionOverlay: {
     position: 'absolute',
@@ -529,30 +590,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 32,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 8,
-    paddingBottom: 4,
-  },
-  imageStats: {
-    flexDirection: 'row-reverse',
-    gap: 8,
-  },
-  statItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 2,
-  },
-  statText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: '500',
   },
   emptyContainer: {
     flex: 1,

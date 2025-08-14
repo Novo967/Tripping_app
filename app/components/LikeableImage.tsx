@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { db } from '../../firebaseConfig';
- 
 
 interface LikeableImageProps {
   imageUri: string;
@@ -21,6 +20,7 @@ interface LikeableImageProps {
   style?: any;
   onPress?: () => void;
   showLikeButton?: boolean;
+  onPressDisabled?: boolean;
 }
 
 export const LikeableImage: React.FC<LikeableImageProps> = ({
@@ -30,6 +30,7 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
   style,
   onPress,
   showLikeButton = true,
+  onPressDisabled = false, // Added new prop with default value
 }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -126,7 +127,11 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
   };
 
   return (
-    <TouchableOpacity style={[styles.imageContainer, style]} onPress={onPress}>
+    <TouchableOpacity
+      style={[styles.imageContainer, style]}
+      onPress={onPress}
+      disabled={onPressDisabled}
+    >
       <Image source={{ uri: imageUri }} style={styles.image} />
       
       {showLikeButton && (
