@@ -11,9 +11,13 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.novandnoam.trippingapp",
-      "config": { 
-        "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg" }
+      "bundleIdentifier": "com.novandnoam.trek",
+      "config": {
+        "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,9 +26,9 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Tripping_app",
-      "config": { 
+      "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg" 
+          "apiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
         }
       }
     },
@@ -62,6 +66,5 @@
         "projectId": "b1f09d27-4461-43f4-9fa5-cc2e132c8afc"
       }
     }
-    
   }
 }
