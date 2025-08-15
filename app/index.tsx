@@ -5,10 +5,6 @@ import { ActivityIndicator, I18nManager, View } from 'react-native';
 import { auth } from '../firebaseConfig';
 import SplashScreen from './SplashScreen';
 
-// 🔔 הוספה של הפונקציות שלנו
-import { useNotificationListeners } from '../app/hooks/useNotificationListeners';
-import { registerForPushNotificationsAsync } from '../app/utils/pushNotifications';
-
 // מונע מהאפליקציה להפוך לכיוון RTL (מימין לשמאל)
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
@@ -18,13 +14,7 @@ export default function AppEntry() {
   const [showSplash, setShowSplash] = useState(true);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
 
-  // ✅ מאזינים להתראות
-  useNotificationListeners();
-
   useEffect(() => {
-    // ✅ רישום לקבלת טוקן פוש
-    registerForPushNotificationsAsync();
-
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
     }, 5000);

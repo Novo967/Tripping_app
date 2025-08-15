@@ -24,6 +24,7 @@ import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
 import UserMarker from '../../components/UserMarker';
+import { useNotificationListeners } from '../../hooks/useNotificationListeners';
 
 const db = getFirestore(app);
 
@@ -97,6 +98,9 @@ export default function HomeScreen() {
   const auth = getAuth();
   const user = auth.currentUser;
 
+  // מעבירים את אובייקט המשתמש כפרמטר ל-Hook
+  useNotificationListeners(user);
+
   const deletePin = useCallback(async (pinId: string) => {
     try {
       const pinDocRef = doc(db, 'pins', pinId);
@@ -162,9 +166,9 @@ export default function HomeScreen() {
     }
   }, []);
   useEffect(() => {
-      if (shouldChooseLocationParam === 'true') {
-          setIsChoosingLocation(true);
-      }
+    if (shouldChooseLocationParam === 'true') {
+      setIsChoosingLocation(true);
+    }
   }, [shouldChooseLocationParam]);
   useEffect(() => {
     const loadInitialData = async () => {
