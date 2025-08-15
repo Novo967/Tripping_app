@@ -1,12 +1,9 @@
 // src/utils/pushNotifications.ts
-import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Alert, Platform } from 'react-native';
 
-import { getAuth } from 'firebase/auth';
-import { arrayUnion, doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore';
-
+// הקובץ הזה יתמקד כעת אך ורק בקבלת טוקן ההתראות של Expo
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -16,12 +13,12 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export async function registerForPushNotificationsAsync() {
+export async function getExpoPushToken() {
   console.log('1. התחלתי את תהליך רישום ההתראות.');
   if (!Device.isDevice) {
     Alert.alert('נדרש מכשיר אמיתי');
     console.log('1a. יצאתי: לא מכשיר פיזי.');
-    return;
+    return null;
   }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -35,7 +32,7 @@ export async function registerForPushNotificationsAsync() {
   if (finalStatus !== 'granted') {
     Alert.alert('לא התקבלו הרשאות');
     console.log('2b. יצאתי: אין הרשאות.');
-    return;
+    return null;
   }
 
   if (Platform.OS === 'android') {
@@ -46,37 +43,17 @@ export async function registerForPushNotificationsAsync() {
     console.log('3. ערוץ התראות אנדרואיד הוגדר.');
   }
 
-  const projectId =
-    (Constants as any).easConfig?.projectId ??
-    Constants.expoConfig?.extra?.eas?.projectId;
+  const projectId = 'b1f09d27-4461-43f4-9fa5-cc2e132c8afc';
 
   console.log('4. מזהה פרויקט Expo:', projectId);
 
-  const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync({ projectId });
-  console.log('5. טוקן התראות התקבל:', expoPushToken);
-
-  const auth = getAuth();
-  const user = auth.currentUser;
-  console.log('6. משתמש נוכחי:', user?.uid);
-  if (!user) {
-    console.log('6a. יצאתי: אין משתמש מחובר.');
-    return;
-  }
-
-  const db = getFirestore();
   try {
-    await setDoc(
-      doc(db, 'users', user.uid),
-      {
-        expoPushTokens: arrayUnion(expoPushToken),
-        pushUpdatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-    console.log('7. הטוקן נשמר בהצלחה בפיירבייס!');
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+    const expoPushToken = tokenResponse.data;
+    console.log('5. טוקן התראות התקבל:', expoPushToken);
+    return expoPushToken;
   } catch (error) {
-    console.error('שגיאה בשמירת הטוקן בפיירבייס:', error);
+    console.error('שגיאה בקבלת הטוקן של Expo:', error);
+    return null;
   }
-
-  return expoPushToken;
 }

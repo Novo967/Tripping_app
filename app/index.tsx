@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, I18nManager, View } from 'react-native';
+import { getExpoPushToken } from '../app/utils/pushNotifications'; // ייבוא הפונקציה לקבלת הטוקן
 import { auth } from '../firebaseConfig';
 import SplashScreen from './SplashScreen';
 
@@ -13,13 +14,28 @@ export default function AppEntry() {
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null); // הוספת משתנה מצב לטוקן
 
   useEffect(() => {
+    // שלב 1: התחלת קבלת טוקן ההתראות במקביל לספלאש סקרין
+    const fetchToken = async () => {
+      console.log('AppEntry: מתחיל בקשת טוקן התראות.');
+      const token = await getExpoPushToken();
+      if (token) {
+        console.log('AppEntry: טוקן התקבל בהצלחה!');
+        setExpoPushToken(token);
+      } else {
+        console.log('AppEntry: שגיאה בקבלת הטוקן.');
+      }
+    };
+    fetchToken();
+
+    // שלב 2: טיימר להצגת הספלאש סקרין
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
     }, 5000);
 
-    // Firebase auth listener
+    // שלב 3: Firebase auth listener
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAuthChecked(true);
 
