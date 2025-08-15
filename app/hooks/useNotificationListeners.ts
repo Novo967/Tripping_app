@@ -1,20 +1,58 @@
 // src/hooks/useNotificationListeners.ts
 import * as Notifications from 'expo-notifications';
 import { User } from 'firebase/auth'; // ייבוא סוג המשתמש של פיירבייס
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { registerForPushNotificationsAsync } from '../utils/pushNotifications';
+import { getAuth } from 'firebase/auth';
+import { arrayUnion, doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore';
+
+
+import { getExpoPushToken } from '../utils/pushNotifications';
 
 export function useNotificationListeners(user: User | null) {
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const receivedSub = useRef<Notifications.Subscription | null>(null);
   const responseSub = useRef<Notifications.Subscription | null>(null);
 
+  // useEffect ראשון: קבלת הטוקן רק פעם אחת בטעינה ראשונית של האפליקציה
   useEffect(() => {
-    // הפעלת רישום הטוקן רק אם יש משתמש מחובר
-    if (user) {
-      registerForPushNotificationsAsync();
+    const fetchToken = async () => {
+      const token = await getExpoPushToken();
+      if (token) {
+        setExpoPushToken(token);
+      }
+    };
+    fetchToken();
+  }, []);
+
+  // useEffect שני: שמירת הטוקן בפיירבייס רק לאחר שהמשתמש התחבר והטוקן זמין
+  useEffect(() => {
+    if (user && expoPushToken) {
+      const saveTokenToFirebase = async () => {
+        const auth = getAuth();
+        const db = getFirestore();
+
+        try {
+          await setDoc(
+            doc(db, 'users', user.uid),
+            {
+              expoPushTokens: arrayUnion(expoPushToken),
+              pushUpdatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+          console.log('7. הטוקן נשמר בהצלחה בפיירבייס!');
+        } catch (error) {
+          console.error('שגיאה בשמירת הטוקן בפיירבייס:', error);
+        }
+      };
+
+      saveTokenToFirebase();
     }
-    
+  }, [user, expoPushToken]);
+
+  // האזנה להתראות בזמן אמת, כפי שהיה קודם
+  useEffect(() => {
     receivedSub.current = Notifications.addNotificationReceivedListener((n) => {
       console.log('התראה התקבלה:', n);
     });
@@ -27,5 +65,5 @@ export function useNotificationListeners(user: User | null) {
       receivedSub.current?.remove();
       responseSub.current?.remove();
     };
-  }, [user]); // ה-Hook יופעל מחדש כאשר אובייקט המשתמש יהיה זמין
+  }, []); // ה-Hook יופעל רק פעם אחת בטעינה
 }

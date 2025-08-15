@@ -21,6 +21,7 @@
       }
     },
     "android": {
+      "googleServicesFile": "android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/TREKicon.png",
         "backgroundColor": "#ffffff"
@@ -56,7 +57,14 @@
       ],
       "./app.plugin.js",
       "expo-web-browser",
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/TREKicon.png",
+          "color": "#ffffff",
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
