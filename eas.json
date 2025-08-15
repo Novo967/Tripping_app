@@ -21,5 +21,15 @@
   },
   "cli": {
     "version": ">= 3.0.0"
+  },
+
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "noamhemo2001@gmail.com",
+        "ascAppId": "6751059977",
+        "appleTeamId": "D248A5J9JA"
+      }
+    }
   }
 }

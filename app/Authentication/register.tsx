@@ -93,7 +93,7 @@ export default function RegisterScreen() {
   }, [response]);
   
   // פונקציית עזר חדשה לשמירת מיקום ב-Firestore
-  const saveLocationToFirestore = async (user) => {
+  const saveLocationToFirestore = async (user: import('firebase/auth').User) => {
     try {
       console.log('Requesting location permissions...');
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -169,13 +169,25 @@ export default function RegisterScreen() {
       router.push('/(tabs)/home');
     } catch (error) {
       console.error("שגיאה ברישום:", error);
-      Alert.alert('שגיאה ברישום');
+      // שיפור טיפול בשגיאות והצגת הודעות ספציפיות יותר
+      if (typeof error === 'object' && error !== null && 'code' in error) {
+        const errorCode = (error as { code: string }).code;
+        if (errorCode === 'auth/email-already-in-use') {
+          Alert.alert('שגיאה', 'כתובת האימייל כבר קיימת במערכת. אנא נסה להתחבר או להשתמש בכתובת אימייל אחרת.');
+        } else if (errorCode === 'auth/invalid-email') {
+          Alert.alert('שגיאה', 'כתובת האימייל שהוזנה אינה תקינה.');
+        } else {
+          Alert.alert('שגיאה ברישום', 'אירעה שגיאה לא צפויה. אנא נסה שוב מאוחר יותר.');
+        }
+      } else {
+        Alert.alert('שגיאה ברישום', 'אירעה שגיאה לא צפויה. אנא נסה שוב מאוחר יותר.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async (idToken) => {
+  const handleGoogleSignIn = async (idToken: string) => {
     setIsLoading(true);
     try {
       console.log('Attempting Firebase sign-in with Google ID Token...');

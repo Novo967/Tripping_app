@@ -3,7 +3,7 @@
     "name": "TREK",
     "slug": "Tripping_app",
     "owner": "novrubin",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/TREKicon.png",
     "scheme": "trippingapp",
@@ -12,12 +12,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.novandnoam.trek",
+      "buildNumber": "2",
       "config": {
         "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["fetch", "remote-notification"],
-        "ITSAppUsesNonExemptEncryption": false
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "האפליקציה זקוקה למיקומך כדי להציג את מסלולי הטיול הקרובים אליך ולעקוב אחר מסלולי הטיול שלך בזמן אמת."
       }
     },
     "android": {
@@ -28,6 +33,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Tripping_app",
+      "versionCode": 3,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"

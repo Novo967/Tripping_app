@@ -27,7 +27,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   // פונקציית עזר חדשה לשמירת מיקום ב-Firestore
-  const saveLocationToFirestore = async (user) => {
+  const saveLocationToFirestore = async (user: import('firebase/auth').User) => {
     try {
       console.log('Requesting location permissions...');
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -69,7 +69,19 @@ export default function LoginScreen() {
       router.push('/(tabs)/home');
     } catch (error) {
       console.error("שגיאה בהתחברות:", error);
-      Alert.alert('שגיאה בהתחברות');
+      // שיפור טיפול בשגיאות והצגת הודעות ספציפיות יותר
+      if (typeof error === 'object' && error !== null && 'code' in error) {
+        const errorCode = (error as { code: string }).code;
+        if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/wrong-password') {
+          Alert.alert('שגיאה בהתחברות', 'כתובת אימייל או סיסמה שגויים. אנא נסה שוב.');
+        } else if (errorCode === 'auth/user-not-found') {
+          Alert.alert('שגיאה בהתחברות', 'כתובת אימייל זו לא נמצאה במערכת.');
+        } else {
+          Alert.alert('שגיאה בהתחברות', 'אירעה שגיאה לא צפויה. אנא נסה שוב מאוחר יותר.');
+        }
+      } else {
+        Alert.alert('שגיאה בהתחברות', 'אירעה שגיאה לא צפויה. אנא נסה שוב מאוחר יותר.');
+      }
     } finally {
       setIsLoading(false);
     }
