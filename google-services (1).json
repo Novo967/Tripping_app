@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "328672185045",
+    "project_id": "tripapp-f99f4",
+    "storage_bucket": "tripapp-f99f4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:328672185045:android:e0b63c93a5942bc53ff05c",
+        "android_client_info": {
+          "package_name": "com.anonymous.Tripping_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "328672185045-j2ufp6opvvq2hbce9u4og7rt6ghvb08j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.Tripping_app",
+            "certificate_hash": "4a4497ea6238ff5f8b1cecdd71abe39b08918756"
+          }
+        },
+        {
+          "client_id": "328672185045-g7gkss6smt3t1nkbp73nf1tt2bmham58.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2Hn6m9S2RuUJWf3rmRQHaiuwLmUXFNmE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "328672185045-g7gkss6smt3t1nkbp73nf1tt2bmham58.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "328672185045-ope89nmh8ft15p1smem42e7no81ukc85.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.NovAndNoam.Tripping_app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
