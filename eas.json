@@ -7,9 +7,6 @@
     "production": {
       "android": {
         "buildType": "apk" 
-      },
-      "ios": {
-        "simulator": true
       }
     },
     "preview": {
