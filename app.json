@@ -17,7 +17,8 @@
       },
       "infoPlist": {
         "UIBackgroundModes": ["fetch", "remote-notification"],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "האפליקציה זקוקה למיקומך כדי להציג את מסלולי הטיול הקרובים אליך ולעקוב אחר מסלולי הטיול שלך בזמן אמת."
       }
     },
     "android": {
