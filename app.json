@@ -12,11 +12,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.novandnoam.trek",
+      "buildNumber": "2",
       "config": {
         "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "האפליקציה זקוקה למיקומך כדי להציג את מסלולי הטיול הקרובים אליך ולעקוב אחר מסלולי הטיול שלך בזמן אמת."
       }
@@ -28,6 +32,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Tripping_app",
+      "versionCode": 3,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
