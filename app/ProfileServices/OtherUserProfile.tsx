@@ -2,11 +2,22 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { doc, DocumentData, getDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth'; // Added for like functionality
+import {
+  arrayRemove,
+  arrayUnion,
+  doc,
+  DocumentData,
+  getDoc,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore'; // Added for like functionality
 import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -20,9 +31,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useTheme } from '../../app/ProfileServices/ThemeContext'; // Ensure this path is correct
+import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { db } from '../../firebaseConfig';
-import { LikeableImage } from '../components/LikeableImage';
 import { RootStackParamList } from '../types';
 
 type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile'>;
@@ -50,12 +60,17 @@ interface UserData {
   isOnline?: boolean;
 }
 
+// הגדרת ממשק לנתוני לייקים
+interface ImageLikesData {
+  isLiked: boolean;
+  count: number;
+}
+
 const OtherUserProfile = () => {
   const route = useRoute<OtherUserProfileRouteProp>();
   const { uid } = route.params;
   const router = useRouter();
 
-  // שימוש ב-useTheme כדי לקבל את ערכת הנושא הנוכחית
   const { theme } = useTheme();
 
   const [userData, setUserData] = useState<UserData>({
@@ -66,7 +81,14 @@ const OtherUserProfile = () => {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  const modalFlatListRef = useRef<FlatList>(null);
+
+  // מצבי useState חדשים לניהול הלייקים
+  const [imageLikes, setImageLikes] = useState<{ [key: string]: ImageLikesData }>({});
+  const [likeLoading, setLikeLoading] = useState<{ [key: string]: boolean }>({});
+  const likeScaleAnim = useRef<{ [key: string]: Animated.Value }>({});
+
+  const auth = getAuth();
+  const currentUserId = auth.currentUser?.uid;
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -122,6 +144,10 @@ const OtherUserProfile = () => {
           joinDate: firestoreData?.joinDate || '',
           isOnline: firestoreData?.isOnline || false,
         });
+
+        // קריאה לפונקציה חדשה ששולפת את נתוני הלייקים
+        await fetchLikesForAllImages(galleryImageUrls);
+
       } catch (error) {
         console.error('An error occurred during data fetching:', error);
       } finally {
@@ -130,6 +156,29 @@ const OtherUserProfile = () => {
     };
     fetchUserData();
   }, [uid]);
+
+  // פונקציה חדשה לשליפת נתוני לייקים עבור כל התמונות
+  const fetchLikesForAllImages = async (imageUrls: string[]) => {
+    const allLikesData: { [key: string]: ImageLikesData } = {};
+    for (let i = 0; i < imageUrls.length; i++) {
+      const imageDocRef = doc(db, 'imageLikes', `${uid}_${i}`);
+      try {
+        const imageDoc = await getDoc(imageDocRef);
+        if (imageDoc.exists()) {
+          const data = imageDoc.data();
+          const likes = data.likes || [];
+          const isLiked = currentUserId ? likes.includes(currentUserId) : false;
+          allLikesData[`${uid}_${i}`] = { isLiked, count: likes.length };
+        } else {
+          allLikesData[`${uid}_${i}`] = { isLiked: false, count: 0 };
+        }
+      } catch (error) {
+        console.error(`Error fetching like data for image ${i}:`, error);
+        allLikesData[`${uid}_${i}`] = { isLiked: false, count: 0 };
+      }
+    }
+    setImageLikes(allLikesData);
+  };
 
   const handleSendMessage = () => {
     router.push({
@@ -158,30 +207,152 @@ const OtherUserProfile = () => {
     setSelectedImageIndex(null);
   };
 
-  const renderGalleryImage = ({ item, index }: { item: string; index: number }) => (
-    <TouchableOpacity
-      style={[
-        styles.galleryItem,
-        {
-          marginLeft: (index + 1) % GALLERY_COLUMNS === 0 ? 0 : GALLERY_SPACING,
-          marginBottom: GALLERY_SPACING,
-        },
-      ]}
-      onPress={() => openImageModal(userData.galleryImages.slice(0, 9).length - 1 - index)}
-    >
-      <LikeableImage
-        imageUri={item}
-        imageIndex={index}
-        profileOwnerId={uid}
-        style={styles.galleryImage}
-        showLikeButton={true}
-      />
-      {index === 8 && userData.galleryImages.length > 9 && (
-        <View style={styles.moreImagesOverlay}>
-          <Text style={styles.moreImagesText}>+{userData.galleryImages.length - 9}</Text>
+  // פונקציה חדשה לניהול לייקים
+  const handleLike = async (imageIndex: number, imageUri: string) => {
+    if (!currentUserId) {
+      Alert.alert('שגיאה', 'עליך להתחבר כדי לאהוב תמונות');
+      return;
+    }
+
+    const key = `${uid}_${imageIndex}`;
+    if (likeLoading[key]) return;
+
+    setLikeLoading((prev) => ({ ...prev, [key]: true }));
+
+    const currentLikes = imageLikes[key] || { isLiked: false, count: 0 };
+    const newIsLiked = !currentLikes.isLiked;
+    const newCount = newIsLiked ? currentLikes.count + 1 : currentLikes.count - 1;
+
+    setImageLikes((prev) => ({
+      ...prev,
+      [key]: { isLiked: newIsLiked, count: newCount },
+    }));
+
+    // הפעלת האנימציה
+    if (!likeScaleAnim.current[key]) {
+      likeScaleAnim.current[key] = new Animated.Value(1);
+    }
+
+    Animated.sequence([
+      Animated.timing(likeScaleAnim.current[key], {
+        toValue: 1.2,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(likeScaleAnim.current[key], {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const imageDocRef = doc(db, 'imageLikes', key);
+
+    try {
+      const existingDoc = await getDoc(imageDocRef);
+
+      if (!existingDoc.exists()) {
+        if (newIsLiked) {
+          await setDoc(imageDocRef, {
+            likes: [currentUserId],
+            imageUri,
+            profileOwnerId: uid,
+            imageIndex,
+            lastUpdated: new Date().toISOString(),
+          });
+        }
+      } else {
+        if (newIsLiked) {
+          await updateDoc(imageDocRef, {
+            likes: arrayUnion(currentUserId),
+            lastUpdated: new Date().toISOString(),
+          });
+        } else {
+          await updateDoc(imageDocRef, {
+            likes: arrayRemove(currentUserId),
+            lastUpdated: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error updating like:', error);
+      // החזרת המצב הקודם אם יש שגיאה
+      setImageLikes((prev) => ({
+        ...prev,
+        [key]: currentLikes,
+      }));
+      Alert.alert('שגיאה', 'לא הצלחנו לעדכן את הלייק');
+    } finally {
+      setLikeLoading((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const renderGalleryImage = ({ item, index }: { item: string; index: number }) => {
+    const key = `${uid}_${index}`;
+    const likesData = imageLikes[key] || { isLiked: false, count: 0 };
+    const { isLiked, count } = likesData;
+
+    // הפעלת אנימציה של סקייל אם היא קיימת, אחרת יצירת אחת חדשה
+    if (!likeScaleAnim.current[key]) {
+      likeScaleAnim.current[key] = new Animated.Value(1);
+    }
+    const scaleAnim = likeScaleAnim.current[key];
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.galleryItem,
+          {
+            marginLeft: (index % GALLERY_COLUMNS) === (GALLERY_COLUMNS - 1) ? 0 : GALLERY_SPACING,
+            marginBottom: GALLERY_SPACING,
+          },
+        ]}
+        onPress={() => openImageModal(index)} // Correct index for gallery
+      >
+        <Image
+          source={{ uri: item }}
+          style={styles.galleryImage}
+        />
+        {/* Like Overlay */}
+        <View style={styles.likeOverlay}>
+          <TouchableOpacity
+            style={styles.likeButton}
+            onPress={(e) => {
+              e.stopPropagation(); // מונע את פתיחת המודל
+              handleLike(index, item);
+            }}
+            disabled={likeLoading[key]}
+          >
+            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+              <Ionicons
+                name={'heart'}
+                size={18}
+                color={isLiked ? '#FF3B30' : '#FFF'}
+                style={isLiked ? null : styles.iconShadow}
+              />
+            </Animated.View>
+            {count > 0 && (
+              <Text style={styles.likeCount}>{count}</Text>
+            )}
+          </TouchableOpacity>
         </View>
-      )}
-    </TouchableOpacity>
+        {index === 8 && userData.galleryImages.length > 9 && (
+          <View style={styles.moreImagesOverlay}>
+            <Text style={styles.moreImagesText}>+{userData.galleryImages.length - 9}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderModalImage = ({ item }: { item: string }) => (
+    <View style={styles.expandedImageContainer}>
+      <Image
+        source={{ uri: item }}
+        style={styles.expandedImage}
+        resizeMode="contain"
+      />
+    </View>
   );
 
   const statusBarStyle = theme.isDark ? 'light-content' : 'dark-content';
@@ -215,7 +386,6 @@ const OtherUserProfile = () => {
             <Text style={[styles.onlineText, { color: '#3A8DFF' }]}>פעיל עכשיו</Text>
           </View>
         )}
-
         <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.isDark ? theme.colors.background : '#f8f9fa' }]} onPress={() => router.push('/(tabs)/home')}>
           <Feather name="arrow-right" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -325,13 +495,13 @@ const OtherUserProfile = () => {
             <View style={styles.galleryContainer}>
               <FlatList
                 data={userData.galleryImages.slice(0, 9).reverse()}
-                keyExtractor={(item, index) => index.toString()}
+                keyExtractor={(item, index) => `${uid}_${userData.galleryImages.length - 1 - index}`}
                 numColumns={GALLERY_COLUMNS}
                 scrollEnabled={false}
                 showsVerticalScrollIndicator={false}
                 renderItem={({ item, index }) => renderGalleryImage({
                   item,
-                  index: userData.galleryImages.slice(0, 9).length - 1 - index,
+                  index: userData.galleryImages.length - 1 - index, // Pass the correct original index
                 })}
                 contentContainerStyle={styles.galleryContent}
                 style={styles.galleryList}
@@ -368,10 +538,23 @@ const OtherUserProfile = () => {
           onPress={closeImageModal}
         >
           {selectedImageIndex !== null && (
-            <Image
-              source={{ uri: userData.galleryImages[selectedImageIndex] }}
-              style={styles.expandedImage}
-              resizeMode="contain"
+            <FlatList
+              data={userData.galleryImages}
+              renderItem={renderModalImage}
+              keyExtractor={(item, index) => index.toString()}
+              horizontal
+              pagingEnabled
+              initialScrollIndex={selectedImageIndex}
+              getItemLayout={(data, index) => ({
+                length: width,
+                offset: width * index,
+                index,
+              })}
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) => {
+                const newIndex = Math.floor(event.nativeEvent.contentOffset.x / width);
+                setSelectedImageIndex(newIndex);
+              }}
             />
           )}
           {selectedImageIndex !== null && (
@@ -379,6 +562,9 @@ const OtherUserProfile = () => {
               <Text style={styles.imageCounterText}>{selectedImageIndex + 1} / {userData.galleryImages.length}</Text>
             </View>
           )}
+          <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
+            <Ionicons name="close-circle" size={40} color="white" />
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </SafeAreaView>
@@ -622,14 +808,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  expandedImageContainer: {
+    width: width,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   expandedImage: {
-    width: '90%',
-    height: '90%',
-    borderRadius: 10,
+    width: '100%',
+    height: '100%',
   },
   imageCounter: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 80,
     alignSelf: 'center',
     borderRadius: 12,
     paddingHorizontal: 12,
@@ -639,5 +830,38 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 1,
+  },
+  // New styles for the like button
+  likeOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 6,
+    borderRadius: 15,
+  },
+  likeCount: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  iconShadow: {
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
