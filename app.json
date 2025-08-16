@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.novandnoam.trek",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "config": {
         "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
       },

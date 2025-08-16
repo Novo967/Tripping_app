@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>328672185045-fbqc0p6i8d48kbbm0ohjl27qkl9lpo54.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.328672185045-fbqc0p6i8d48kbbm0ohjl27qkl9lpo54</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>328672185045-j2ufp6opvvq2hbce9u4og7rt6ghvb08j.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDvVEM3ZWFf--eyzjPGBQhfVtK7uI9Fd8g</string>
+	<key>GCM_SENDER_ID</key>
+	<string>328672185045</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.novandnoam.trek</string>
+	<key>PROJECT_ID</key>
+	<string>tripapp-f99f4</string>
+	<key>STORAGE_BUCKET</key>
+	<string>tripapp-f99f4.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:328672185045:ios:42794c8fb8b0ec743ff05c</string>
+</dict>
+</plist>
