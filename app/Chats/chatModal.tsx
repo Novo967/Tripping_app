@@ -12,6 +12,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc
 } from 'firebase/firestore';
 import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
@@ -86,7 +87,7 @@ const ChatModal = () => {
     }
   };
 
-  useEffect(() => {
+    useEffect(() => {
     const fetchProfileImage = async () => {
       if (!otherUserId) return;
       const imageUrl = await getProfileImageUrl(otherUserId);
@@ -96,14 +97,50 @@ const ChatModal = () => {
   }, [otherUserId]);
 
   useEffect(() => {
-    if (!chatId) return;
+    // בדיקה חדשה: אם chatId או currentUid אינם מוגדרים, בצע יציאה
+    if (!chatId || !currentUid) {
+      console.log('Chat ID or current user ID is not defined. Exiting useEffect.');
+      return;
+    }
+
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Message)));
     });
-    return unsubscribe;
-  }, [chatId]);
+
+    const userDocRef = doc(db, 'users', currentUid);
+    const setChatActive = async () => {
+      try {
+        await updateDoc(userDocRef, {
+          activeChatId: chatId,
+        });
+        console.log(`עדכון activeChatId ל: ${chatId}`);
+      } catch (e) {
+        console.error('שגיאה בעדכון activeChatId:', e);
+      }
+    };
+
+    const clearChatActive = async () => {
+      try {
+        await updateDoc(userDocRef, {
+          activeChatId: null,
+        });
+        console.log('איפוס activeChatId.');
+      } catch (e) {
+        console.error('שגיאה באיפוס activeChatId:', e);
+      }
+    };
+
+    setChatActive();
+    
+    // פונקציית ה-cleanup תרוץ כאשר הרכיב עוזב את המסך
+    return () => {
+      unsubscribe();
+      clearChatActive();
+    };
+
+  }, [chatId, currentUid]); 
 
   const sendMessage = async (imageUrl?: string) => {
     if ((!input.trim() && !imageUrl) || !currentUid) return;

@@ -1,16 +1,162 @@
 import { Expo } from 'expo-server-sdk';
 import * as admin from 'firebase-admin';
 import { setGlobalOptions } from 'firebase-functions/v2';
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 
-// Set the global region for all functions
+// הגדרת האזור הגלובלי לכל הפונקציות
 setGlobalOptions({ region: 'me-west1' });
 
-// Initialize Firebase Admin
+// אתחול Firebase Admin
 admin.initializeApp();
 
 const expo = new Expo();
 
+// פונקציית העזר לשליחת התראות
+const sendPushNotification = async (to: string, title: string, body: string, data: any) => {
+    // בדיקה אם הטוקן תקין
+    if (!Expo.isExpoPushToken(to)) {
+        console.error(`Push token ${to} is not a valid Expo push token`);
+        return;
+    }
+
+    const message = {
+        to: to,
+        sound: 'default',
+        title: title,
+        body: body,
+        data: data,
+    };
+
+    try {
+        await expo.sendPushNotificationsAsync([message]);
+        console.log(`התראה נשלחה בהצלחה לטוקן: ${to}`);
+    } catch (error) {
+        console.error('שגיאה בשליחת התראה:', error);
+    }
+};
+
+/**
+ * פונקציה זו נשלחת כאשר נוצר מסמך חדש ב-event_requests.
+ * היא שולחת התראת פוש למנהל האירוע שהתקבלה בקשת הצטרפות.
+ */
+exports.sendNotificationOnEventRequest = onDocumentCreated('event_requests/{requestId}', async (event) => {
+    console.log('--- התחלת תהליך שליחת התראת בקשת אירוע ---');
+    
+    const snapshot = event.data;
+    if (!snapshot) {
+        console.log('אין snapshot, הפונקציה חוזרת.');
+        return null;
+    }
+
+    const requestData = snapshot.data();
+    const { sender_uid, sender_username, event_title, receiver_uid } = requestData;
+
+    // בדיקה אם הנתונים החיוניים קיימים
+    if (!sender_uid || !receiver_uid) {
+        console.log('חסרים נתונים חיוניים (sender_uid או receiver_uid). הפונקציה חוזרת.');
+        return null;
+    }
+
+    try {
+        // שליפת נתוני מנהל האירוע (כולל טוקני הפוש שלו)
+        const receiverDoc = await admin.firestore().collection('users').doc(receiver_uid).get();
+        const receiverData = receiverDoc.data();
+
+        if (receiverData && receiverData.expoPushTokens && receiverData.expoPushTokens.length > 0) {
+            console.log(`נמצאו טוקנים עבור מנהל האירוע: ${receiver_uid}`);
+            for (const pushToken of receiverData.expoPushTokens) {
+                // קביעת כותרת וגוף ההתראה
+                const title = "בקשת הצטרפות לאירוע";
+                const body = `${sender_username} מבקש/ת להצטרף לאירוע: ${event_title}`;
+                const notificationData = {
+                    senderId: sender_uid,
+                    eventId: requestData.event_id,
+                    requestId: event.params.requestId,
+                };
+                
+                await sendPushNotification(pushToken, title, body, notificationData);
+            }
+        } else {
+            console.log(`אין נתוני משתמש או טוקנים עבור מנהל האירוע: ${receiver_uid}`);
+        }
+
+        console.log('--- סיום תהליך שליחת התראת בקשת אירוע ---');
+        return null;
+    } catch (error) {
+        console.error('שגיאה כללית בפונקציית בקשת אירוע:', error);
+        return null;
+    }
+});
+
+/**
+ * פונקציה זו מופעלת כאשר מסמך ב-event_requests מתעדכן.
+ * היא שולחת התראה למשתמש כאשר בקשתו אושרה או נדחתה.
+ */
+exports.sendNotificationOnRequestUpdate = onDocumentUpdated('event_requests/{requestId}', async (event) => {
+    console.log('--- התחלת תהליך שליחת התראת עדכון בקשת אירוע ---');
+    
+    if (!event.data) {
+        console.log('אין נתונים בעדכון, הפונקציה חוזרת.');
+        return null;
+    }
+    
+    const beforeData = event.data.before.data();
+    const afterData = event.data.after.data();
+
+    // בדיקה אם הסטטוס השתנה
+    if (beforeData.status === afterData.status) {
+        console.log('סטטוס הבקשה לא השתנה. הפונקציה חוזרת.');
+        return null;
+    }
+
+    const { sender_uid, event_title, status } = afterData;
+
+    try {
+        // שליפת נתוני המשתמש ששלח את הבקשה
+        const senderDoc = await admin.firestore().collection('users').doc(sender_uid).get();
+        const senderData = senderDoc.data();
+
+        if (senderData && senderData.expoPushTokens && senderData.expoPushTokens.length > 0) {
+            console.log(`נמצאו טוקנים עבור שולח הבקשה: ${sender_uid}`);
+            
+            let title = "";
+            let body = "";
+
+            if (status === 'accepted') {
+                title = "בקשתך אושרה!";
+                body = `הבקשה שלך להצטרף לאירוע "${event_title}" אושרה.`;
+            } else if (status === 'declined') {
+                title = "בקשתך נדחתה";
+                body = `הבקשה שלך להצטרף לאירוע "${event_title}" נדחתה.`;
+            } else {
+                console.log('סטטוס לא מוכר. הפונקציה חוזרת.');
+                return null;
+            }
+
+            for (const pushToken of senderData.expoPushTokens) {
+                const notificationData = {
+                    status: status,
+                    eventId: afterData.event_id,
+                };
+
+                await sendPushNotification(pushToken, title, body, notificationData);
+            }
+        } else {
+            console.log(`אין נתוני משתמש או טוקנים עבור שולח הבקשה: ${sender_uid}`);
+        }
+
+        console.log('--- סיום תהליך שליחת התראת עדכון בקשת אירוע ---');
+        return null;
+    } catch (error) {
+        console.error('שגיאה כללית בפונקציית עדכון בקשה:', error);
+        return null;
+    }
+});
+
+/**
+ * פונקציה קיימת לשליחת התראות על הודעות חדשות בצ'אט.
+ * עדכון: הבדיקה לוודא שהנמען לא נמצא בצ'אט הנוכחי.
+ */
 exports.sendNotificationOnNewMessage = onDocumentCreated('{chatType}/{chatId}/messages/{messageId}', async (event) => {
     console.log('--- התחלת תהליך שליחת התראה ---');
     
@@ -25,7 +171,6 @@ exports.sendNotificationOnNewMessage = onDocumentCreated('{chatType}/{chatId}/me
     
     console.log(`קבלת הודעה חדשה: chatType=${chatType}, chatId=${chatId}`);
 
-    // Check if the message has essential data, using the correct field names
     if (!message.senderId || !message.text) {
         console.log('חסרים נתונים בהודעה (senderId או text). הפונקציה חוזרת.');
         return null;
@@ -69,19 +214,19 @@ exports.sendNotificationOnNewMessage = onDocumentCreated('{chatType}/{chatId}/me
             return null;
         }
 
-        const messages: any[] = [];
+        const messagesToSend: any[] = [];
         
-        // Fetch the sender's username
+        // שליפת שם המשתמש של השולח
         const senderDoc = await admin.firestore().collection('users').doc(message.senderId).get();
         const senderData = senderDoc.data();
-        const senderUsername = senderData?.username || 'משתמש לא ידוע';
+        const senderUsername = message.senderUsername || senderData?.username || 'משתמש לא ידוע';
 
         for (const recipientUid of recipientUids) {
             console.log(`מעבד התראות עבור נמען: ${recipientUid}`);
             const userDoc = await admin.firestore().collection('users').doc(recipientUid).get();
             const userData = userDoc.data();
 
-            if (userData && userData.expoPushTokens && userData.expoPushTokens.length > 0) {
+            if (userData && userData.expoPushTokens && userData.expoPushTokens.length > 0 && userData.activeChatId !== chatId) {
                 for (const pushToken of userData.expoPushTokens) {
                     console.log(`נמצא טוקן פוש: ${pushToken}`);
                     if (!Expo.isExpoPushToken(pushToken)) {
@@ -89,29 +234,31 @@ exports.sendNotificationOnNewMessage = onDocumentCreated('{chatType}/{chatId}/me
                         continue;
                     }
 
-                    messages.push({
+                    messagesToSend.push({
                         to: pushToken,
                         sound: 'default',
-                        title: senderUsername, // Use the sender's username as the title
-                        body: message.text,    // Use the message text as the body
+                        title: senderUsername,
+                        body: message.text,
                         data: { from: message.senderId, to: recipientUid, chatType, chatId },
                     });
                     console.log('הודעה נוספה למערך לשליחה.');
                 }
             } else {
-                console.log(`אין נתוני משתמש או טוקנים עבור נמען: ${recipientUid}`);
+                if (userData?.activeChatId === chatId) {
+                    console.log(`התראה לא נשלחה לנמען ${recipientUid} כי הוא נמצא בצ'אט הנוכחי.`);
+                } else {
+                    console.log(`אין נתוני משתמש או טוקנים עבור נמען: ${recipientUid}`);
+                }
             }
         }
 
-        console.log(`סה"כ הודעות להכנה: ${messages.length}`);
-        const chunks = expo.chunkPushNotifications(messages);
-        const tickets = [];
-
+        console.log(`סה"כ הודעות להכנה: ${messagesToSend.length}`);
+        const chunks = expo.chunkPushNotifications(messagesToSend);
+        
         for (const chunk of chunks) {
             try {
                 console.log('שולח חבילת התראות ל-Expo...');
-                const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-                tickets.push(...ticketChunk);
+                await expo.sendPushNotificationsAsync(chunk);
                 console.log('שליחה ל-Expo הושלמה.');
             } catch (error) {
                 console.error('שגיאה בשליחת התראות:', error);
