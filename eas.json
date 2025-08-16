@@ -1,12 +1,13 @@
 {
+  "cli": {
+    "version": ">= 7.8.0"
+  },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
-    },
-    "production": {
-      "android": {
-        "buildType": "apk"
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m-medium"
       }
     },
     "preview": {
@@ -15,12 +16,19 @@
         "buildType": "apk"
       },
       "ios": {
-        "simulator": true
+        "simulator": true,
+        "resourceClass": "m-medium"
+      }
+    },
+    "production": {
+      "ios": {
+        "resourceClass": "m-medium",
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "buildType": "apk"
       }
     }
-  },
-  "cli": {
-    "version": ">= 3.0.0"
   },
   "submit": {
     "production": {

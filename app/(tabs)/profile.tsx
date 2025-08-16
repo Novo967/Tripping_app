@@ -104,7 +104,11 @@ export default function ProfileScreen() {
       if (isProfilePic) {
         // Deleting the previous profile picture if it exists
         if (profilePic) {
-          await deleteFromFirebase(profilePic);
+          try {
+            await deleteFromFirebase(profilePic);
+          } catch (deleteError) {
+            console.warn('Failed to delete previous profile pic:', deleteError);
+          }
         }
         await updateDoc(userDocRef, {
           profile_image: firebaseImageUrl,
@@ -120,8 +124,8 @@ export default function ProfileScreen() {
         Alert.alert('הצלחה', 'התמונה עלתה לגלריה בהצלחה!');
       }
     } catch (err: any) {
-      Alert.alert('שגיאה', `העלאת התמונה נכשלה: ${err.message}`);
       console.error('Upload process error:', err);
+      Alert.alert('שגיאה', `העלאת התמונה נכשלה: ${err.message || 'שגיאה לא ידועה'}`);
     }
   };
 
