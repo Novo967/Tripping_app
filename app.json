@@ -3,7 +3,7 @@
     "name": "TREK",
     "slug": "Tripping_app",
     "owner": "novrubin",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/TREKicon.png",
     "scheme": "trippingapp",
