@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.novandnoam.trek",
-      "buildNumber": "3",
+      "buildNumber": "6",
       "config": {
         "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
       },
@@ -25,17 +25,18 @@
         "NSLocationWhenInUseUsageDescription": "האפליקציה זקוקה למיקומך כדי להציג את מסלולי הטיול הקרובים אליך ולעקוב אחר מסלולי הטיול שלך בזמן אמת.",
         "NSCameraUsageDescription": "האפליקציה זקוקה לגישה למצלמה כדי שתוכל לצלם תמונות ולשתף אותן באירועים ובצ'אטים.",
         "NSPhotoLibraryUsageDescription": "האפליקציה זקוקה לגישה לגלריה כדי שתוכל להעלות תמונות קיימות לפרופיל, לגלריה ולאירועים."
-      }
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "googleServicesFile": "android/app/google-services.json",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/TREKicon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Tripping_app",
-      "versionCode": 3,
+      "versionCode": 5,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
@@ -71,6 +72,15 @@
           "icon": "./assets/images/TREKicon.png",
           "color": "#ffffff",
           "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "useModularHeaders": true
+          }
         }
       ]
     ],
