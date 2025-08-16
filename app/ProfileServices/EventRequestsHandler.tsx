@@ -7,14 +7,13 @@ import { useTheme } from './ThemeContext';
 
 const { width } = Dimensions.get('window');
 
-// ✅ שינוי: הוספנו את event_id לממשק כדי שנוכל לעדכן את הפין המתאים
 interface EventRequest {
     id: string;
     sender_uid: string;
     sender_username: string;
     event_title: string;
     event_id: string;
-    status: 'pending' | 'accepted' | 'declined'; // הוספת סטטוס
+    status: 'pending' | 'accepted' | 'declined';
 }
 
 interface UserProfile {
@@ -37,19 +36,18 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
     const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
     const [profileModalVisible, setProfileModalVisible] = useState(false);
     const [loadingProfile, setLoadingProfile] = useState(false);
-    // ✅ שינוי: מצב פנימי לבקשות ממתינות
     const [requests, setRequests] = useState<EventRequest[]>([]);
 
     /**
-     * ✅ שינוי מרכזי: פונקציה זו משתמשת ב-onSnapshot כדי להאזין בזמן אמת
-     * לבקשות הממתינות ב-Firestore, במקום לקרוא משרת חיצוני.
+     * ✅ Remove the duplicate onSnapshot listener from here since we already have one in profile.tsx
+     * Instead, use the requests passed down from the parent component
      */
     useEffect(() => {
         if (!auth.currentUser || !isVisible) {
-            setRequests([]);
             return;
         }
 
+        // Listen to the parent component's pending requests instead of creating a new listener
         const q = query(
             collection(db, 'event_requests'),
             where('receiver_uid', '==', auth.currentUser.uid),
@@ -62,7 +60,8 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
                 ...doc.data(),
             } as EventRequest));
             setRequests(pendingRequests);
-            setPendingRequests(pendingRequests); // עדכון גם ב-state של הקומפוננטה הראשית
+            // Update the parent component's state immediately
+            setPendingRequests(pendingRequests);
         }, (error) => {
             console.error('Error fetching pending requests:', error);
             Alert.alert('שגיאה', 'אירעה שגיאה בטעינת הבקשות.');
@@ -72,7 +71,6 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
 
         return () => unsubscribe();
     }, [isVisible, setPendingRequests]);
-
 
     const fetchUserProfile = async (uid: string, username: string) => {
         setLoadingProfile(true);
@@ -112,9 +110,7 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
     };
 
     /**
-     * ✅ שינוי מרכזי: פונקציה זו מעדכנת את הסטטוס של הבקשה ב-Firestore ישירות.
-     * כאשר בקשה מאושרת, היא מוסיפה את המשתמש לרשימת approved_users ב-pins
-     * וגם לקבוצת הצ'אט.
+     * ✅ Enhanced request handling with immediate local state update
      */
     const handleRequestAction = async (requestId: string, action: 'accepted' | 'declined') => {
         try {
@@ -124,20 +120,26 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
                 return;
             }
 
+            // ✅ Immediately remove the request from local state for instant UI update
+            const updatedRequests = requests.filter(req => req.id !== requestId);
+            setRequests(updatedRequests);
+            setPendingRequests(updatedRequests);
+
+            // Then update Firestore
             const requestRef = doc(db, 'event_requests', requestId);
             await updateDoc(requestRef, {
                 status: action,
             });
 
             if (action === 'accepted') {
-                // 1. הוספת המשתמש לרשימת approved_users במסמך ה-pin המתאים
+                // 1. Add user to approved_users list in the corresponding pin document
                 const pinRef = doc(db, 'pins', request.event_id);
                 await updateDoc(pinRef, {
                     approved_users: arrayUnion(request.sender_uid),
                 });
                 console.log(`User ${request.sender_uid} added to approved_users for event ${request.event_id}`);
 
-                // 2. הוספת המשתמש לקבוצת הצ'אט
+                // 2. Add user to group chat
                 const groupChatRef = doc(db, 'group_chats', request.event_title);
                 const groupSnap = await getDoc(groupChatRef);
 
@@ -158,6 +160,23 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
         } catch (error) {
             console.error(`Error ${action}ing request:`, error);
             Alert.alert('שגיאה', `אירעה שגיאה בביצוע הפעולה.`);
+            
+            // ✅ If there's an error, revert the local state
+            const q = query(
+                collection(db, 'event_requests'),
+                where('receiver_uid', '==', auth.currentUser?.uid),
+                where('status', '==', 'pending')
+            );
+            
+            // Refresh the requests from Firestore to ensure consistency
+            const snapshot = await getDocs(q);
+            const refreshedRequests = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            } as EventRequest));
+            
+            setRequests(refreshedRequests);
+            setPendingRequests(refreshedRequests);
         }
     };
 

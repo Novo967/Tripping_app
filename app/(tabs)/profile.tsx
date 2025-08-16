@@ -74,6 +74,8 @@ export default function ProfileScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [notificationTimeout, setNotificationTimeout] = useState<NodeJS.Timeout | null>(null);
+  const notificationTimeoutRef = useRef<number | null>(null);
   const [showRequests, setShowRequests] = useState(false);
 
   const navigation = useNavigation();
@@ -231,23 +233,44 @@ export default function ProfileScreen() {
 
   // Use onSnapshot to listen for real-time requests
   useFocusEffect(useCallback(() => {
-    const user = auth.currentUser;
-    if (!user) {
-      setPendingRequests([]);
-      return () => {};
+  const user = auth.currentUser;
+  if (!user) {
+    setPendingRequests([]);
+    return () => {};
+  }
+
+  const requestsQuery = query(
+    collection(db, 'event_requests'), 
+    where('receiver_uid', '==', user.uid),
+    where('status', '==', 'pending')
+  );
+  
+  const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+    const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Clear any existing timeout
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
     }
-
-    const requestsQuery = query(collection(db, 'event_requests'), where('receiver_uid', '==', user.uid));
-    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
-      const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Add a small delay to prevent flickering
+    notificationTimeoutRef.current = setTimeout(() => {
       setPendingRequests(requests);
-    }, (error) => {
-      console.error('Error fetching pending requests from Firestore:', error);
-      Alert.alert('שגיאה', 'שגיאה בקבלת בקשות לאירועים.');
-    });
+      notificationTimeoutRef.current = null;
+    }, 100);
+  }, (error) => {
+    console.error('Error fetching pending requests from Firestore:', error);
+    Alert.alert('שגיאה', 'שגיאה בקבלת בקשות לאירועים.');
+  });
 
-    return () => unsubscribe();
-  }, []));
+  return () => {
+    unsubscribe();
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+      notificationTimeoutRef.current = null;
+    }
+  };
+}, [])); 
 
   const fadeOutAndLogout = () => {
     Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(async () => {
