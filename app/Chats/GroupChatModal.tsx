@@ -209,7 +209,12 @@ const GroupChatModal = () => {
   };
 
   useEffect(() => {
-    if (!eventTitle || typeof eventTitle !== 'string') return;
+    // בדיקה חדשה: אם eventTitle או currentUid אינם מוגדרים, בצע יציאה
+    if (!eventTitle || typeof eventTitle !== 'string' || !currentUid) {
+      console.log('Event title or current user ID is not defined. Exiting useEffect.');
+      return;
+    }
+
     const groupDocRef = doc(db, 'group_chats', eventTitle);
     const unsubscribeGroupDetails = onSnapshot(
       groupDocRef,
@@ -249,11 +254,41 @@ const GroupChatModal = () => {
         console.error('Error listening to group messages:', error);
       }
     );
+
+    // קוד חדש: עדכון ה-activeChatId במסמך המשתמש
+    const userDocRef = doc(db, 'users', currentUid);
+    const setChatActive = async () => {
+      try {
+        await updateDoc(userDocRef, {
+          activeChatId: eventTitle,
+        });
+        console.log(`עדכון activeChatId ל: ${eventTitle}`);
+      } catch (e) {
+        console.error('שגיאה בעדכון activeChatId:', e);
+      }
+    };
+
+    const clearChatActive = async () => {
+      try {
+        await updateDoc(userDocRef, {
+          activeChatId: null,
+        });
+        console.log('איפוס activeChatId.');
+      } catch (e) {
+        console.error('שגיאה באיפוס activeChatId:', e);
+      }
+    };
+
+    setChatActive();
+
+    // פונקציית ה-cleanup תרוץ כאשר הרכיב עוזב את המסך
     return () => {
       unsubscribeGroupDetails();
       unsubscribeMessages();
+      clearChatActive();
     };
-  }, [eventTitle]);
+
+  }, [eventTitle, currentUid]); // הוספת currentUid למערך התלות כדי להבטיח עדכון נכון
 
   const sendMessage = async (imageUrl?: string) => {
     if ((!input.trim() && !imageUrl) || !currentUid || typeof eventTitle !== 'string')
