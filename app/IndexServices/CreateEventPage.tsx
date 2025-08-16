@@ -93,41 +93,72 @@ export default function CreateEventPage() {
     };
 
     const handleImagePicker = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת גלריה כדי לבחור תמונות.');
-            return;
-        }
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.8,
-        });
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת גלריה כדי לבחור תמונות.');
+                return;
+            }
+            
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.7, // הורדת איכות לביצועים טובים יותר
+            });
 
-        if (!result.canceled && result.assets && result.assets[0]) {
-            setEventImageUri(result.assets[0].uri);
+            if (result.canceled || !result.assets || result.assets.length === 0) {
+                return;
+            }
+
+            const selectedAsset = result.assets[0];
+            if (!selectedAsset.uri) {
+                Alert.alert('שגיאה', 'לא ניתן לגשת לתמונה שנבחרה');
+                return;
+            }
+
+            setEventImageUri(selectedAsset.uri);
+        } catch (error: any) {
+            console.error('Error picking image:', error);
+            Alert.alert('שגיאה', `בחירת התמונה נכשלה: ${error.message || 'שגיאה לא ידועה'}`);
         }
     };
 
     const uploadImage = async (uri: string, eventTitle: string) => {
         setIsUploadingImage(true);
         try {
+            // בדיקת תקינות URI
+            if (!uri || uri.trim() === '') {
+                throw new Error('URI של התמונה לא חוקי');
+            }
+
             const response = await fetch(uri);
+            if (!response.ok) {
+                throw new Error('לא ניתן לטעון את התמונה');
+            }
+            
             const blob = await response.blob();
-            const fileRef = ref(storage, `group_images/${eventTitle}/groupImage.jpg`);
+            
+            // בדיקת גודל הקובץ (מקסימום 10MB)
+            if (blob.size > 10 * 1024 * 1024) {
+                throw new Error('התמונה גדולה מדי (מקסימום 10MB)');
+            }
+
+            const sanitizedEventTitle = eventTitle.replace(/[^a-zA-Z0-9]/g, '_');
+            const fileRef = ref(storage, `group_images/${sanitizedEventTitle}/groupImage_${Date.now()}.jpg`);
+            
             await uploadBytes(fileRef, blob);
             const downloadURL = await getDownloadURL(fileRef);
+            
             return downloadURL;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error uploading image:', error);
-            Alert.alert('שגיאה', 'העלאת התמונה נכשלה.');
+            Alert.alert('שגיאה', `העלאת התמונה נכשלה: ${error.message || 'שגיאה לא ידועה'}`);
             return null;
         } finally {
             setIsUploadingImage(false);
         }
     };
-
     const handleCreateEvent = async () => {
         if (!eventTitle.trim() || !eventType) {
             Alert.alert('שגיאה', 'אנא מלא את כל השדות הנדרשים');

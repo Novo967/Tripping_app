@@ -3,7 +3,7 @@
     "name": "TREK",
     "slug": "Tripping_app",
     "owner": "novrubin",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/TREKicon.png",
     "scheme": "trippingapp",
@@ -12,19 +12,22 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.novandnoam.trek",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "config": {
         "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
       },
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
+          "remote-notification",
+          "fetch",
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "האפליקציה זקוקה למיקומך כדי להציג את מסלולי הטיול הקרובים אליך ולעקוב אחר מסלולי הטיול שלך בזמן אמת.",
         "NSCameraUsageDescription": "האפליקציה זקוקה לגישה למצלמה כדי שתוכל לצלם תמונות ולשתף אותן באירועים ובצ'אטים.",
-        "NSPhotoLibraryUsageDescription": "האפליקציה זקוקה לגישה לגלריה כדי שתוכל להעלות תמונות קיימות לפרופיל, לגלריה ולאירועים."
+        "NSPhotoLibraryUsageDescription": "האפליקציה זקוקה לגישה לגלריה כדי שתוכל להעלות תמונות קיימות לפרופיל, לגלריה ולאירועים.",
+        "NSPhotoLibraryAddUsageDescription": "האפליקציה זקוקה לגישה לשמירת תמונות בגלריה שלך."
       },
       "googleServicesFile": "./GoogleService-Info.plist"
     },
@@ -36,7 +39,19 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Tripping_app",
-      "versionCode": 5,
+      "versionCode": 6,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
+      ],
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
@@ -82,6 +97,13 @@
             "useModularHeaders": true
           }
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "האפליקציה זקוקה לגישה לתמונות כדי שתוכל להעלות תמונות לפרופיל ולאירועים.",
+          "cameraPermission": "האפליקציה זקוקה לגישה למצלמה כדי שתוכל לצלם תמונות."
+        }
       ]
     ],
     "experiments": {
@@ -92,6 +114,12 @@
       "eas": {
         "projectId": "b1f09d27-4461-43f4-9fa5-cc2e132c8afc"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b1f09d27-4461-43f4-9fa5-cc2e132c8afc"
     }
   }
 }

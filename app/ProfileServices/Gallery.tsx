@@ -131,6 +131,13 @@ export default function Gallery({ onImagePress }: Props) {
 
   const handlePickImage = async () => {
     try {
+      // בדיקה שהמשתמש מחובר
+      if (!user) {
+        Alert.alert('שגיאה', 'יש להתחבר כדי להעלות תמונות.');
+        return;
+      }
+
+      // בקשת הרשאות
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
         Alert.alert('הרשאה נדרשת', 'אנחנו צריכים הרשאה לגשת לגלריה שלך');
@@ -141,20 +148,35 @@ export default function Gallery({ onImagePress }: Props) {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8,
+        quality: 0.7, // הורדת האיכות לביצועים טובים יותר
         allowsEditing: true,
         aspect: [1, 1],
         allowsMultipleSelection: false,
       });
 
-      if (!result.canceled && result.assets.length > 0) {
-        const uri = result.assets[0].uri;
-        const newImageUrl = await uploadImageToFirebaseStorage(uri);
-        setFirebaseGalleryImages((prevImages) => [...prevImages, newImageUrl]);
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setUploading(false);
+        return;
       }
-    } catch (error) {
+
+      const uri = result.assets[0].uri;
+      
+      // בדיקת תקינות ה-URI
+      if (!uri) {
+        throw new Error('URI של התמונה לא חוקי');
+      }
+
+      const newImageUrl = await uploadImageToFirebaseStorage(uri);
+      
+      if (newImageUrl) {
+        setFirebaseGalleryImages((prevImages) => [...prevImages, newImageUrl]);
+        
+        // רענון נתוני הלייקים עבור התמונה החדשה
+        await fetchLikesData([...firebaseGalleryImages, newImageUrl]);
+      }
+    } catch (error: any) {
       console.error('Error picking or uploading image:', error);
-      Alert.alert('שגיאה', 'לא הצלחנו להעלות את התמונה');
+      Alert.alert('שגיאה', `לא הצלחנו להעלות את התמונה: ${error.message || 'שגיאה לא ידועה'}`);
     } finally {
       setUploading(false);
     }
