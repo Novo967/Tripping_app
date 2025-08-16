@@ -42,7 +42,6 @@ exports.sendNotificationOnNewMessage = onDocumentCreated('{chatType}/{chatId}/me
             const chatDoc = await admin.firestore().collection('chats').doc(chatId).get();
             const chatData = chatDoc.data();
             
-            // Check if chatData exists and has a 'participants' array
             if (chatData && Array.isArray(chatData.participants)) {
                 const recipientUid = chatData.participants.find((uid: string) => uid !== message.senderId);
                 if (recipientUid) {
@@ -59,7 +58,6 @@ exports.sendNotificationOnNewMessage = onDocumentCreated('{chatType}/{chatId}/me
             const groupChatDoc = await admin.firestore().collection('group_chats').doc(chatId).get();
             const groupChatData = groupChatDoc.data();
 
-            // Check if groupChatData exists and has a 'members' array
             if (groupChatData && Array.isArray(groupChatData.members)) {
                 recipientUids = groupChatData.members.filter((uid: string) => uid !== message.senderId);
                 console.log(`נמענים שנמצאו: ${recipientUids.join(', ')}`);
@@ -72,6 +70,12 @@ exports.sendNotificationOnNewMessage = onDocumentCreated('{chatType}/{chatId}/me
         }
 
         const messages: any[] = [];
+        
+        // Fetch the sender's username
+        const senderDoc = await admin.firestore().collection('users').doc(message.senderId).get();
+        const senderData = senderDoc.data();
+        const senderUsername = senderData?.username || 'משתמש לא ידוע';
+
         for (const recipientUid of recipientUids) {
             console.log(`מעבד התראות עבור נמען: ${recipientUid}`);
             const userDoc = await admin.firestore().collection('users').doc(recipientUid).get();
@@ -88,9 +92,8 @@ exports.sendNotificationOnNewMessage = onDocumentCreated('{chatType}/{chatId}/me
                     messages.push({
                         to: pushToken,
                         sound: 'default',
-                        title: 'הודעה חדשה!',
-                        // Use the correct field for the message body and the assumed sender's username
-                        body: `${message.senderUsername || 'משתמש לא ידוע'} שלח/ה לך הודעה חדשה.`,
+                        title: senderUsername, // Use the sender's username as the title
+                        body: message.text,    // Use the message text as the body
                         data: { from: message.senderId, to: recipientUid, chatType, chatId },
                     });
                     console.log('הודעה נוספה למערך לשליחה.');
