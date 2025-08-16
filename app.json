@@ -5,7 +5,7 @@
     "owner": "novrubin",
     "version": "1.0.3",
     "orientation": "portrait",
-    "icon": "./assets/images/TREKicon.png",
+    "icon": "./assets/images/TREKimage.png",
     "scheme": "trippingapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -34,7 +34,7 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/TREKicon.png",
+        "foregroundImage": "./assets/images/TREKimage.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -73,7 +73,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/TREKicon.png",
+          "image": "./assets/images/TREKimage.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -84,7 +84,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/TREKicon.png",
+          "icon": "./assets/images/TREKimage.png",
           "color": "#ffffff",
           "defaultChannel": "default"
         }
