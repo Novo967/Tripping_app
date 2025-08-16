@@ -1,8 +1,9 @@
+import * as Notifications from 'expo-notifications'; // ייבוא ספריית נוטיפיקציות
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, I18nManager, View } from 'react-native';
-import { getExpoPushToken } from '../app/utils/pushNotifications'; // ייבוא הפונקציה לקבלת הטוקן
+import { ActivityIndicator, I18nManager, Platform, View } from 'react-native';
+import { getExpoPushToken } from '../app/utils/pushNotifications';
 import { auth } from '../firebaseConfig';
 import SplashScreen from './SplashScreen';
 
@@ -14,10 +15,20 @@ export default function AppEntry() {
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
-  const [expoPushToken, setExpoPushToken] = useState<string | null>(null); // הוספת משתנה מצב לטוקן
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // שלב 1: התחלת קבלת טוקן ההתראות במקביל לספלאש סקרין
+    // שלב 1: יצירת ערוץ התראות באנדרואיד
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('chat-messages', {
+        name: 'הודעות צ\'אט',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    // שלב 2: התחלת קבלת טוקן ההתראות במקביל לספלאש סקרין
     const fetchToken = async () => {
       console.log('AppEntry: מתחיל בקשת טוקן התראות.');
       const token = await getExpoPushToken();
@@ -30,22 +41,19 @@ export default function AppEntry() {
     };
     fetchToken();
 
-    // שלב 2: טיימר להצגת הספלאש סקרין
+    // שלב 3: טיימר להצגת הספלאש סקרין ואימות
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
     }, 5000);
 
-    // שלב 3: Firebase auth listener
+    // שלב 4: Firebase auth listener
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAuthChecked(true);
-
-      // Only navigate after splash is done
-      if (!showSplash) {
-        if (user) {
-          router.replace('/(tabs)/home');
-        } else {
-          router.replace('/Authentication/login');
-        }
+      // Navigation logic is now here after auth check is complete
+      if (user) {
+        router.replace('/(tabs)/home');
+      } else {
+        router.replace('/Authentication/login');
       }
     });
 
@@ -53,20 +61,7 @@ export default function AppEntry() {
       clearTimeout(splashTimer);
       unsubscribe();
     };
-  }, [showSplash]);
-
-  // Navigate after splash is done and auth is checked
-  useEffect(() => {
-    if (!showSplash && isAuthChecked) {
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          router.replace('/(tabs)/home');
-        } else {
-          router.replace('/Authentication/login');
-        }
-      });
-    }
-  }, [showSplash, isAuthChecked]);
+  }, []); // The empty dependency array ensures this effect runs only once
 
   // Show splash screen first
   if (showSplash) {
