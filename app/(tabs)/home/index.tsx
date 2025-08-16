@@ -165,11 +165,13 @@ export default function HomeScreen() {
       Alert.alert('שגיאה', 'לא ניתן לטעון את המיקום הנוכחי.');
     }
   }, []);
+  
   useEffect(() => {
     if (shouldChooseLocationParam === 'true') {
       setIsChoosingLocation(true);
     }
   }, [shouldChooseLocationParam]);
+  
   useEffect(() => {
     const loadInitialData = async () => {
       await fetchLocation();
@@ -359,6 +361,14 @@ export default function HomeScreen() {
         userLocationUpdateInterval={5000}
         customMapStyle={theme.isDark ? darkMapStyle : []}
         onPress={(e) => {
+          // Close any open modals first
+          if (distanceModalVisible || eventFilterModalVisible) {
+            setDistanceModalVisible(false);
+            setEventFilterModalVisible(false);
+            return; // Don't process other actions when closing modals
+          }
+
+          // Then handle location selection for creating events
           if (isChoosingLocation) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             router.push({
