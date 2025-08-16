@@ -22,7 +22,9 @@
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "האפליקציה זקוקה למיקומך כדי להציג את מסלולי הטיול הקרובים אליך ולעקוב אחר מסלולי הטיול שלך בזמן אמת."
+        "NSLocationWhenInUseUsageDescription": "האפליקציה זקוקה למיקומך כדי להציג את מסלולי הטיול הקרובים אליך ולעקוב אחר מסלולי הטיול שלך בזמן אמת.",
+        "NSCameraUsageDescription": "האפליקציה זקוקה לגישה למצלמה כדי שתוכל לצלם תמונות ולשתף אותן באירועים ובצ'אטים.",
+        "NSPhotoLibraryUsageDescription": "האפליקציה זקוקה לגישה לגלריה כדי שתוכל להעלות תמונות קיימות לפרופיל, לגלריה ולאירועים."
       }
     },
     "android": {
