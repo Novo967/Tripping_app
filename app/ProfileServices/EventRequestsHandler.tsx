@@ -1,7 +1,8 @@
 // app/ProfileServices/EventRequestsHandler.tsx
-import { arrayUnion, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { router } from 'expo-router';
+import { arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 import { useTheme } from './ThemeContext';
 
@@ -16,15 +17,6 @@ interface EventRequest {
     status: 'pending' | 'accepted' | 'declined';
 }
 
-interface UserProfile {
-    uid: string;
-    username: string;
-    profileImage?: string;
-    bio?: string;
-    location?: string;
-    joinDate?: string;
-}
-
 interface EventRequestsHandlerProps {
     isVisible: boolean;
     onClose: () => void;
@@ -33,21 +25,13 @@ interface EventRequestsHandlerProps {
 
 const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, onClose, setPendingRequests }) => {
     const { theme } = useTheme();
-    const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
-    const [profileModalVisible, setProfileModalVisible] = useState(false);
-    const [loadingProfile, setLoadingProfile] = useState(false);
     const [requests, setRequests] = useState<EventRequest[]>([]);
 
-    /**
-     * ✅ Remove the duplicate onSnapshot listener from here since we already have one in profile.tsx
-     * Instead, use the requests passed down from the parent component
-     */
     useEffect(() => {
         if (!auth.currentUser || !isVisible) {
             return;
         }
 
-        // Listen to the parent component's pending requests instead of creating a new listener
         const q = query(
             collection(db, 'event_requests'),
             where('receiver_uid', '==', auth.currentUser.uid),
@@ -60,7 +44,6 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
                 ...doc.data(),
             } as EventRequest));
             setRequests(pendingRequests);
-            // Update the parent component's state immediately
             setPendingRequests(pendingRequests);
         }, (error) => {
             console.error('Error fetching pending requests:', error);
@@ -72,46 +55,13 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
         return () => unsubscribe();
     }, [isVisible, setPendingRequests]);
 
-    const fetchUserProfile = async (uid: string, username: string) => {
-        setLoadingProfile(true);
-        try {
-            const userDoc = await getDoc(doc(db, 'users', uid));
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                setSelectedProfile({
-                    uid,
-                    username,
-                    profileImage: userData.profileImage,
-                    bio: userData.bio,
-                    location: userData.location,
-                    joinDate: userData.createdAt?.toDate?.()?.toLocaleDateString('he-IL') || 'לא זמין',
-                });
-            } else {
-                setSelectedProfile({
-                    uid,
-                    username,
-                    profileImage: undefined,
-                    bio: 'אין מידע זמין',
-                    location: 'לא זמין',
-                    joinDate: 'לא זמין',
-                });
-            }
-            setProfileModalVisible(true);
-        } catch (error) {
-            console.error('Error fetching user profile:', error);
-            Alert.alert('שגיאה', 'לא ניתן לטעון את הפרופיל');
-        } finally {
-            setLoadingProfile(false);
-        }
-    };
-
     const handleUsernamePress = (request: EventRequest) => {
-        fetchUserProfile(request.sender_uid, request.sender_username);
+        router.push({
+            pathname: "/ProfileServices/OtherUserProfile",
+            params: { uid: request.sender_uid }
+        });
     };
 
-    /**
-     * ✅ Enhanced request handling with immediate local state update
-     */
     const handleRequestAction = async (requestId: string, action: 'accepted' | 'declined') => {
         try {
             const request = requests.find(req => req.id === requestId);
@@ -120,26 +70,21 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
                 return;
             }
 
-            // ✅ Immediately remove the request from local state for instant UI update
             const updatedRequests = requests.filter(req => req.id !== requestId);
             setRequests(updatedRequests);
             setPendingRequests(updatedRequests);
 
-            // Then update Firestore
             const requestRef = doc(db, 'event_requests', requestId);
             await updateDoc(requestRef, {
                 status: action,
             });
 
             if (action === 'accepted') {
-                // 1. Add user to approved_users list in the corresponding pin document
                 const pinRef = doc(db, 'pins', request.event_id);
                 await updateDoc(pinRef, {
                     approved_users: arrayUnion(request.sender_uid),
                 });
-                console.log(`User ${request.sender_uid} added to approved_users for event ${request.event_id}`);
 
-                // 2. Add user to group chat
                 const groupChatRef = doc(db, 'group_chats', request.event_title);
                 const groupSnap = await getDoc(groupChatRef);
 
@@ -160,88 +105,23 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
         } catch (error) {
             console.error(`Error ${action}ing request:`, error);
             Alert.alert('שגיאה', `אירעה שגיאה בביצוע הפעולה.`);
-            
-            // ✅ If there's an error, revert the local state
+
             const q = query(
                 collection(db, 'event_requests'),
                 where('receiver_uid', '==', auth.currentUser?.uid),
                 where('status', '==', 'pending')
             );
-            
-            // Refresh the requests from Firestore to ensure consistency
+
             const snapshot = await getDocs(q);
             const refreshedRequests = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
             } as EventRequest));
-            
+
             setRequests(refreshedRequests);
             setPendingRequests(refreshedRequests);
         }
     };
-
-    const ProfileModal = () => (
-        <Modal
-            animationType="slide"
-            transparent={true}
-            visible={profileModalVisible}
-            onRequestClose={() => setProfileModalVisible(false)}
-        >
-            <View style={styles.modalOverlay}>
-                <View style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
-                    <View style={styles.modalHeader}>
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={() => setProfileModalVisible(false)}
-                        >
-                            <Text style={styles.closeButtonText}>✕</Text>
-                        </TouchableOpacity>
-                        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>פרופיל משתמש</Text>
-                    </View>
-
-                    {selectedProfile && (
-                        <ScrollView style={styles.profileContent}>
-                            <View style={styles.profileHeader}>
-                                <Image
-                                    source={{
-                                        uri: selectedProfile.profileImage ||
-                                            `https://placehold.co/100x100/3A8DFF/FFFFFF?text=${selectedProfile.username.charAt(0)}`
-                                    }}
-                                    style={styles.profileImage}
-                                />
-                                <Text style={[styles.profileUsername, { color: theme.colors.text }]}>
-                                    {selectedProfile.username}
-                                </Text>
-                            </View>
-
-                            <View style={styles.profileInfo}>
-                                <View style={styles.infoRow}>
-                                    <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>תיאור:</Text>
-                                    <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                                        {selectedProfile.bio || 'אין תיאור'}
-                                    </Text>
-                                </View>
-
-                                <View style={styles.infoRow}>
-                                    <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>מיקום:</Text>
-                                    <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                                        {selectedProfile.location || 'לא זמין'}
-                                    </Text>
-                                </View>
-
-                                <View style={styles.infoRow}>
-                                    <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>תאריך הצטרפות:</Text>
-                                    <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                                        {selectedProfile.joinDate}
-                                    </Text>
-                                </View>
-                            </View>
-                        </ScrollView>
-                    )}
-                </View>
-            </View>
-        </Modal>
-    );
 
     if (!isVisible) {
         return null;
@@ -264,7 +144,6 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
                                 <View style={styles.requestTextContent}>
                                     <TouchableOpacity
                                         onPress={() => handleUsernamePress(request)}
-                                        disabled={loadingProfile}
                                     >
                                         <Text style={[styles.requestSenderName, { color: theme.colors.text }]}>
                                             {request.sender_username}
@@ -293,8 +172,6 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
                     )}
                 </ScrollView>
             </View>
-
-            <ProfileModal />
         </>
     );
 };
@@ -396,87 +273,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 20,
         fontSize: 16,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalContainer: {
-        width: '90%',
-        maxHeight: '80%',
-        borderRadius: 20,
-        padding: 20,
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        flex: 1,
-    },
-    closeButton: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: '#3A8DFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    closeButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    profileContent: {
-        flex: 1,
-    },
-    profileHeader: {
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    profileImage: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        marginBottom: 10,
-        borderWidth: 3,
-        borderColor: '#3A8DFF',
-    },
-    profileUsername: {
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    profileInfo: {
-        paddingHorizontal: 10,
-    },
-    infoRow: {
-        marginBottom: 15,
-        paddingBottom: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0',
-    },
-    infoLabel: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginBottom: 5,
-        textAlign: 'right',
-    },
-    infoValue: {
-        fontSize: 16,
-        textAlign: 'right',
-        lineHeight: 22,
     },
 });
 
