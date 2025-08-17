@@ -41,7 +41,7 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../app/ProfileServices/ThemeContext'; // ✅ ייבוא useTheme
+import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { app, db } from '../../firebaseConfig';
 import GroupDetailsModal from './GroupDetailsModal';
 import GroupImageModal from './GroupImageModal';
@@ -64,7 +64,7 @@ const GroupChatModal = () => {
   const [input, setInput] = useState('');
   const [groupName, setGroupName] = useState(eventTitle);
   const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
-  const [memberCount, setMemberCount] = useState(0); // שינוי: מצב חדש למספר חברים
+  const [memberCount, setMemberCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isGroupImageModalVisible, setIsGroupImageModalVisible] = useState(false);
   const [isGroupDetailsModalVisible, setIsGroupDetailsModalVisible] = useState(false);
@@ -75,7 +75,7 @@ const GroupChatModal = () => {
   const currentUsername =
     currentUser?.displayName || currentUser?.email || 'משתמש אנונימי';
   const insets = useSafeAreaInsets();
-  const { theme } = useTheme(); // ✅ שימוש ב-useTheme hook
+  const { theme } = useTheme();
 
   const openGroupImageModal = () => {
     setIsGroupImageModalVisible(true);
@@ -209,7 +209,6 @@ const GroupChatModal = () => {
   };
 
   useEffect(() => {
-    // בדיקה חדשה: אם eventTitle או currentUid אינם מוגדרים, בצע יציאה
     if (!eventTitle || typeof eventTitle !== 'string' || !currentUid) {
       console.log('Event title or current user ID is not defined. Exiting useEffect.');
       return;
@@ -222,7 +221,7 @@ const GroupChatModal = () => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setGroupName(data.name || eventTitle);
-          setMemberCount(data.members?.length || 0); // שינוי: עדכון מספר החברים
+          setMemberCount(data.members?.length || 0);
           if (!groupImageUrl) {
             const imageUrl = await getGroupImageUrl(eventTitle);
             setGroupImageUrl(imageUrl);
@@ -230,7 +229,7 @@ const GroupChatModal = () => {
         } else {
           setGroupName(eventTitle);
           setGroupImageUrl(null);
-          setMemberCount(0); // שינוי: איפוס מספר החברים
+          setMemberCount(0);
         }
       },
       (error) => {
@@ -255,7 +254,6 @@ const GroupChatModal = () => {
       }
     );
 
-    // קוד חדש: עדכון ה-activeChatId במסמך המשתמש
     const userDocRef = doc(db, 'users', currentUid);
     const setChatActive = async () => {
       try {
@@ -281,14 +279,13 @@ const GroupChatModal = () => {
 
     setChatActive();
 
-    // פונקציית ה-cleanup תרוץ כאשר הרכיב עוזב את המסך
     return () => {
       unsubscribeGroupDetails();
       unsubscribeMessages();
       clearChatActive();
     };
 
-  }, [eventTitle, currentUid]); // הוספת currentUid למערך התלות כדי להבטיח עדכון נכון
+  }, [eventTitle, currentUid]);
 
   const sendMessage = async (imageUrl?: string) => {
     if ((!input.trim() && !imageUrl) || !currentUid || typeof eventTitle !== 'string')
@@ -501,8 +498,25 @@ const GroupChatModal = () => {
     );
   }
 
-  const headerHeight = 68;
-  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + headerHeight : 0;
+  // ✅ תיקון מלא של keyboard handling
+  const getKeyboardAvoidingViewProps = () => {
+    if (Platform.OS === 'android') {
+      return {
+        behavior: 'height' as const,
+        keyboardVerticalOffset: 0,
+      };
+    }
+
+    // עבור iOS - חישוב מדויק
+    const bottomOffset = insets.bottom;
+
+    return {
+      behavior: 'padding' as const,
+      keyboardVerticalOffset: bottomOffset,
+    };
+  };
+
+  const keyboardProps = getKeyboardAvoidingViewProps();
 
   if (isGroupImageModalVisible) {
     return (
@@ -538,7 +552,7 @@ const GroupChatModal = () => {
         <GroupDetailsModal
           eventTitle={eventTitle}
           onClose={closeGroupDetailsModal}
-          onOpenImageModal={openGroupImageModal} // ✅ זה ה-prop שצריך להוסיף
+          onOpenImageModal={openGroupImageModal}
         />
       </Modal>
     );
@@ -560,7 +574,7 @@ const GroupChatModal = () => {
         style={[
           styles.header,
           {
-            paddingTop: insets.top -20,
+            paddingTop: insets.top - 20,
             backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF',
             shadowColor: theme.isDark ? '#2C3946' : '#3A8DFF',
           },
@@ -643,7 +657,7 @@ const GroupChatModal = () => {
                   { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
                 ]}
               >
-              {memberCount} משתתפים
+                {memberCount} משתתפים
               </Text>
             </TouchableOpacity>
           </View>
@@ -652,8 +666,8 @@ const GroupChatModal = () => {
 
       <KeyboardAvoidingView
         style={styles.flexContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset}
+        behavior={keyboardProps.behavior}
+        keyboardVerticalOffset={keyboardProps.keyboardVerticalOffset}
       >
         {messages.length === 0 ? (
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -978,7 +992,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 24,
+    // הוסר: paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
   },
