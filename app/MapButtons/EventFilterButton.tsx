@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   ScrollView,
@@ -34,33 +34,55 @@ export default function EventFilterButton({
   setVisible 
 }: Props) {
   
+  // State זמני לאחסון הבחירות לפני השמירה
+  const [tempSelectedTypes, setTempSelectedTypes] = useState<string[]>(selectedEventTypes);
+  
+  // כשהמודל נפתח, נטען את הערכים הנוכחיים ל-state הזמני
+  useEffect(() => {
+    if (visible) {
+      setTempSelectedTypes([...selectedEventTypes]);
+    }
+  }, [visible, selectedEventTypes]);
+  
   // Create a filtered list to ensure only valid event types are considered
   const eventTypeIds = EVENT_TYPES.map(type => type.id);
-  const validSelectedTypes = selectedEventTypes.filter(typeId => eventTypeIds.includes(typeId));
+  const validTempSelectedTypes = tempSelectedTypes.filter(typeId => eventTypeIds.includes(typeId));
   
   const toggleEventType = (eventTypeId: string) => {
-    if (selectedEventTypes.includes(eventTypeId)) {
-      // אם הסוג כבר נבחר, נסיר אותו
-      setSelectedEventTypes(selectedEventTypes.filter(type => type !== eventTypeId));
+    if (tempSelectedTypes.includes(eventTypeId)) {
+      // אם הסוג כבר נבחר, נסיר אותו מהמצב הזמני
+      setTempSelectedTypes(tempSelectedTypes.filter(type => type !== eventTypeId));
     } else {
-      // אם הסוג לא נבחר, נוסיף אותו
-      setSelectedEventTypes([...selectedEventTypes, eventTypeId]);
+      // אם הסוג לא נבחר, נוסיף אותו למצב הזמני
+      setTempSelectedTypes([...tempSelectedTypes, eventTypeId]);
     }
   };
 
   const selectAll = () => {
-    setSelectedEventTypes(EVENT_TYPES.map(type => type.id));
+    setTempSelectedTypes(EVENT_TYPES.map(type => type.id));
   };
 
   const clearAll = () => {
-    setSelectedEventTypes([]);
+    setTempSelectedTypes([]);
+  };
+
+  // פונקציה לשמירה - מעדכנת את הערכים האמיתיים וסוגרת את המודל
+  const handleSave = () => {
+    setSelectedEventTypes([...tempSelectedTypes]);
+    setVisible(false);
+  };
+
+  // פונקציה לביטול - מחזירה את הערכים הזמניים למצב המקורי וסוגרת את המודל
+  const handleCancel = () => {
+    setTempSelectedTypes([...selectedEventTypes]);
+    setVisible(false);
   };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        {/* לחיצה על הרקע תסגור את המודל */}
-        <TouchableWithoutFeedback onPress={() => setVisible(false)}>
+        {/* לחיצה על הרקע תבטל את הבחירות */}
+        <TouchableWithoutFeedback onPress={handleCancel}>
           <View style={{ flex: 1 }} />
         </TouchableWithoutFeedback>
 
@@ -145,7 +167,7 @@ export default function EventFilterButton({
             contentContainerStyle={{ paddingBottom: 10 }}
           >
             {EVENT_TYPES.map((eventType) => {
-              const isSelected = selectedEventTypes.includes(eventType.id);
+              const isSelected = tempSelectedTypes.includes(eventType.id);
               return (
                 <TouchableOpacity
                   key={eventType.id}
@@ -222,34 +244,67 @@ export default function EventFilterButton({
               textAlign: 'center',
               fontWeight: '500'
             }}>
-              נבחרו {validSelectedTypes.length} מתוך {EVENT_TYPES.length} סוגי אירועים
+              נבחרו {validTempSelectedTypes.length} מתוך {EVENT_TYPES.length} סוגי אירועים
             </Text>
           </View>
 
-          {/* כפתור שמירה */}
-          <TouchableOpacity
-            onPress={() => setVisible(false)}
-            style={{ 
-              backgroundColor: '#3A8DFF', 
-              padding: 16, 
-              borderRadius: 12, 
-              width: '100%',
-              shadowColor: '#3A8DFF',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 4,
-              elevation: 4,
-            }}
-          >
-            <Text style={{ 
-              color: 'white', 
-              fontWeight: 'bold', 
-              textAlign: 'center',
-              fontSize: 18
-            }}>
-              שמור
-            </Text>
-          </TouchableOpacity>
+          {/* כפתורי ביטול ושמירה */}
+          <View style={{ 
+            flexDirection: 'row-reverse', 
+            justifyContent: 'space-between', 
+            width: '100%' 
+          }}>
+            {/* כפתור שמירה */}
+            <TouchableOpacity
+              onPress={handleSave}
+              style={{ 
+                backgroundColor: '#3A8DFF', 
+                padding: 16, 
+                borderRadius: 12, 
+                flex: 1,
+                marginLeft: 6, // RTL: marginLeft for save button
+                shadowColor: '#3A8DFF',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+                elevation: 4,
+              }}
+            >
+              <Text style={{ 
+                color: 'white', 
+                fontWeight: 'bold', 
+                textAlign: 'center',
+                fontSize: 18
+              }}>
+                שמור
+              </Text>
+            </TouchableOpacity>
+
+            <View style={{ width: 12 }} /> {/* Spacer between buttons */}
+
+            {/* כפתור ביטול */}
+            <TouchableOpacity
+              onPress={handleCancel}
+              style={{ 
+                backgroundColor: '#f0f0f0', 
+                padding: 16, 
+                borderRadius: 12, 
+                flex: 1,
+                marginRight: 6, // RTL: marginRight for cancel button
+                borderWidth: 1,
+                borderColor: '#d0d0d0'
+              }}
+            >
+              <Text style={{ 
+                color: '#333', 
+                fontWeight: 'bold', 
+                textAlign: 'center',
+                fontSize: 18
+              }}>
+                ביטול
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>

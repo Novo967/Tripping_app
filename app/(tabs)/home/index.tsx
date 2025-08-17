@@ -263,6 +263,9 @@ export default function HomeScreen() {
   }, [events, currentLocation, displayDistance, selectedEventTypes]);
 
   const handleAddEventPress = useCallback(() => {
+    // Before opening the new event flow, close other modals
+    setDistanceModalVisible(false);
+    setEventFilterModalVisible(false);
     setTimeout(() => {
       setIsChoosingLocation(true);
     }, 500);
@@ -274,10 +277,14 @@ export default function HomeScreen() {
 
   const handleDistanceFilterPress = useCallback(() => {
     setDistanceModalVisible(true);
+    setEventFilterModalVisible(false);
+    setSelectedEvent(null);
   }, []);
 
   const handleEventFilterPress = useCallback(() => {
     setEventFilterModalVisible(true);
+    setDistanceModalVisible(false);
+    setSelectedEvent(null);
   }, []);
 
   const handleLocationUpdate = useCallback(
@@ -326,6 +333,9 @@ export default function HomeScreen() {
             id: pinId,
             ...pinData,
           });
+          // Close other modals when an event marker is pressed
+          setDistanceModalVisible(false);
+          setEventFilterModalVisible(false);
         } else {
           console.warn('Pin document not found in Firestore.');
           setSelectedEvent(null);
@@ -337,6 +347,27 @@ export default function HomeScreen() {
     },
     []
   );
+
+  const handleMapPress = useCallback((e: import('react-native-maps').MapPressEvent) => {
+    // Always close any open modals first
+    setDistanceModalVisible(false);
+    setEventFilterModalVisible(false);
+    setSelectedEvent(null);
+
+    // Then handle location selection for creating events
+    if (isChoosingLocation) {
+      const { latitude, longitude } = e.nativeEvent.coordinate;
+      router.push({
+        pathname: '/IndexServices/CreateEventPage',
+        params: {
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+          owner_uid: user?.uid || '',
+        },
+      });
+      setIsChoosingLocation(false);
+    }
+  }, [isChoosingLocation, user]);
 
   if (!initialDataLoaded || !region) {
     return (
@@ -360,28 +391,7 @@ export default function HomeScreen() {
         userLocationPriority="high"
         userLocationUpdateInterval={5000}
         customMapStyle={theme.isDark ? darkMapStyle : []}
-        onPress={(e) => {
-          // Close any open modals first
-          if (distanceModalVisible || eventFilterModalVisible) {
-            setDistanceModalVisible(false);
-            setEventFilterModalVisible(false);
-            return; // Don't process other actions when closing modals
-          }
-
-          // Then handle location selection for creating events
-          if (isChoosingLocation) {
-            const { latitude, longitude } = e.nativeEvent.coordinate;
-            router.push({
-              pathname: '/IndexServices/CreateEventPage',
-              params: {
-                latitude: latitude.toString(),
-                longitude: longitude.toString(),
-                owner_uid: user?.uid || '',
-              },
-            });
-            setIsChoosingLocation(false);
-          }
-        }}
+        onPress={handleMapPress}
         onUserLocationChange={(event) => {
           const coordinate = event.nativeEvent.coordinate;
           if (coordinate) {

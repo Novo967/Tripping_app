@@ -30,7 +30,7 @@ const MyLocationButton: React.FC<MyLocationButtonProps> = ({ onLocationUpdate })
       // קבלת המיקום הנוכחי
       const location = await Location.getCurrentPositionAsync({ 
         accuracy: Location.Accuracy.High,
-        timeInterval: 5000,
+        timeInterval: 3000,
         distanceInterval: 1
       });
 
@@ -69,8 +69,8 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: '#3A8DFF',
     borderRadius: 26,
-    width: 48,
-    height: 48,
+    width: 45,
+    height: 45,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
