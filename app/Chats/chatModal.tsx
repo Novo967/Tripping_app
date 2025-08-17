@@ -87,7 +87,7 @@ const ChatModal = () => {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchProfileImage = async () => {
       if (!otherUserId) return;
       const imageUrl = await getProfileImageUrl(otherUserId);
@@ -97,7 +97,6 @@ const ChatModal = () => {
   }, [otherUserId]);
 
   useEffect(() => {
-    // בדיקה חדשה: אם chatId או currentUid אינם מוגדרים, בצע יציאה
     if (!chatId || !currentUid) {
       console.log('Chat ID or current user ID is not defined. Exiting useEffect.');
       return;
@@ -134,7 +133,6 @@ const ChatModal = () => {
 
     setChatActive();
     
-    // פונקציית ה-cleanup תרוץ כאשר הרכיב עוזב את המסך
     return () => {
       unsubscribe();
       clearChatActive();
@@ -271,17 +269,34 @@ const ChatModal = () => {
       </View>
     );
   };
-
-  const headerHeight = 12 + 12 + 44;
-  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + headerHeight : 0;
   
+  // ✅ תיקון מלא של keyboard handling
+  const getKeyboardAvoidingViewProps = () => {
+    if (Platform.OS === 'android') {
+      return {
+        behavior: 'height' as const,
+        keyboardVerticalOffset: 0,
+      };
+    }
+
+    // עבור iOS - חישוב מדויק
+    // הקיזוז צריך להיות רק גובה ה-bottom inset
+    const bottomOffset = insets.bottom;
+
+    return {
+      behavior: 'padding' as const,
+      keyboardVerticalOffset: bottomOffset,
+    };
+  };
+
+  const keyboardProps = getKeyboardAvoidingViewProps();
   const statusBarStyle = theme.isDark ? 'light-content' : 'dark-content';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={statusBarStyle} backgroundColor="#1F2937" />
 
-      <View style={[styles.header, { paddingTop: insets.top -20+  (Platform.OS === 'ios' ? 0 : 10), backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { paddingTop: insets.top - 20 + (Platform.OS === 'ios' ? 0 : 10), backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="arrow-forward" size={24} color={theme.isDark ? '#FFFFFF' : '#FFFFFF'} />
         </TouchableOpacity>
@@ -303,8 +318,8 @@ const ChatModal = () => {
 
       <KeyboardAvoidingView
         style={styles.flexContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset}
+        behavior={keyboardProps.behavior}
+        keyboardVerticalOffset={keyboardProps.keyboardVerticalOffset}
       >
         {messages.length === 0 ? (
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -419,7 +434,6 @@ const styles = StyleSheet.create({
   },
   userStatus: {
     fontSize: 13,
-    // ✅ צבע הטקסט כאן
     color: '#FFE0B3',
     textAlign: 'right',
     marginTop: 2,
@@ -490,7 +504,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   theirMessageText: {
-    // ✅ צבע הטקסט כאן
+    // צבע מתוקן בקוד עצמו
   },
   messageImage: {
     width: 200,
@@ -507,12 +521,12 @@ const styles = StyleSheet.create({
     color: '#FFE0B3',
   },
   theirMessageTime: {
-    // ✅ צבע הטקסט כאן
+    // צבע מתוקן בקוד עצמו
   },
   inputWrapper: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 24,
+    // הוסר: paddingBottom: 24,
     borderTopWidth: 1,
   },
   inputContainer: {

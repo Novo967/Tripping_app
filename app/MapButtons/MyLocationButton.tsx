@@ -53,7 +53,7 @@ const MyLocationButton: React.FC<MyLocationButtonProps> = ({ onLocationUpdate })
         onPress={handleLocationPress}
         activeOpacity={0.8}
       >
-        <Ionicons name="locate" size={21} color="#333" />
+        <Ionicons name="locate" size={24} color="#333" />
       </TouchableOpacity>
     </View>
   );
@@ -68,9 +68,9 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#3A8DFF',
-    borderRadius: 25,
-    width: 40,
-    height: 40,
+    borderRadius: 26,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
