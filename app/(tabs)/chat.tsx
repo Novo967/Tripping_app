@@ -1,3 +1,4 @@
+// הקוד המתוקן עם תיקון לכותרת
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
@@ -46,7 +47,7 @@ interface ChatItem {
   lastMessageTimestamp: number;
   isGroup?: boolean;
   hasUnreadMessages: boolean;
-  unreadCount: number; // הוספת ספירת הודעות שלא נקראו
+  unreadCount: number;
 }
 
 const Chat = () => {
@@ -61,6 +62,7 @@ const Chat = () => {
   const { theme } = useTheme();
   const chatMapRef = useRef<Map<string, ChatItem>>(new Map());
 
+  // הפונקציות נשארות אותו דבר...
   const getProfileImageUrl = async (userId: string) => {
     if (!userId) {
       return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
@@ -87,7 +89,6 @@ const Chat = () => {
     }
   };
 
-  // פונקציה לספירת הודעות שלא נקראו
   const countUnreadMessages = async (chatId: string, isGroup: boolean, lastReadTimestamp?: Date) => {
     try {
       const collectionName = isGroup ? 'group_chats' : 'chats';
@@ -125,6 +126,7 @@ const Chat = () => {
     );
   };
 
+  // כל ה-useEffect נשארים אותו דבר...
   useEffect(() => {
     const auth = getAuth();
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
@@ -210,7 +212,6 @@ const Chat = () => {
                     msg.senderId !== user.uid &&
                     (!lastReadTimestamp || lastReadTimestamp < lastMessageTimestamp);
 
-                  // ספירת הודעות שלא נקראו
                   const unreadCount = hasUnreadMessages ?
                     await countUnreadMessages(chatId, false, lastReadTimestamp) : 0;
 
@@ -292,7 +293,6 @@ const Chat = () => {
                     msg.senderId !== user.uid &&
                     (!lastReadTimestamp || lastReadTimestamp < lastMessageTimestamp);
 
-                  // ספירת הודעות שלא נקראו בקבוצה
                   const unreadCount = hasUnreadMessages ?
                     await countUnreadMessages(groupId, true, lastReadTimestamp) : 0;
 
@@ -344,6 +344,7 @@ const Chat = () => {
     }
   }, [searchQuery, chats]);
 
+  // הפונקציות הנוספות נשארות אותו דבר...
   const openChat = (chat: ChatItem) => {
     if (user && chat.hasUnreadMessages) {
       const collectionName = chat.isGroup ? 'group_chats' : 'chats';
@@ -506,7 +507,7 @@ const Chat = () => {
               { color: theme.isDark ? '#BDC3C7' : '#666' },
             ]}
           >
-            טוען צאטים...
+            טוען צ'אטים...
           </Text>
         </View>
       </SafeAreaView>
@@ -514,25 +515,28 @@ const Chat = () => {
   }
 
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
-      ]}
-    >
+    <View style={[styles.container, { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' }]}>
       <StatusBar
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
+        translucent={Platform.OS === 'android'}
       />
-      <View
+      <SafeAreaView
         style={[
-          styles.header,
-          {
-            backgroundColor: theme.isDark ? '#1F2937' : '#3A8DFF',
-            shadowColor: theme.isDark ? '#1F2937' : '#3A8DFF',
-          },
+          styles.headerSafeArea,
+          { backgroundColor: theme.isDark ? '#1F2937' : '#3A8DFF' }
         ]}
+        edges={['top']}
       >
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.isDark ? '#1F2937' : '#3A8DFF',
+              shadowColor: theme.isDark ? '#1F2937' : '#3A8DFF',
+            },
+          ]}
+        >
         <Text
           style={[
             styles.headerTitle,
@@ -549,56 +553,60 @@ const Chat = () => {
         >
           התחבר עם חברים למסע
         </Text>
-      </View>
-      <View style={styles.searchContainer}>
-        <View
-          style={[
-            styles.searchBar,
-            {
-              backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF',
-              shadowColor: theme.isDark ? '#000' : '#000',
-            },
-          ]}
-        >
-          <Ionicons
-            name="search"
-            size={20}
-            color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
-            style={{ marginLeft: 10 }}
-          />
-          <TextInput
+              </View>
+      </SafeAreaView>
+      <View style={styles.contentContainer}>
+        <View style={styles.searchContainer}>
+          <View
             style={[
-              styles.searchInput,
-              { color: theme.isDark ? '#E0E0E0' : '#333' },
+              styles.searchBar,
+              {
+                backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF',
+                shadowColor: theme.isDark ? '#000' : '#000',
+              },
             ]}
-            placeholder="חיפוש צ'אטים"
-            placeholderTextColor={theme.isDark ? '#BDC3C7' : '#95A5A6'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            textAlign="right"
-          />
+          >
+            <Ionicons
+              name="search"
+              size={20}
+              color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
+              style={{ marginLeft: 10 }}
+            />
+            <TextInput
+              style={[
+                styles.searchInput,
+                { color: theme.isDark ? '#E0E0E0' : '#333' },
+              ]}
+              placeholder="חיפוש צ'אטים"
+              placeholderTextColor={theme.isDark ? '#BDC3C7' : '#95A5A6'}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              textAlign="right"
+            />
+          </View>
         </View>
+        <FlatList
+          data={filteredChats}
+          renderItem={renderChatItem}
+          keyExtractor={(item) => item.chatId}
+          style={styles.chatList}
+          contentContainerStyle={styles.chatListContent}
+          ListEmptyComponent={
+            !loading && (
+              <View style={styles.emptyContainer}>
+                <Text style={[styles.emptyText, { color: theme.isDark ? '#BDC3C7' : '#666' }]}>
+                  אין לך עדיין צ'אטים.
+                </Text>
+              </View>
+            )
+          }
+        />
       </View>
-      <FlatList
-        data={filteredChats}
-        renderItem={renderChatItem}
-        keyExtractor={(item) => item.chatId}
-        style={styles.chatList}
-        contentContainerStyle={styles.chatListContent}
-        ListEmptyComponent={
-          !loading && (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.isDark ? '#BDC3C7' : '#666' }]}>
-                אין לך עדיין צ'אטים.
-              </Text>
-            </View>
-          )
-        }
-      />
-    </SafeAreaView>
+    </View>
   );
 };
 
+// עדכון הסטיילים - הוספת סטיילים חדשים וחלוקה נכונה
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -618,10 +626,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  headerSafeArea: {
+    backgroundColor: '#3A8DFF',
+  },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 25,
     backgroundColor: '#3A8DFF',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -633,10 +643,15 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 10,
   },
+  contentContainer: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: 'white',
+    marginTop: -20,
     marginBottom: 5,
   },
   headerSubtitle: {
