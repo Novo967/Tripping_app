@@ -8,13 +8,14 @@ import {
   Alert,
   FlatList,
   Image,
+  Linking,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../app/ProfileServices/ThemeContext';
@@ -32,6 +33,8 @@ interface EventDetails {
   time: string;
   date: string;
   organizer: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 const GroupDetailsModal = ({
@@ -110,16 +113,49 @@ const GroupDetailsModal = ({
         const docSnap = await getDoc(eventDocRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          // Convert date to readable format if it exists
+          let formattedDate = 'לא צוין';
+          if (data.event_date && data.event_date.toDate) { // Updated to check if .toDate() method exists
+            try {
+              const date = new Date(data.event_date.toDate());
+              formattedDate = date.toLocaleDateString('he-IL', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              });
+            } catch (dateError) {
+              console.log('Date formatting error:', dateError);
+            }
+          }
+
           setEventDetails({
             description: data.description || 'אין תיאור',
             location: data.location || 'לא צוין',
             time: data.time || 'לא צוין',
-            date: data.date || 'לא צוין',
-            organizer: data.organizer || 'לא צוין',
+            date: formattedDate,
+            organizer: data.username || data.organizer || 'לא צוין',
+            latitude: data.latitude,
+            longitude: data.longitude,
+          });
+        } else {
+          console.log('Event document does not exist');
+          setEventDetails({
+            description: 'אין תיאור',
+            location: 'לא צוין',
+            time: 'לא צוין',
+            date: 'לא צוין',
+            organizer: 'לא צוין',
           });
         }
       } catch (error) {
         console.error('Error fetching event details:', error);
+        setEventDetails({
+          description: 'שגיאה בטעינת נתונים',
+          location: 'שגיאה בטעינת נתונים',
+          time: 'שגיאה בטעינת נתונים',
+          date: 'שגיאה בטעינת נתונים',
+          organizer: 'שגיאה בטעינת נתונים',
+        });
       }
     };
 
@@ -127,6 +163,28 @@ const GroupDetailsModal = ({
 
     return () => unsubscribeGroup();
   }, [eventTitle]);
+
+  const handleOpenInMaps = async () => {
+    if (!eventDetails?.latitude || !eventDetails?.longitude) {
+      Alert.alert('שגיאה', 'מיקום האירוע לא זמין');
+      return;
+    }
+
+    try {
+      const { latitude, longitude } = eventDetails;
+      const googleMapsUrl = `http://maps.google.com/?q=${latitude},${longitude}`; // Corrected URL to ensure visibility
+      const supported = await Linking.canOpenURL(googleMapsUrl);
+
+      if (supported) {
+        await Linking.openURL(googleMapsUrl);
+      } else {
+        Alert.alert('שגיאה', 'לא ניתן לפתוח את יישום המפות');
+      }
+    } catch (error) {
+      console.error('Error opening maps:', error);
+      Alert.alert('שגיאה', 'אירעה שגיאה בפתיחת המפה');
+    }
+  };
 
   const handleLeaveGroup = () => {
     if (!currentUid) {
@@ -169,6 +227,7 @@ const GroupDetailsModal = ({
       ]
     );
   };
+
   const renderMember = ({ item }: { item: Member }) => {
     return (
       <View
@@ -215,242 +274,234 @@ const GroupDetailsModal = ({
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={[
-          styles.container,
-          { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
-        ]}
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.isDark ? '#A0C4FF' : '#3A8DFF'} />
-        </View>
-      </SafeAreaView>
+      <View style={[
+        styles.loadingContainer,
+        { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+      ]}>
+        <ActivityIndicator size="large" color={theme.isDark ? '#A0C4FF' : '#3A8DFF'} />
+      </View>
     );
   }
 
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
-      ]}
-    >
-      <StatusBar
-        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
-      />
-      
-      {/* Header section */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + 10,
-            backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF',
-          },
-        ]}
-      >
-        <TouchableOpacity onPress={onClose} style={styles.backButton}>
-          <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>פרטי קבוצה</Text>
-        <TouchableOpacity style={{ width: 24 }} />
-      </View>
+    <View style={styles.fullScreenContainer}>
+      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.isDark ? '#2C3946' : '#3A8DFF'} />
+      <SafeAreaView style={[
+        styles.headerContainer,
+        { backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF' },
+      ]}>
+        <View style={styles.header}>
+          {/* שינוי #2: החץ הוחזר לצד ימין. שאר האלמנטים עוצבו בהתאם כדי למקם אותם נכון. */}
+          <View style={{ width: 24 }} />
+          <Text style={styles.headerTitle}>פרטי קבוצה</Text>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
+            <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
-      {/* Scrollable content section */}
+      {/* שינוי #6: הוספת flexGrow כדי להבטיח גלילה יעילה של התוכן. */}
       <ScrollView
-        style={styles.flexContainer}
-        contentContainerStyle={styles.scrollContent}
+        style={[
+          styles.flexContainer,
+          { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+        ]}
+        contentContainerStyle={{ flexGrow: 1 }}
       >
         <View style={styles.groupHeader}>
           <TouchableOpacity onPress={() => onOpenImageModal(groupImageUrl)}>
-            <View style={styles.groupImageContainer}>
-              {groupImageUrl ? (
-                <Image source={{ uri: groupImageUrl }} style={styles.groupImage} />
-              ) : (
-                <View
-                  style={[
-                    styles.groupImagePlaceholder,
-                    { backgroundColor: theme.isDark ? '#2C3E50' : '#E0E0E0' },
-                  ]}
-                >
-                  <Ionicons
-                    name="people"
-                    size={60}
-                    color={theme.isDark ? '#BDC3C7' : '#95A5A6'}
-                  />
-                </View>
-              )}
+        <View style={styles.groupImageContainer}>
+          {groupImageUrl ? (
+            <Image source={{ uri: groupImageUrl }} style={styles.groupImage} />
+          ) : (
+            <View style={[
+          styles.groupImagePlaceholder,
+          { backgroundColor: theme.isDark ? '#2C3E50' : '#E0E0E0' },
+            ]}>
+          <Ionicons name="people" size={60} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} />
             </View>
+          )}
+        </View>
           </TouchableOpacity>
-          <Text
-            style={[
-              styles.groupName,
-              { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
-            ]}
-          >
-            {groupName}
+          <Text style={[
+        styles.groupName,
+        { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
+          ]}>
+        {groupName}
           </Text>
-          <Text
-            style={[
-              styles.memberCount,
-              { color: theme.isDark ? '#BDC3C7' : '#95A5A6' },
-            ]}
-          >
-            {members.length} חברים
+          <Text style={[
+        styles.memberCount,
+        { color: theme.isDark ? '#BDC3C7' : '#95A5A6' },
+          ]}>
+        {members.length} חברים
           </Text>
         </View>
-        
+
         {eventDetails && (
-          <View
-            style={[
-              styles.detailsSection,
-              { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA' },
-            ]}
-          >
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
-              ]}
-            >
-              פרטי האירוע
-            </Text>
-            <View
-              style={[
-                styles.detailCard,
-                {
-                  backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF',
-                  borderColor: theme.isDark ? '#3E506B' : '#E8E8E8',
-                },
-              ]}
-            >
-              <View style={styles.detailRow}>
-                <Ionicons name="location-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                <View style={styles.detailTextContainer}>
-                  <Text style={[styles.detailTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>מיקום</Text>
-                  <Text style={[styles.detailValue, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{eventDetails.location}</Text>
-                </View>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                <View style={styles.detailTextContainer}>
-                  <Text style={[styles.detailTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>תאריך</Text>
-                  <Text style={[styles.detailValue, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{eventDetails.date}</Text>
-                </View>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="time-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                <View style={styles.detailTextContainer}>
-                  <Text style={[styles.detailTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>שעה</Text>
-                  <Text style={[styles.detailValue, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{eventDetails.time}</Text>
-                </View>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="information-circle-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                <View style={styles.detailTextContainer}>
-                  <Text style={[styles.detailTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>תיאור</Text>
-                  <Text style={[styles.detailValue, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{eventDetails.description}</Text>
-                </View>
-              </View>
+          // שינוי #5: הגדלת המלבנים ל-95% מהרוחב ומרכוזם על המסך.
+          <View style={[
+        styles.detailsSection,
+        {
+          backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA',
+          width: '95%',
+          alignSelf: 'center',
+        },
+          ]}>
+        <Text style={[
+          styles.sectionTitle,
+          { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
+        ]}>
+          פרטי האירוע
+        </Text>
+        <View style={[
+          styles.detailCard,
+          {
+            backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF',
+            borderColor: theme.isDark ? '#3E506B' : '#E8E8E8',
+          },
+        ]}>
+          <View style={styles.detailRow}>
+            <Ionicons name="person-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+            <View style={styles.detailTextContainer}>
+          <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>
+            מאת:
+          </Text>
+          <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
+            {eventDetails.organizer}
+          </Text>
             </View>
           </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+            <View style={styles.detailTextContainer}>
+          <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>
+            זמן:
+          </Text>
+          <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
+            {eventDetails.date}
+          </Text>
+            </View>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="location-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+            <View style={styles.detailTextContainer}>
+          <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>
+            מיקום:
+          </Text>
+          {/* שינוי #3: טיפול בקישור המיקום הלא נראה. הוספת תנאי לבדיקת המיקום לפני רינדור הקישור. */}
+          {eventDetails.location !== 'לא צוין' ? (
+            <TouchableOpacity onPress={handleOpenInMaps}>
+              <Text style={[
+            styles.detailText,
+            styles.detailLocationLink,
+            { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
+              ]}>
+            {eventDetails.location}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
+              {eventDetails.location}
+            </Text>
+          )}
+            </View>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="document-text-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+            <View style={styles.detailTextContainer}>
+          <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>
+            תיאור:
+          </Text>
+          <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
+            {eventDetails.description}
+          </Text>
+            </View>
+          </View>
+        </View>
+          </View>
         )}
-        <View
-          style={[
-            styles.membersSection,
-            { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
-            ]}
-          >
-            חברי קבוצה
+
+        {/* שינוי #5: הגדלת המלבנים ל-95% מהרוחב ומרכוזם על המסך. */}
+        <View style={[
+          styles.membersSection,
+          {
+        backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA',
+        width: '95%',
+        alignSelf: 'center',
+          },
+        ]}>
+          <Text style={[
+        styles.sectionTitle,
+        { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
+          ]}>
+        חברי קבוצה
           </Text>
           <FlatList
-            data={members}
-            renderItem={renderMember}
-            keyExtractor={(item) => item.uid}
-            scrollEnabled={false}
+        data={members}
+        renderItem={renderMember}
+        keyExtractor={(item) => item.uid}
+        scrollEnabled={false} // List is inside a ScrollView, so no need for internal scrolling
           />
         </View>
+
         <TouchableOpacity
-          style={[
-            styles.leaveGroupButton,
-            {
-              backgroundColor: theme.isDark ? '#E57373' : '#FF5252',
-            },
-          ]}
+          style={[styles.leaveGroupButton, { backgroundColor: theme.isDark ? '#C73E4D' : '#FF6347' }]}
           onPress={handleLeaveGroup}
         >
-          <Ionicons name="log-out" size={20} color="#FFFFFF" />
-          <Text style={styles.leaveGroupButtonText}>עזוב קבוצה</Text>
+          <Text style={styles.leaveGroupText}>יציאה מהקבוצה</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  fullScreenContainer: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+  },
+  flexContainer: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  flexContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-    alignItems: 'center',
+  // שינוי #1: הסרת הקצוות המעוגלים מהכותרת על ידי איפוס ערכי border-radius.
+  headerContainer: {
+    paddingTop: 10,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    alignItems: 'center',
+    paddingBottom: 15,
   },
   backButton: {
-    padding: 8,
+    padding: 5,
+    marginRight: 10,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    textAlign: 'center',
+    flex: 1, // Ensures the title takes up available space
   },
   groupHeader: {
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 20,
+    paddingVertical: 20,
+    marginBottom: 10,
   },
   groupImageContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     overflow: 'hidden',
     marginBottom: 10,
-    borderWidth: 3,
-    borderColor: '#3A8DFF',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   groupImage: {
     width: '100%',
@@ -463,26 +514,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   groupName: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
+    marginHorizontal: 20,
   },
   memberCount: {
     fontSize: 16,
-    color: '#95A5A6',
-    marginTop: 4,
+    fontWeight: 'normal',
+    textAlign: 'center',
+    marginTop: 5,
   },
+  // שינוי #5: הגדלת המלבנים ל-95% מהרוחב ומרכוזם על המסך.
   detailsSection: {
-    width: '90%',
     padding: 15,
     borderRadius: 15,
     marginBottom: 20,
   },
   detailCard: {
+    padding: 15,
     borderWidth: 1,
     borderRadius: 12,
-    padding: 15,
-    marginTop: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -495,21 +547,31 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   detailIcon: {
-    marginRight: 15,
+    marginLeft: 10,
   },
   detailTextContainer: {
     flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-end',
   },
-  detailTitle: {
+  detailLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontWeight: 'bold',
+    textAlign: 'right',
   },
-  detailValue: {
+  detailText: {
+    fontSize: 16,
+    textAlign: 'right',
+    flexShrink: 1,
+  },
+  detailLocationLink: {
     fontSize: 14,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+    textAlign: 'right',
   },
+  // שינוי #5: הגדלת המלבנים ל-95% מהרוחב ומרכוזם על המסך.
   membersSection: {
-    width: '90%',
     padding: 15,
     borderRadius: 15,
     marginBottom: 20,
@@ -548,25 +610,17 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   leaveGroupButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 25,
-    borderRadius: 12,
-    width: '90%',
-    marginTop: 10,
-    shadowColor: '#FF5252',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
-  leaveGroupButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+  leaveGroupText: {
+    fontSize: 16,
     fontWeight: 'bold',
-    marginRight: 10,
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
 });
 
