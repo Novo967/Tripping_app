@@ -559,7 +559,7 @@ const GroupChatModal = () => {
   }
 
   return (
-    <SafeAreaView
+    <View
       style={[
         styles.container,
         { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
@@ -570,99 +570,104 @@ const GroupChatModal = () => {
         backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
       />
 
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top - 20,
-            backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF',
-            shadowColor: theme.isDark ? '#2C3946' : '#3A8DFF',
+      <SafeAreaView
+        style={{
+          backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF',
+          shadowColor: theme.isDark ? '#2C3946' : '#3A8DFF',
+          shadowOffset: {
+            width: 0,
+            height: 4,
           },
-        ]}
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
       >
-        <TouchableOpacity
-          onPress={goBack}
-          style={[
-            styles.backButton,
-            { backgroundColor: theme.isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)' },
-          ]}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-
-        <View style={styles.groupInfo}>
+        <View style={styles.headerContent}>
           <TouchableOpacity
-            onPress={openGroupDetailsModal}
-            style={styles.groupIconContainer}
-            disabled={isUploading}
+            onPress={goBack}
+            style={[
+              styles.backButton,
+              { backgroundColor: theme.isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)' },
+            ]}
+            activeOpacity={0.7}
           >
-            {isUploading ? (
-              <View
-                style={[
-                  styles.groupAvatarPlaceholder,
-                  {
-                    backgroundColor: theme.isDark ? '#2C3E50' : '#fff',
-                    borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF',
-                    shadowColor: theme.isDark ? '#000' : '#000',
-                  },
-                ]}
-              >
-                <ActivityIndicator
-                  size="small"
-                  color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
-                />
-              </View>
-            ) : groupImageUrl ? (
-              <Image
-                source={{ uri: groupImageUrl }}
-                style={[
-                  styles.groupAvatar,
-                  { borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF' },
-                ]}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.groupAvatarPlaceholder,
-                  {
-                    backgroundColor: theme.isDark ? '#2C3E50' : '#fff',
-                    borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF',
-                    shadowColor: theme.isDark ? '#000' : '#000',
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="people"
-                  size={24}
-                  color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
-                />
-              </View>
-            )}
+            <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <View style={styles.groupTextInfo}>
-            <TouchableOpacity onPress={openGroupDetailsModal}>
-              <Text
-                style={[
-                  styles.groupName,
-                  { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' },
-                ]}
-                numberOfLines={1}
-              >
-                {groupName}
-              </Text>
-              <Text
-                style={[
-                  styles.groupStatus,
-                  { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
-                ]}
-              >
-                {memberCount} משתתפים
-              </Text>
+
+          <View style={styles.groupInfo}>
+            <TouchableOpacity
+              onPress={openGroupDetailsModal}
+              style={styles.groupIconContainer}
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <View
+                  style={[
+                    styles.groupAvatarPlaceholder,
+                    {
+                      backgroundColor: theme.isDark ? '#2C3E50' : '#fff',
+                      borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF',
+                      shadowColor: theme.isDark ? '#000' : '#000',
+                    },
+                  ]}
+                >
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+                  />
+                </View>
+              ) : groupImageUrl ? (
+                <Image
+                  source={{ uri: groupImageUrl }}
+                  style={[
+                    styles.groupAvatar,
+                    { borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF' },
+                  ]}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.groupAvatarPlaceholder,
+                    {
+                      backgroundColor: theme.isDark ? '#2C3E50' : '#fff',
+                      borderColor: theme.isDark ? '#4A90E2' : '#FFFFFF',
+                      shadowColor: theme.isDark ? '#000' : '#000',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="people"
+                    size={24}
+                    color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+                  />
+                </View>
+              )}
             </TouchableOpacity>
+            <View style={styles.groupTextInfo}>
+              <TouchableOpacity onPress={openGroupDetailsModal}>
+                <Text
+                  style={[
+                    styles.groupName,
+                    { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {groupName}
+                </Text>
+                <Text
+                  style={[
+                    styles.groupStatus,
+                    { color: theme.isDark ? '#A0C4FF' : '#FFE0B3' },
+                  ]}
+                >
+                  {memberCount} משתתפים
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       <KeyboardAvoidingView
         style={styles.flexContainer}
@@ -806,7 +811,7 @@ const GroupChatModal = () => {
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -837,6 +842,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  headerContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
   },
   backButton: {
     padding: 8,
