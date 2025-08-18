@@ -40,7 +40,7 @@ export default function DistanceFilterButton({ displayDistance, setDisplayDistan
           <Text style={{ fontSize: 24, color: '#3A8DFF', marginBottom: 20 }}>{displayDistance} קמ</Text>
           <Slider
             minimumValue={1}
-            maximumValue={250}
+            maximumValue={500}
             value={displayDistance}
             onValueChange={setDisplayDistance}
             step={1}
@@ -50,7 +50,7 @@ export default function DistanceFilterButton({ displayDistance, setDisplayDistan
           />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 10 }}>
             <Text>1 קמ</Text>
-            <Text>250 קמ</Text>
+            <Text>500 קמ</Text>
           </View>
           <TouchableOpacity
             onPress={() => setVisible(false)}

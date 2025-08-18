@@ -77,7 +77,7 @@ export default function HomeScreen() {
   const [region, setRegion] = useState<Region | null>(null);
   const [users, setUsers] = useState<SelectedUserType[]>([]);
   const [events, setEvents] = useState<SelectedEventType[]>([]);
-  const [displayDistance, setDisplayDistance] = useState(150);
+  const [displayDistance, setDisplayDistance] = useState(250);
   const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([
     'hiking', 'trip', 'camping', 'beach', 'party', 'food', 'sport',
     'culture', 'nature', 'nightlife',
