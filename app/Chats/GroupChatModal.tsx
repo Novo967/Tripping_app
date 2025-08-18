@@ -831,7 +831,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#3A8DFF',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: -6,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#3A8DFF',
