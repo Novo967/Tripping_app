@@ -293,28 +293,31 @@ const ChatModal = () => {
   const statusBarStyle = theme.isDark ? 'light-content' : 'dark-content';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={statusBarStyle} backgroundColor="#1F2937" />
 
-      <View style={[styles.header, { paddingTop: insets.top - 20 + (Platform.OS === 'ios' ? 0 : 10), backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', borderBottomColor: theme.colors.border }]}>
-        <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
-          <Ionicons name="arrow-forward" size={24} color={theme.isDark ? '#FFFFFF' : '#FFFFFF'} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.userInfo} onPress={handleUserProfilePress} activeOpacity={0.7}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={{
-                uri: otherUserProfileImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png',
-              }}
-              style={styles.avatar}
-            />
-          </View>
-          <View style={styles.userTextInfo}>
-            <Text style={[styles.username, { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' }]}>{otherUsername}</Text>
-            <Text style={[styles.userStatus, { color: theme.isDark ? '#D0D0D0' : '#95A5A6' }]}>פעיל עכשיו</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+      {/* ✅ השינוי העיקרי: עוטף את ה-Header ב-SafeAreaView */}
+      <SafeAreaView style={{ backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF' }}>
+        <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : 10, backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', borderBottomColor: theme.colors.border }]}>
+          <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
+            <Ionicons name="arrow-forward" size={24} color={theme.isDark ? '#FFFFFF' : '#FFFFFF'} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.userInfo} onPress={handleUserProfilePress} activeOpacity={0.7}>
+            <View style={styles.avatarContainer}>
+              <Image
+                source={{
+                  uri: otherUserProfileImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png',
+                }}
+                style={styles.avatar}
+              />
+            </View>
+            <View style={styles.userTextInfo}>
+              <Text style={[styles.username, { color: theme.isDark ? '#FFFFFF' : '#FFFFFF' }]}>{otherUsername}</Text>
+              <Text style={[styles.userStatus, { color: theme.isDark ? '#D0D0D0' : '#95A5A6' }]}>פעיל עכשיו</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       <KeyboardAvoidingView
         style={styles.flexContainer}
@@ -374,7 +377,7 @@ const ChatModal = () => {
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -389,7 +392,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: -6,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#3A8DFF',
