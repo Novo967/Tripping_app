@@ -113,11 +113,17 @@ const GroupDetailsModal = ({
         const docSnap = await getDoc(eventDocRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
-          // Convert date to readable format if it exists
+
+          // טיפול בתאריך גם כ- Timestamp וגם כ- string
           let formattedDate = 'לא צוין';
-          if (data.event_date && data.event_date.toDate) { // Updated to check if .toDate() method exists
+          if (data.event_date) {
             try {
-              const date = new Date(data.event_date.toDate());
+              let date;
+              if (data.event_date.toDate) {
+                date = new Date(data.event_date.toDate());
+              } else {
+                date = new Date(data.event_date);
+              }
               formattedDate = date.toLocaleDateString('he-IL', {
                 day: '2-digit',
                 month: '2-digit',
@@ -129,16 +135,15 @@ const GroupDetailsModal = ({
           }
 
           setEventDetails({
-            description: data.description || 'אין תיאור',
-            location: data.location || 'לא צוין',
-            time: data.time || 'לא צוין',
+            description: data.description && data.description.trim() !== '' ? data.description : 'אין תיאור',
+            location: data.location && data.location.trim() !== '' ? data.location : 'לא צוין',
+            time: data.time && data.time.trim() !== '' ? data.time : 'לא צוין',
             date: formattedDate,
             organizer: data.username || data.organizer || 'לא צוין',
             latitude: data.latitude,
             longitude: data.longitude,
           });
         } else {
-          console.log('Event document does not exist');
           setEventDetails({
             description: 'אין תיאור',
             location: 'לא צוין',
@@ -172,7 +177,7 @@ const GroupDetailsModal = ({
 
     try {
       const { latitude, longitude } = eventDetails;
-      const googleMapsUrl = `http://maps.google.com/?q=${latitude},${longitude}`; // Corrected URL to ensure visibility
+      const googleMapsUrl = `http://maps.google.com/?q=${latitude},${longitude}`;
       const supported = await Linking.canOpenURL(googleMapsUrl);
 
       if (supported) {
@@ -196,10 +201,7 @@ const GroupDetailsModal = ({
       'יציאה מהקבוצה',
       'האם אתה בטוח שברצונך לצאת מהקבוצה? לא תוכל לשלוח או לקבל הודעות נוספות.',
       [
-        {
-          text: 'ביטול',
-          style: 'cancel',
-        },
+        { text: 'ביטול', style: 'cancel' },
         {
           text: 'יציאה',
           style: 'destructive',
@@ -240,10 +242,7 @@ const GroupDetailsModal = ({
         ]}
       >
         {item.profileImageUrl ? (
-          <Image
-            source={{ uri: item.profileImageUrl }}
-            style={styles.memberAvatar}
-          />
+          <Image source={{ uri: item.profileImageUrl }} style={styles.memberAvatar} />
         ) : (
           <View
             style={[
@@ -259,12 +258,7 @@ const GroupDetailsModal = ({
           </View>
         )}
         <View style={styles.memberInfo}>
-          <Text
-            style={[
-              styles.memberName,
-              { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
-            ]}
-          >
+          <Text style={[styles.memberName, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
             {item.username} {item.uid === currentUid && '(אני)'}
           </Text>
         </View>
@@ -274,10 +268,7 @@ const GroupDetailsModal = ({
 
   if (loading) {
     return (
-      <View style={[
-        styles.loadingContainer,
-        { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
-      ]}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' }]}>
         <ActivityIndicator size="large" color={theme.isDark ? '#A0C4FF' : '#3A8DFF'} />
       </View>
     );
@@ -286,12 +277,8 @@ const GroupDetailsModal = ({
   return (
     <View style={styles.fullScreenContainer}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.isDark ? '#2C3946' : '#3A8DFF'} />
-      <SafeAreaView style={[
-        styles.headerContainer,
-        { backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF' },
-      ]}>
+      <SafeAreaView style={[styles.headerContainer, { backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF' }]}>
         <View style={styles.header}>
-          {/* שינוי #2: החץ הוחזר לצד ימין. שאר האלמנטים עוצבו בהתאם כדי למקם אותם נכון. */}
           <View style={{ width: 24 }} />
           <Text style={styles.headerTitle}>פרטי קבוצה</Text>
           <TouchableOpacity onPress={onClose} style={styles.backButton}>
@@ -300,154 +287,75 @@ const GroupDetailsModal = ({
         </View>
       </SafeAreaView>
 
-      {/* שינוי #6: הוספת flexGrow כדי להבטיח גלילה יעילה של התוכן. */}
       <ScrollView
-        style={[
-          styles.flexContainer,
-          { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
-        ]}
-        contentContainerStyle={{ flexGrow: 1 }}
+        style={[styles.flexContainer, { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' }]}
+        contentContainerStyle={{ paddingBottom: 30 }}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.groupHeader}>
           <TouchableOpacity onPress={() => onOpenImageModal(groupImageUrl)}>
-        <View style={styles.groupImageContainer}>
-          {groupImageUrl ? (
-            <Image source={{ uri: groupImageUrl }} style={styles.groupImage} />
-          ) : (
-            <View style={[
-          styles.groupImagePlaceholder,
-          { backgroundColor: theme.isDark ? '#2C3E50' : '#E0E0E0' },
-            ]}>
-          <Ionicons name="people" size={60} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} />
+            <View style={styles.groupImageContainer}>
+              {groupImageUrl ? (
+                <Image source={{ uri: groupImageUrl }} style={styles.groupImage} />
+              ) : (
+                <View style={[styles.groupImagePlaceholder, { backgroundColor: theme.isDark ? '#2C3E50' : '#E0E0E0' }]}>
+                  <Ionicons name="people" size={60} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} />
+                </View>
+              )}
             </View>
-          )}
-        </View>
           </TouchableOpacity>
-          <Text style={[
-        styles.groupName,
-        { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
-          ]}>
-        {groupName}
-          </Text>
-          <Text style={[
-        styles.memberCount,
-        { color: theme.isDark ? '#BDC3C7' : '#95A5A6' },
-          ]}>
-        {members.length} חברים
-          </Text>
+          <Text style={[styles.groupName, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{groupName}</Text>
+          <Text style={[styles.memberCount, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{members.length} חברים</Text>
         </View>
 
         {eventDetails && (
-          // שינוי #5: הגדלת המלבנים ל-95% מהרוחב ומרכוזם על המסך.
-          <View style={[
-        styles.detailsSection,
-        {
-          backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA',
-          width: '95%',
-          alignSelf: 'center',
-        },
-          ]}>
-        <Text style={[
-          styles.sectionTitle,
-          { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
-        ]}>
-          פרטי האירוע
-        </Text>
-        <View style={[
-          styles.detailCard,
-          {
-            backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF',
-            borderColor: theme.isDark ? '#3E506B' : '#E8E8E8',
-          },
-        ]}>
-          <View style={styles.detailRow}>
-            <Ionicons name="person-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-            <View style={styles.detailTextContainer}>
-          <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>
-            מאת:
-          </Text>
-          <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
-            {eventDetails.organizer}
-          </Text>
+          <View style={[styles.detailsSection, { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA', width: '95%', alignSelf: 'center' }]}>
+            <Text style={[styles.sectionTitle, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>פרטי האירוע</Text>
+            <View style={[styles.detailCard, { backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF', borderColor: theme.isDark ? '#3E506B' : '#E8E8E8' }]}>
+              <View style={styles.detailRow}>
+                <Ionicons name="person-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>מאת:</Text>
+                  <Text style={styles.detailText}>{eventDetails.organizer}</Text>
+                </View>
+              </View>
+              <View style={styles.detailRow}>
+                <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>זמן:</Text>
+                  <Text style={styles.detailText}>{eventDetails.date}</Text>
+                </View>
+              </View>
+              <View style={styles.detailRow}>
+                <Ionicons name="location-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>מיקום:</Text>
+                  {eventDetails.location !== 'לא צוין' ? (
+                    <TouchableOpacity onPress={handleOpenInMaps}>
+                      <Text style={[styles.detailText, styles.detailLocationLink, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>{eventDetails.location}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.detailText}>{eventDetails.location}</Text>
+                  )}
+                </View>
+              </View>
+              <View style={styles.detailRow}>
+                <Ionicons name="document-text-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>תיאור:</Text>
+                  <Text style={styles.detailText}>{eventDetails.description}</Text>
+                </View>
+              </View>
             </View>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-            <View style={styles.detailTextContainer}>
-          <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>
-            זמן:
-          </Text>
-          <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
-            {eventDetails.date}
-          </Text>
-            </View>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-            <View style={styles.detailTextContainer}>
-          <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>
-            מיקום:
-          </Text>
-          {/* שינוי #3: טיפול בקישור המיקום הלא נראה. הוספת תנאי לבדיקת המיקום לפני רינדור הקישור. */}
-          {eventDetails.location !== 'לא צוין' ? (
-            <TouchableOpacity onPress={handleOpenInMaps}>
-              <Text style={[
-            styles.detailText,
-            styles.detailLocationLink,
-            { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
-              ]}>
-            {eventDetails.location}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
-              {eventDetails.location}
-            </Text>
-          )}
-            </View>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="document-text-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-            <View style={styles.detailTextContainer}>
-          <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>
-            תיאור:
-          </Text>
-          <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>
-            {eventDetails.description}
-          </Text>
-            </View>
-          </View>
-        </View>
           </View>
         )}
 
-        {/* שינוי #5: הגדלת המלבנים ל-95% מהרוחב ומרכוזם על המסך. */}
-        <View style={[
-          styles.membersSection,
-          {
-        backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA',
-        width: '95%',
-        alignSelf: 'center',
-          },
-        ]}>
-          <Text style={[
-        styles.sectionTitle,
-        { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
-          ]}>
-        חברי קבוצה
-          </Text>
-          <FlatList
-        data={members}
-        renderItem={renderMember}
-        keyExtractor={(item) => item.uid}
-        scrollEnabled={false} // List is inside a ScrollView, so no need for internal scrolling
-          />
+        <View style={[styles.membersSection, { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA', width: '95%', alignSelf: 'center' }]}>
+          <Text style={[styles.sectionTitle, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>חברי קבוצה</Text>
+          <FlatList data={members} renderItem={renderMember} keyExtractor={(item) => item.uid} scrollEnabled={false} />
         </View>
 
-        <TouchableOpacity
-          style={[styles.leaveGroupButton, { backgroundColor: theme.isDark ? '#C73E4D' : '#FF6347' }]}
-          onPress={handleLeaveGroup}
-        >
+        <TouchableOpacity style={styles.leaveGroupButton} onPress={handleLeaveGroup}>
           <Text style={styles.leaveGroupText}>יציאה מהקבוצה</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -456,172 +364,47 @@ const GroupDetailsModal = ({
 };
 
 const styles = StyleSheet.create({
-  fullScreenContainer: {
-    flex: 1,
-  },
-  flexContainer: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  // שינוי #1: הסרת הקצוות המעוגלים מהכותרת על ידי איפוס ערכי border-radius.
-  headerContainer: {
-    paddingTop: 10,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 15,
-  },
-  backButton: {
-    padding: 5,
-    marginRight: 10,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    flex: 1, // Ensures the title takes up available space
-  },
-  groupHeader: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    marginBottom: 10,
-  },
-  groupImageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  groupImage: {
-    width: '100%',
-    height: '100%',
-  },
-  groupImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  groupName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginHorizontal: 20,
-  },
-  memberCount: {
-    fontSize: 16,
-    fontWeight: 'normal',
-    textAlign: 'center',
-    marginTop: 5,
-  },
-  // שינוי #5: הגדלת המלבנים ל-95% מהרוחב ומרכוזם על המסך.
-  detailsSection: {
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 20,
-  },
-  detailCard: {
-    padding: 15,
-    borderWidth: 1,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  detailRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  detailIcon: {
-    marginLeft: 10,
-  },
-  detailTextContainer: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-  },
-  detailLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  detailText: {
-    fontSize: 16,
-    textAlign: 'right',
-    flexShrink: 1,
-  },
-  detailLocationLink: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    textDecorationLine: 'underline',
-    textAlign: 'right',
-  },
-  // שינוי #5: הגדלת המלבנים ל-95% מהרוחב ומרכוזם על המסך.
-  membersSection: {
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'right',
-  },
-  memberItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  memberAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginLeft: 15,
-  },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
+  fullScreenContainer: { flex: 1 },
+  flexContainer: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  headerContainer: { paddingTop: 10, paddingHorizontal: 20 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 15 },
+  backButton: { padding: 5, marginRight: 10 },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', flex: 1 },
+  groupHeader: { alignItems: 'center', paddingVertical: 20, marginBottom: 10 },
+  groupImageContainer: { width: 100, height: 100, borderRadius: 50, overflow: 'hidden', marginBottom: 10 },
+  groupImage: { width: '100%', height: '100%' },
+  groupImagePlaceholder: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  groupName: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginHorizontal: 20 },
+  memberCount: { fontSize: 16, textAlign: 'center', marginTop: 5 },
+  detailsSection: { padding: 15, borderRadius: 15, marginBottom: 20 },
+  detailCard: { padding: 15, borderWidth: 1, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  detailRow: { flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 10 },
+  detailIcon: { marginLeft: 10 },
+  detailTextContainer: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'flex-start' },
+  detailLabel: { fontSize: 14, fontWeight: 'bold', marginLeft: 6, textAlign: 'right' },
+  detailText: { fontSize: 16, textAlign: 'right', flexShrink: 1 },
+  detailLocationLink: { fontSize: 14, fontWeight: 'bold', textDecorationLine: 'underline', textAlign: 'right' },
+  membersSection: { padding: 15, borderRadius: 15, marginBottom: 20 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'right' },
+  memberItem: { flexDirection: 'row-reverse', alignItems: 'center', padding: 12, borderWidth: 1, borderRadius: 12, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  memberAvatar: { width: 48, height: 48, borderRadius: 24, marginLeft: 15 },
+  memberInfo: { flex: 1 },
+  memberName: { fontSize: 16, fontWeight: 'bold', textAlign: 'right' },
   leaveGroupButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     alignSelf: 'center',
     marginBottom: 20,
+    backgroundColor: '#d80d0dff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
-  leaveGroupText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
+  leaveGroupText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
 });
 
 export default GroupDetailsModal;
