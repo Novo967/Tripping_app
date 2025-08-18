@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 // Note: We need all these imports to handle the Firebase logic
 import { addDoc, collection, getDocs, getFirestore, query, serverTimestamp, where } from 'firebase/firestore';
 import React from 'react';
-import { Alert, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, Linking, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { app } from '../../firebaseConfig';
 
 interface SelectedEventType {
@@ -65,6 +65,29 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         }
         return null;
     }, [userLocation, selectedEvent]);
+
+    const handleOpenInMaps = async () => {
+        if (!selectedEvent) return;
+
+        try {
+            const { latitude, longitude, location } = selectedEvent;
+            
+            // יצירת URL לגוגל מפס עם הקואורדינטות
+            const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+            
+            // בדיקה אם ניתן לפתוח את הקישור
+            const supported = await Linking.canOpenURL(googleMapsUrl);
+            
+            if (supported) {
+                await Linking.openURL(googleMapsUrl);
+            } else {
+                Alert.alert('שגיאה', 'לא ניתן לפתוח את יישום המפות');
+            }
+        } catch (error) {
+            console.error('Error opening maps:', error);
+            Alert.alert('שגיאה', 'אירעה שגיאה בפתיחת המפה');
+        }
+    };
 
     const handleSendRequest = async () => {
         if (!user || !selectedEvent || !currentUserUsername) {
@@ -154,7 +177,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                     style={[styles.actionButton, styles.chatButton]}
                     onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
                 >
-                    <Text style={styles.actionButtonText}>עבור לצט הקבוצתי</Text>
+                    <Text style={styles.actionButtonText}>עבור לצ'ט הקבוצתי</Text>
                     <Ionicons name="chatbubbles-outline" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
             );
@@ -204,7 +227,10 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                             {selectedEvent.location && (
                                 <View style={styles.detailRow}>
                                     <Ionicons name="location-outline" size={18} color="#555" style={styles.detailIcon} />
-                                    <Text style={styles.modalLocation}>{selectedEvent.location}</Text>
+                                    <Text style={styles.modalLocationPrefix}>מיקום: </Text>
+                                    <TouchableOpacity onPress={handleOpenInMaps} style={styles.locationLinkContainer}>
+                                        <Text style={styles.modalLocationLink}>{selectedEvent.location}</Text>
+                                    </TouchableOpacity>
                                 </View>
                             )}
                             {eventDistance && (
@@ -302,6 +328,21 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#555',
         textAlign: 'right',
+    },
+    modalLocationPrefix: {
+        fontSize: 16,
+        color: '#555',
+        textAlign: 'right',
+    },
+    locationLinkContainer: {
+        flex: 1,
+    },
+    modalLocationLink: {
+        fontSize: 16,
+        color: '#3A8DFF',
+        textAlign: 'right',
+        fontWeight: 'bold',
+        textDecorationLine: 'underline',
     },
     modalDate: {
         fontSize: 16,
