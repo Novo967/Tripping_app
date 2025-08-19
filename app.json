@@ -3,7 +3,7 @@
     "name": "TREK",
     "slug": "Tripping_app",
     "owner": "novrubin",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/TREKimage.png",
     "scheme": "trippingapp",
@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.novandnoam.trek",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "config": {
         "googleMapsApiKey": "AIzaSyDB9Oh2uwG6gD2S_UpQ3U9T1lLKDX_mamg"
       },
