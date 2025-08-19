@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { arrayRemove, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -64,7 +64,6 @@ const GroupDetailsModal = ({
     }
 
     const groupDocRef = doc(db, 'group_chats', eventTitle);
-    const eventDocRef = doc(db, 'pins', eventTitle);
 
     const unsubscribeGroup = onSnapshot(
       groupDocRef,
@@ -110,9 +109,17 @@ const GroupDetailsModal = ({
 
     const fetchEventDetails = async () => {
       try {
-        const docSnap = await getDoc(eventDocRef);
-        if (docSnap.exists()) {
+        console.log('Searching for event with title:', eventTitle);
+        
+        // נחפש את האירוע לפי event_title
+        const pinsCollection = collection(db, 'pins');
+        const q = query(pinsCollection, where('event_title', '==', eventTitle));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const docSnap = querySnapshot.docs[0];
           const data = docSnap.data();
+          console.log('Event data found:', data);
 
           // טיפול בתאריך גם כ- Timestamp וגם כ- string
           let formattedDate = 'לא צוין';
@@ -121,36 +128,97 @@ const GroupDetailsModal = ({
               let date;
               if (data.event_date.toDate) {
                 date = new Date(data.event_date.toDate());
-              } else {
+              } else if (typeof data.event_date === 'string') {
                 date = new Date(data.event_date);
+              } else if (data.event_date instanceof Date) {
+                date = data.event_date;
               }
-              formattedDate = date.toLocaleDateString('he-IL', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              });
+              
+              if (date && !isNaN(date.getTime())) {
+                formattedDate = date.toLocaleDateString('he-IL', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                });
+              }
             } catch (dateError) {
               console.log('Date formatting error:', dateError);
             }
           }
 
+          // טיפול בשעה
+          let formattedTime = 'לא צוין';
+          if (data.time && data.time.trim() !== '') {
+            formattedTime = data.time;
+          }
+
           setEventDetails({
             description: data.description && data.description.trim() !== '' ? data.description : 'אין תיאור',
             location: data.location && data.location.trim() !== '' ? data.location : 'לא צוין',
-            time: data.time && data.time.trim() !== '' ? data.time : 'לא צוין',
+            time: formattedTime,
             date: formattedDate,
             organizer: data.username || data.organizer || 'לא צוין',
             latitude: data.latitude,
             longitude: data.longitude,
           });
         } else {
-          setEventDetails({
-            description: 'אין תיאור',
-            location: 'לא צוין',
-            time: 'לא צוין',
-            date: 'לא צוין',
-            organizer: 'לא צוין',
-          });
+          console.log('No event found with title:', eventTitle);
+          // אם לא מצאנו, ננסה גם לפי מזהה המסמך
+          const eventDocRef = doc(db, 'pins', eventTitle);
+          const docSnap = await getDoc(eventDocRef);
+          
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            console.log('Event data found by ID:', data);
+
+            let formattedDate = 'לא צוין';
+            if (data.event_date) {
+              try {
+                let date;
+                if (data.event_date.toDate) {
+                  date = new Date(data.event_date.toDate());
+                } else if (typeof data.event_date === 'string') {
+                  date = new Date(data.event_date);
+                } else if (data.event_date instanceof Date) {
+                  date = data.event_date;
+                }
+                
+                if (date && !isNaN(date.getTime())) {
+                  formattedDate = date.toLocaleDateString('he-IL', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  });
+                }
+              } catch (dateError) {
+                console.log('Date formatting error:', dateError);
+              }
+            }
+
+            let formattedTime = 'לא צוין';
+            if (data.time && data.time.trim() !== '') {
+              formattedTime = data.time;
+            }
+
+            setEventDetails({
+              description: data.description && data.description.trim() !== '' ? data.description : 'אין תיאור',
+              location: data.location && data.location.trim() !== '' ? data.location : 'לא צוין',
+              time: formattedTime,
+              date: formattedDate,
+              organizer: data.username || data.organizer || 'לא צוין',
+              latitude: data.latitude,
+              longitude: data.longitude,
+            });
+          } else {
+            console.log('No event document found');
+            setEventDetails({
+              description: 'אין תיאור',
+              location: 'לא צוין',
+              time: 'לא צוין',
+              date: 'לא צוין',
+              organizer: 'לא צוין',
+            });
+          }
         }
       } catch (error) {
         console.error('Error fetching event details:', error);
@@ -322,8 +390,15 @@ const GroupDetailsModal = ({
               <View style={styles.detailRow}>
                 <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                 <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>זמן:</Text>
+                  <Text style={styles.detailLabel}>תאריך:</Text>
                   <Text style={styles.detailText}>{eventDetails.date}</Text>
+                </View>
+              </View>
+              <View style={styles.detailRow}>
+                <Ionicons name="time-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>שעה:</Text>
+                  <Text style={styles.detailText}>{eventDetails.time}</Text>
                 </View>
               </View>
               <View style={styles.detailRow}>
