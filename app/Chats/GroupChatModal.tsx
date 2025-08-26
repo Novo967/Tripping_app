@@ -724,90 +724,92 @@ const GroupChatModal = () => {
         )}
 
         <View
+        style={[
+          styles.inputWrapper,
+          {
+            backgroundColor: theme.isDark ? '#1F2937' : '#FFFFFF',
+            borderTopColor: theme.isDark ? '#2C3E50' : '#E8E8E8',
+          },
+        ]}
+        >
+        <View
           style={[
-            styles.inputWrapper,
-            {
-              backgroundColor: theme.isDark ? '#1F2937' : '#FFFFFF',
-              borderTopColor: theme.isDark ? '#2C3E50' : '#E8E8E8',
-            },
+          styles.inputContainer,
+            { backgroundColor: theme.isDark ? '#2C3E50' : '#F5F5F5' },
           ]}
         >
-          <View
-            style={[
-              styles.inputContainer,
-              { backgroundColor: theme.isDark ? '#2C3E50' : '#F5F5F5' },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => sendMessage()}
-              style={[
-                styles.sendButton,
-                !input.trim() && styles.sendButtonDisabled,
-                {
-                  backgroundColor: input.trim()
-                    ? '#3A8DFF'
-                    : theme.isDark
-                    ? '#3E506B'
-                    : '#E8E8E8',
-                  shadowColor: input.trim()
-                    ? theme.isDark
-                      ? '#1F2937'
-                      : '#3A8DFF'
-                    : '#000',
-                  shadowOpacity: input.trim() ? 0.3 : 0,
-                  elevation: input.trim() ? 4 : 0,
-                },
-              ]}
-              activeOpacity={0.8}
-              disabled={!input.trim()}
+        {/* כפתור מצלמה */}
+        <TouchableOpacity
+        style={[
+          styles.cameraButton,
+          {
+            backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF',
+            shadowColor: theme.isDark ? '#000' : '#000',
+          },
+        ]}
+            onPress={handleImagePicker}
+            activeOpacity={0.7}
             >
-              <Ionicons
-                name="send"
-                size={20}
-                color={
-                  input.trim()
-                    ? '#FFFFFF'
-                    : theme.isDark
-                    ? '#BDC3C7'
-                    : '#CCC'
-                }
-                style={{ transform: [{ scaleX: -1 }] }}
-              />
-            </TouchableOpacity>
-
-            <TextInput
-              style={[
-                styles.input,
-                { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
-              ]}
-              placeholder="הקלד הודעה קבוצתית..."
-              placeholderTextColor={theme.isDark ? '#BDC3C7' : '#999'}
-              value={input}
-              onChangeText={setInput}
-              onSubmitEditing={() => sendMessage()}
-              returnKeyType="send"
-              textAlign="right"
-              multiline
-              maxLength={500}
+            <Ionicons
+              name="camera"
+              size={24}
+              color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
             />
-
-            <TouchableOpacity
-              style={[
-                styles.cameraButton,
-                {
-                  backgroundColor: theme.isDark ? '#2C3E50' : '#FFFFFF',
-                  shadowColor: theme.isDark ? '#000' : '#000',
-                },
-              ]}
-              onPress={handleImagePicker}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="camera"
-                size={24}
-                color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
-              />
             </TouchableOpacity>
+          
+        <TextInput
+          style={[
+            styles.input,
+            { color: theme.isDark ? '#E0E0E0' : '#2C3E50' },
+          ]}
+          placeholder="הקלד הודעה קבוצתית..."
+          placeholderTextColor={theme.isDark ? '#BDC3C7' : '#999'}
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={() => sendMessage()}
+          returnKeyType="send"
+          textAlign="right"
+          multiline
+          maxLength={500}
+        />
+        {/* כפתור שליחה */}
+        <TouchableOpacity
+            onPress={() => sendMessage()}
+            style={[
+              styles.sendButton,
+              !input.trim() && styles.sendButtonDisabled,
+            {
+            backgroundColor: input.trim()
+              ? '#3A8DFF'
+              : theme.isDark
+              ? '#3E506B'
+              : '#E8E8E8',
+            shadowColor: input.trim()
+              ? theme.isDark
+              ? '#1F2937'
+              : '#3A8DFF'
+              : '#000',
+            shadowOpacity: input.trim() ? 0.3 : 0,
+            elevation: input.trim() ? 4 : 0,
+            },
+            ]}
+          activeOpacity={0.8}
+          disabled={!input.trim()}
+        >
+        <Ionicons
+          name="send"
+          size={20}
+          color={
+            input.trim()
+              ? '#FFFFFF'
+              : theme.isDark
+              ? '#BDC3C7'
+              : '#CCC'
+          }
+          style={{ transform: [{ scaleX: -1 }] }}
+        />
+        </TouchableOpacity>
+
           </View>
         </View>
       </KeyboardAvoidingView>

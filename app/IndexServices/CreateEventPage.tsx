@@ -49,6 +49,7 @@ export default function CreateEventPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [eventImageUri, setEventImageUri] = useState<string | null>(null);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [tempDate, setTempDate] = useState(new Date());
 
     const db = getFirestore(app);
     const auth = getAuth(app);
@@ -104,7 +105,7 @@ export default function CreateEventPage() {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 aspect: [4, 3],
-                quality: 0.7, // הורדת איכות לביצועים טובים יותר
+                quality: 0.7,
             });
 
             if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -127,7 +128,6 @@ export default function CreateEventPage() {
     const uploadImage = async (uri: string, eventTitle: string) => {
         setIsUploadingImage(true);
         try {
-            // בדיקת תקינות URI
             if (!uri || uri.trim() === '') {
                 throw new Error('URI של התמונה לא חוקי');
             }
@@ -139,7 +139,6 @@ export default function CreateEventPage() {
             
             const blob = await response.blob();
             
-            // בדיקת גודל הקובץ (מקסימום 10MB)
             if (blob.size > 10 * 1024 * 1024) {
                 throw new Error('התמונה גדולה מדי (מקסימום 10MB)');
             }
@@ -159,6 +158,7 @@ export default function CreateEventPage() {
             setIsUploadingImage(false);
         }
     };
+
     const handleCreateEvent = async () => {
         if (!eventTitle.trim() || !eventType) {
             Alert.alert('שגיאה', 'אנא מלא את כל השדות הנדרשים');
@@ -184,7 +184,6 @@ export default function CreateEventPage() {
         }
 
         try {
-            // ✅ שינוי מרכזי: הוספת השדה 'approved_users' עם ה-ID של היוצר
             const eventData = {
                 owner_uid: userId,
                 username: username,
@@ -197,14 +196,12 @@ export default function CreateEventPage() {
                 location: eventLocation,
                 city_country: cityCountry,
                 created_at: new Date().toISOString(),
-                // ✅ שינוי: הוספת השדה approved_users עם ה-uid של המשתמש היוצר.
                 approved_users: [userId],
                 ...(imageUrl && { eventImageUrl: imageUrl }),
             };
 
             await addDoc(collection(db, 'pins'), eventData);
 
-            // ✅ שינוי: הוספת ה-uid של היוצר לרשימת חברי הצ'אט
             await setDoc(doc(db, 'group_chats', eventTitle), {
                 name: eventTitle,
                 members: [userId],
@@ -224,7 +221,33 @@ export default function CreateEventPage() {
         }
     };
 
-    // ... (rest of the component and styles)
+    // Simple date picker handlers
+    const openDatePicker = () => {
+        setTempDate(eventDate);
+        setShowDatePicker(true);
+    };
+
+    const handleDateChange = (event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowDatePicker(false);
+            if (event.type === 'set' && selectedDate) {
+                setEventDate(selectedDate);
+            }
+        } else if (selectedDate) {
+            setTempDate(selectedDate);
+        }
+    };
+
+    const confirmIOSDate = () => {
+        setEventDate(tempDate);
+        setShowDatePicker(false);
+    };
+
+    const cancelIOSDate = () => {
+        setTempDate(eventDate);
+        setShowDatePicker(false);
+    };
+
     const typeLabels: Record<EventType, string> = {
         trip: 'טיול',
         party: 'מסיבה',
@@ -377,19 +400,20 @@ export default function CreateEventPage() {
                     ))}
                 </ScrollView>
     
-                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', width: '100%' }}>
-                    <TouchableOpacity
-                        style={[styles.dateButton, { flex: 1, flexDirection: 'row-reverse', justifyContent: 'flex-end' }]}
-                        onPress={() => setShowDatePicker(true)}
-                    >
-                        <Ionicons name="calendar" size={20} color="#3A8DFF" style={{ marginLeft: 10 }} />
-                        <Text style={[styles.dateText, { flex: 1, textAlign: 'right' }]}>
+                <TouchableOpacity
+                    style={styles.dateButton}
+                    onPress={openDatePicker}
+                >
+                    <View style={styles.dateButtonContent}>
+                        <Ionicons name="calendar" size={20} color="#3A8DFF" />
+                        <Text style={styles.dateText}>
                             {eventDate.toLocaleDateString('he-IL')}
                         </Text>
-                    </TouchableOpacity>
-                </View>
+                    </View>
+                </TouchableOpacity>
+
                 <TextInput
-                    style={[styles.input, { height: 100, marginBottom: 20 }]}
+                    style={[styles.input, styles.descriptionInput]}
                     placeholder="תיאור האירוע"
                     value={eventDescription}
                     onChangeText={setEventDescription}
@@ -408,39 +432,61 @@ export default function CreateEventPage() {
                 </TouchableOpacity>
             </ScrollView>
     
-            <Modal visible={showDatePicker} transparent animationType="fade">
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    onPress={() => setShowDatePicker(false)}
+           {/* Fixed Modal for Date Picker */}
+            {showDatePicker && (
+            <Modal visible={true} transparent animationType="slide">
+                <View style={styles.modalBackground}>
+                <View style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+                <TouchableOpacity 
+                    onPress={cancelIOSDate}
+                    style={styles.modalButton}
                 >
-                    <View style={styles.datePickerModal}>
-                        <DateTimePicker
-                            value={eventDate}
-                            mode="date"
-                            onChange={(e, d) => {
-                                setShowDatePicker(false);
-                                if (d) setEventDate(d);
-                            }}
-                            minimumDate={new Date()}
-                        />
-                    </View>
+                <Text style={styles.modalButtonTextCancel}>ביטול</Text>
                 </TouchableOpacity>
-            </Modal>
+                    <Text style={styles.modalTitle}>בחר תאריך</Text>
+                <TouchableOpacity 
+                    onPress={Platform.OS === 'ios' ? confirmIOSDate : () => {}}
+                    style={[styles.modalButton, Platform.OS === 'android' && { opacity: 0 }]}
+                >
+                <Text style={styles.modalButtonTextConfirm}>אישור</Text>
+                </TouchableOpacity>
+            </View>
+        
+            <View style={styles.datePickerContainer}>
+            <DateTimePicker
+                value={Platform.OS === 'ios' ? tempDate : eventDate}
+                mode="date"
+                onChange={handleDateChange}
+                minimumDate={new Date()}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                style={styles.datePicker}
+                {...(Platform.OS === 'ios' ? { textColor: "#3A8DFF" } : {})} 
+                themeVariant="light" // לאנדרואיד, מונע מצב כהה
+                />
+            </View>
+        </View>
+        </View>
+        </Modal>
+    )}
+
         </KeyboardAvoidingView>
     );
-    
-}
+    }
+
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8f9fa' },
+    container: { 
+        flex: 1, 
+        backgroundColor: '#f8f9fa' 
+    },
     header: {
         flexDirection: 'row-reverse',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 10,
-        paddingTop:
-            Platform.OS === 'android'
-                ? (StatusBar.currentHeight ?? 24) + 10
-                : Constants.statusBarHeight + 10,
+        paddingTop: Platform.OS === 'android'
+            ? (StatusBar.currentHeight ?? 24) + 10
+            : Constants.statusBarHeight + 10,
         paddingBottom: 10,
         backgroundColor: '#3A8DFF',
         elevation: 5,
@@ -460,10 +506,19 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
     },
-    scrollView: { padding: 20 },
-    map: { height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 15 },
-    customMarker: { alignItems: 'center', justifyContent: 'center' },
-
+    scrollView: { 
+        padding: 20 
+    },
+    map: { 
+        height: 200, 
+        borderRadius: 20, 
+        overflow: 'hidden', 
+        marginBottom: 15 
+    },
+    customMarker: { 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+    },
     locationContainer: {
         flexDirection: 'row-reverse',
         alignItems: 'center',
@@ -508,7 +563,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 14,
     },
-
     imagePickerContainer: {
         marginVertical: 15,
         alignItems: 'center',
@@ -530,7 +584,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     imagePlaceholderText: {
-            color: '#3A8DFF',
+        color: '#3A8DFF',
         marginTop: 8,
         fontSize: 16,
         fontWeight: 'bold',
@@ -547,7 +601,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-
     input: {
         backgroundColor: 'white',
         borderRadius: 10,
@@ -558,6 +611,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         borderWidth: 1,
         borderColor: '#eee',
+    },
+    descriptionInput: {
+        height: 100,
+        marginBottom: 20,
     },
     typeSelector: {
         flexDirection: 'row',
@@ -590,17 +647,26 @@ const styles = StyleSheet.create({
         textAlign: 'right',
     },
     dateButton: {
-        flexDirection: 'row-reverse',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 12,
         backgroundColor: 'white',
         borderRadius: 10,
+        padding: 12,
         marginVertical: 15,
         borderWidth: 1,
         borderColor: '#eee',
     },
-    dateText: { marginRight: 10, fontSize: 16, color: '#333', fontWeight: '500' },
+    dateButtonContent: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+    },
+    dateText: { 
+        marginRight: 10, 
+        fontSize: 16, 
+        color: '#333', 
+        fontWeight: '500',
+        flex: 1,
+        textAlign: 'right',
+    },
     createButton: {
         backgroundColor: '#3A8DFF',
         padding: 15,
@@ -609,17 +675,70 @@ const styles = StyleSheet.create({
         marginTop: 20,
         marginBottom: 30,
     },
-    createButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-    modalOverlay: {
+    createButtonText: { 
+        color: 'white', 
+        fontWeight: 'bold', 
+        fontSize: 18 
+    },
+    modalBackground: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    datePickerModal: {
+    modalContainer: {
         backgroundColor: 'white',
         borderRadius: 15,
-        padding: 20,
         margin: 20,
+        width: '90%',
+        maxWidth: 400,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    modalHeader: {
+        flexDirection: 'row-reverse',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 15,
+        paddingHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        textAlign: 'center',
+        flex: 1,
+    },
+    modalButton: {
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        minWidth: 60,
+        color: '#3A8DFF',
+    },
+    modalButtonTextCancel: {
+        color: '#666',
+        fontSize: 16,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    modalButtonTextConfirm: {
+        color: '#3A8DFF',
+        fontSize: 16,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    datePickerContainer: {
+        paddingVertical: 20,
+        paddingHorizontal: 10,
+    },
+    datePicker: {
+        width: '100%',
+        borderColor: '#3A8DFF',
+        height: Platform.OS === 'ios' ? 180 : 'auto',
     },
 });

@@ -350,31 +350,32 @@ const ChatModal = () => {
         )}
 
         <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
-          <View style={[styles.inputContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}>
-            <TouchableOpacity
-              onPress={() => sendMessage()}
-              style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
-              activeOpacity={0.8}
-              disabled={!input.trim()}
-            >
-              <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
-            </TouchableOpacity>
-            <TextInput
-              style={[styles.input, { color: theme.colors.text, backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}
-              placeholder="הקלד הודעה..."
-              placeholderTextColor={theme.isDark ? '#999' : '#999'}
-              value={input}
-              onChangeText={setInput}
-              onSubmitEditing={() => sendMessage()}
-              returnKeyType="send"
-              textAlign="right"
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity style={[styles.cameraButton, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }]} onPress={handleImagePicker} activeOpacity={0.7}>
-              <Ionicons name="camera" size={24} color="#3A8DFF" />
-            </TouchableOpacity>
-          </View>
+        <View style={[styles.inputContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}>
+          <TouchableOpacity style={[styles.cameraButton, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }]} onPress={handleImagePicker} activeOpacity={0.7}>
+            <Ionicons name="camera" size={24} color="#3A8DFF" />
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.input, { color: theme.colors.text, backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}
+            placeholder="הקלד הודעה..."
+            placeholderTextColor={theme.isDark ? '#999' : '#999'}
+            value={input}
+            onChangeText={setInput}
+            onSubmitEditing={() => sendMessage()}
+            returnKeyType="send"
+            textAlign="right"
+            multiline
+            maxLength={500}
+          />
+          <TouchableOpacity
+          onPress={() => sendMessage()}
+          style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
+          activeOpacity={0.8}
+          disabled={!input.trim()}
+        >
+        <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
+        </TouchableOpacity>
+        
+        </View>
         </View>
       </KeyboardAvoidingView>
     </View>

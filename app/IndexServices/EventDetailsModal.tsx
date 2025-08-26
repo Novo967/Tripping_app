@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 // Note: We need all these imports to handle the Firebase logic
 import { addDoc, collection, getDocs, getFirestore, query, serverTimestamp, where } from 'firebase/firestore';
 import React from 'react';
-import { Alert, Linking, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, Linking, Modal, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { app } from '../../firebaseConfig';
 
 interface SelectedEventType {
@@ -165,6 +165,24 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         }
     };
 
+    const handleShareEvent = async () => {
+        if (!selectedEvent) return;
+
+        try {
+            const shareUrl = `yourappname://event?id=${selectedEvent.id}&lat=${selectedEvent.latitude}&lon=${selectedEvent.longitude}`;
+            const message = `הצטרף אליי לאירוע: ${selectedEvent.event_title}!\n${selectedEvent.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
+            
+            await Share.share({
+                message: message,
+                url: shareUrl,
+                title: selectedEvent.event_title,
+            });
+        } catch (error) {
+            console.error('Error sharing event:', error);
+            Alert.alert('שגיאה', 'אירעה שגיאה בשיתוף האירוע');
+        }
+    };
+
     const renderEventActionButton = () => {
         if (!user || !selectedEvent) return null;
 
@@ -177,8 +195,8 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                     style={[styles.actionButton, styles.chatButton]}
                     onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
                 >
-                    <Text style={styles.actionButtonText}>עבור לצ'ט הקבוצתי</Text>
                     <Ionicons name="chatbubbles-outline" size={22} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>עבור לצ'ט הקבוצתי</Text>
                 </TouchableOpacity>
             );
         } else {
@@ -187,8 +205,8 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                     style={[styles.actionButton, styles.requestButton]}
                     onPress={handleSendRequest}
                 >
-                    <Text style={styles.actionButtonText}>שלח בקשת הצטרפות</Text>
                     <Ionicons name="paper-plane-outline" size={22} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>שלח בקשת הצטרפות</Text>
                 </TouchableOpacity>
             );
         }
@@ -243,15 +261,23 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                             {selectedEvent.description && (
                                 <View style={styles.descriptionContainer}>
                                     <View style={styles.descriptionHeader}>
-                                        <Text style={styles.modalDescriptionTitle}>תיאור האירוע</Text>
                                         <Ionicons name="information-circle-outline" size={18} color="#555" style={styles.detailIconDescription} />
+                                        <Text style={styles.modalDescriptionTitle}>תיאור האירוע</Text>
                                     </View>
                                     <Text style={styles.modalDescription}>{selectedEvent.description}</Text>
                                 </View>
                             )}
                         </View>
-
+                        
                         {renderEventActionButton()}
+
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.shareButton]}
+                            onPress={handleShareEvent}
+                        >
+                            <Ionicons name="share-social-outline" size={22} color="#FFFFFF" />
+                            <Text style={styles.actionButtonText}>שתף אירוע</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </TouchableWithoutFeedback>
@@ -415,6 +441,10 @@ const styles = StyleSheet.create({
     },
     chatButton: {
         backgroundColor: '#3A8DFF',
+    },
+    shareButton: {
+        backgroundColor: '#3A8DFF',
+        marginTop: 10,
     },
     actionButtonText: {
         color: '#FFFFFF',
