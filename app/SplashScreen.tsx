@@ -57,8 +57,6 @@ export default function SplashScreen() {
       }).start();
     }, 2000); // Starts after main logo and letters animation (reduced delay)
   };
-
-  // Define the words for the "TREK" acronym
   // הגדרת המילים עבור ראשי התיבות "TREK"
   const trekWords = [
     { letter: 'T', word: 'Travel' },
