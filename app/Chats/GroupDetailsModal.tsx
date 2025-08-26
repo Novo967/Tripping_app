@@ -11,6 +11,7 @@ import {
   Linking,
   SafeAreaView,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -35,6 +36,7 @@ interface EventDetails {
   organizer: string;
   latitude?: number;
   longitude?: number;
+  id?: string;
 }
 
 const GroupDetailsModal = ({
@@ -153,6 +155,7 @@ const GroupDetailsModal = ({
           }
 
           setEventDetails({
+            id: docSnap.id,
             description: data.description && data.description.trim() !== '' ? data.description : 'אין תיאור',
             location: data.location && data.location.trim() !== '' ? data.location : 'לא צוין',
             time: formattedTime,
@@ -201,6 +204,7 @@ const GroupDetailsModal = ({
             }
 
             setEventDetails({
+              id: docSnap.id,
               description: data.description && data.description.trim() !== '' ? data.description : 'אין תיאור',
               location: data.location && data.location.trim() !== '' ? data.location : 'לא צוין',
               time: formattedTime,
@@ -256,6 +260,27 @@ const GroupDetailsModal = ({
     } catch (error) {
       console.error('Error opening maps:', error);
       Alert.alert('שגיאה', 'אירעה שגיאה בפתיחת המפה');
+    }
+  };
+
+  const handleShareEvent = async () => {
+    if (!eventDetails?.id || !eventDetails.latitude || !eventDetails.longitude) {
+        Alert.alert('שגיאה', 'לא ניתן לשתף את האירוע. פרטים חסרים.');
+        return;
+    }
+
+    try {
+        const shareUrl = `yourappname://event?id=${eventDetails.id}&lat=${eventDetails.latitude}&lon=${eventDetails.longitude}`;
+        const message = `הצטרף אליי לאירוע: ${eventTitle}!\n${eventDetails.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
+        
+        await Share.share({
+            message: message,
+            url: shareUrl,
+            title: eventTitle,
+        });
+    } catch (error) {
+        console.error('Error sharing event:', error);
+        Alert.alert('שגיאה', 'אירעה שגיאה בשיתוף האירוע');
     }
   };
 
@@ -430,6 +455,10 @@ const GroupDetailsModal = ({
           <FlatList data={members} renderItem={renderMember} keyExtractor={(item) => item.uid} scrollEnabled={false} />
         </View>
 
+        <TouchableOpacity style={styles.shareButton} onPress={handleShareEvent}>
+          <Text style={styles.shareText}>שתף אירוע</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.leaveGroupButton} onPress={handleLeaveGroup}>
           <Text style={styles.leaveGroupText}>יציאה מהקבוצה</Text>
         </TouchableOpacity>
@@ -466,6 +495,20 @@ const styles = StyleSheet.create({
   memberAvatar: { width: 48, height: 48, borderRadius: 24, marginLeft: 15 },
   memberInfo: { flex: 1 },
   memberName: { fontSize: 16, fontWeight: 'bold', textAlign: 'right' },
+  shareButton: {
+    backgroundColor: '#3A8DFF',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignSelf: 'center',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  shareText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
   leaveGroupButton: {
     paddingVertical: 14,
     paddingHorizontal: 24,
