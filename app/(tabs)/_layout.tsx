@@ -7,10 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { auth, db } from '../../firebaseConfig';
 
-const NotificationBadge = ({ hasNotifications }) => {
-  if (!hasNotifications) {
-    return null;
-  }
+const NotificationBadge = () => {
   return <View style={styles.badge} />;
 };
 
@@ -23,25 +20,23 @@ export default function Layout() {
     const user = auth.currentUser;
     if (!user) {
       setHasNewRequests(false);
-      return () => {}; // Cleanup if no user is signed in
+      return () => {};
     }
 
     const requestsQuery = query(
-      collection(db, 'event_requests'), 
+      collection(db, 'event_requests'),
       where('receiver_uid', '==', user.uid),
       where('status', '==', 'pending')
     );
 
-    // This listener will be active as long as the app is running
     const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
-      // Check if there's any document that exists
       setHasNewRequests(!snapshot.empty);
     }, (error) => {
       console.error('Error fetching pending requests for tab bar:', error);
     });
 
     return () => unsubscribe();
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, []);
 
   return (
     <Tabs
@@ -58,33 +53,23 @@ export default function Layout() {
           paddingBottom: 4 + insets.bottom,
           borderTopColor: theme.colors.border,
         },
-        tabBarIcon: ({ color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'home-outline';
+        tabBarIcon: ({ color }) => {
+          let iconName: keyof typeof Ionicons.glyphMap = 'home';
 
           if (route.name === 'chat') {
-            iconName = 'chatbubble-outline';
+            iconName = 'chatbubble';
           } else if (route.name === 'home/index') {
-            iconName = 'home-outline';
+            iconName = 'home';
           } else if (route.name === 'profile') {
-            iconName = 'person-outline';
-          }
-
-          if (route.name === 'chat' && hasNewRequests) { // You can use a state for chat notifications as well
-              // Chat notifications logic here
+            iconName = 'person';
           }
 
           const isProfileTab = route.name === 'profile';
 
-          // Conditional icon based on focus
-          const focusedIcon = route.name === 'chat' ? 'chatbubble' :
-            route.name === 'home/index' ? 'home' : 'person';
-          const unfocusedIcon = route.name === 'chat' ? 'chatbubble-outline' :
-            route.name === 'home/index' ? 'home-outline' : 'person-outline';
-
           return (
             <View>
-              <Ionicons name={route.focused ? focusedIcon : unfocusedIcon} size={25} color={color} />
-              {isProfileTab && hasNewRequests && <NotificationBadge hasNotifications={true} />}
+              <Ionicons name={iconName} size={20} color={color} />
+              {isProfileTab && hasNewRequests && <NotificationBadge />}
             </View>
           );
         },
@@ -111,7 +96,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#3A8DFF', // Blue color for the badge
+    backgroundColor: '#3A8DFF',
     borderWidth: 1.5,
     borderColor: 'white',
   },
