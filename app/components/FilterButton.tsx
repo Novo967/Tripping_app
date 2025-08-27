@@ -107,7 +107,7 @@ export default function FilterButton({
 const styles = StyleSheet.create({
   filterContainer: {
     position: 'absolute',
-    top: 50,
+    top: 120,
     right: 15,
     zIndex: 10,
   },
