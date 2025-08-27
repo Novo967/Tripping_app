@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
@@ -14,7 +15,7 @@ import {
   setDoc,
   updateDoc
 } from 'firebase/firestore';
-import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
+import { getDownloadURL, getStorage, listAll, ref, uploadBytesResumable } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
@@ -140,6 +141,50 @@ const ChatModal = () => {
 
   }, [chatId, currentUid]); 
 
+  // ✅ פונקציה חדשה להעלאת תמונה
+  const uploadImageAndSendMessage = async (localUri: string) => {
+    if (!localUri || !currentUid) return;
+
+    try {
+      // אופטימיזציה: דחיסה ושינוי גודל של התמונה
+      const manipResult = await ImageManipulator.manipulateAsync(
+        localUri,
+        [{ resize: { width: 800 } }], // שינוי גודל לרוחב מקסימלי של 800 פיקסלים
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const response = await fetch(manipResult.uri);
+      const blob = await response.blob();
+      
+      const storagePath = `chat_images/${chatId}/${Date.now()}_${currentUid}.jpg`;
+      const imageRef = ref(storage, storagePath);
+      
+      const uploadTask = uploadBytesResumable(imageRef, blob);
+      
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          // ניתן להוסיף כאן לוגיקת התקדמות העלאה (אחוזים)
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          console.log('Upload is ' + progress + '% done');
+        }, 
+        (error) => {
+          console.error("שגיאה בהעלאת התמונה:", error);
+          Alert.alert('שגיאה', 'אירעה שגיאה בהעלאת התמונה. נסה שוב.');
+        }, 
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          console.log('File available at', downloadURL);
+          // שליחת ההודעה עם ה-URL הציבורי
+          sendMessage(downloadURL);
+        }
+      );
+
+    } catch (e) {
+      console.error('שגיאה בתהליך העלאת התמונה:', e);
+      Alert.alert('שגיאה', 'אירעה שגיאה בתהליך העלאת התמונה. נסה שוב.');
+    }
+  };
+
   const sendMessage = async (imageUrl?: string) => {
     if ((!input.trim() && !imageUrl) || !currentUid) return;
     const chatDocRef = doc(db, 'chats', chatId);
@@ -192,7 +237,7 @@ const ChatModal = () => {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      sendMessage(result.assets[0].uri);
+      uploadImageAndSendMessage(result.assets[0].uri);
     }
   };
 
@@ -206,7 +251,7 @@ const ChatModal = () => {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      sendMessage(result.assets[0].uri);
+      uploadImageAndSendMessage(result.assets[0].uri);
     }
   };
 
@@ -244,7 +289,8 @@ const ChatModal = () => {
             isMe ? styles.myMessage : [styles.theirMessage, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }],
           ]}
         >
-          {item.imageUrl && (
+          {/* ✅ תצוגת התמונה: תנאי מורכב יותר כדי לוודא שה-URL תקין */}
+          {item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('http') && (
             <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
           )}
           {item.text && (
@@ -270,7 +316,6 @@ const ChatModal = () => {
     );
   };
   
-  // ✅ תיקון מלא של keyboard handling
   const getKeyboardAvoidingViewProps = () => {
     if (Platform.OS === 'android') {
       return {
@@ -279,8 +324,6 @@ const ChatModal = () => {
       };
     }
 
-    // עבור iOS - חישוב מדויק
-    // הקיזוז צריך להיות רק גובה ה-bottom inset
     const bottomOffset = insets.bottom;
 
     return {
@@ -296,7 +339,6 @@ const ChatModal = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={statusBarStyle} backgroundColor="#1F2937" />
 
-      {/* ✅ השינוי העיקרי: עוטף את ה-Header ב-SafeAreaView */}
       <SafeAreaView style={{ backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF' }}>
         <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : 10, backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', borderBottomColor: theme.colors.border }]}>
           <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
