@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImageManipulator from 'expo-image-manipulator'; // ✅ ייבוא חדש
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
@@ -19,7 +20,7 @@ import {
   getStorage,
   listAll,
   ref,
-  uploadBytes,
+  uploadBytesResumable, // ✅ ייבוא מעודכן
 } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -96,6 +97,7 @@ const GroupChatModal = () => {
   const getGroupImageUrl = async (groupId: string) => {
     if (!groupId) return null;
     try {
+      // ✅ שינוי נתיב ל group_images
       const folderRef = ref(storage, `group_images/${groupId}`);
       const result = await listAll(folderRef);
       if (result.items.length === 0) return null;
@@ -126,9 +128,9 @@ const GroupChatModal = () => {
       const response = await fetch(uri);
       const blob = await response.blob();
 
+      // ✅ שינוי נתיב ל group_images
       const storageRef = ref(storage, `group_images/${eventTitle}/groupImage.jpg`);
-
-      await uploadBytes(storageRef, blob);
+      await uploadBytesResumable(storageRef, blob); // ✅ שינוי ל-uploadBytesResumable
       const newImageUrl = await getDownloadURL(storageRef);
 
       const groupDocRef = doc(db, 'group_chats', eventTitle);
@@ -144,8 +146,55 @@ const GroupChatModal = () => {
     }
   };
 
-  const handleGroupImagePicker = () => {
-    closeGroupImageModal();
+  // ✅ פונקציה חדשה להעלאת תמונה לצ'אט
+  const uploadImageAndSendMessage = async (localUri: string) => {
+    if (!localUri || !currentUid || !eventTitle) return;
+
+    try {
+      setIsUploading(true);
+      // אופטימיזציה: דחיסה ושינוי גודל של התמונה
+      const manipResult = await ImageManipulator.manipulateAsync(
+        localUri,
+        [{ resize: { width: 800 } }], // שינוי גודל לרוחב מקסימלי של 800 פיקסלים
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const response = await fetch(manipResult.uri);
+      const blob = await response.blob();
+      
+      // ✅ שינוי נתיב ל groupchat_images
+      const storagePath = `groupchat_images/${eventTitle}/${Date.now()}_${currentUid}.jpg`;
+      const imageRef = ref(storage, storagePath);
+      
+      const uploadTask = uploadBytesResumable(imageRef, blob);
+      
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          console.log('Upload is ' + progress + '% done');
+        }, 
+        (error) => {
+          console.error("שגיאה בהעלאת התמונה:", error);
+          Alert.alert('שגיאה', 'אירעה שגיאה בהעלאת התמונה. נסה שוב.');
+          setIsUploading(false);
+        }, 
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          console.log('File available at', downloadURL);
+          sendMessage(downloadURL);
+          setIsUploading(false);
+        }
+      );
+
+    } catch (e) {
+      console.error('שגיאה בתהליך העלאת התמונה:', e);
+      Alert.alert('שגיאה', 'אירעה שגיאה בתהליך העלאת התמונה. נסה שוב.');
+      setIsUploading(false);
+    }
+  };
+
+
+  const handleImagePicker = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -153,61 +202,54 @@ const GroupChatModal = () => {
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
-          if (buttonIndex === 1) openCameraForGroupImage();
-          if (buttonIndex === 2) openGalleryForGroupImage();
+          if (buttonIndex === 1) openCameraForMessage();
+          if (buttonIndex === 2) openGalleryForMessage();
         }
       );
     } else {
-      Alert.alert('החלפת תמונת קבוצה', 'בחר תמונה חדשה לקבוצה', [
+      Alert.alert('בחר תמונה', '', [
         { text: 'ביטול', style: 'cancel' },
-        { text: 'מצלמה', onPress: openCameraForGroupImage },
-        { text: 'גלריה', onPress: openGalleryForGroupImage },
+        { text: 'מצלמה', onPress: openCameraForMessage },
+        { text: 'גלריה', onPress: openGalleryForMessage },
       ]);
     }
   };
 
-  const openCameraForGroupImage = async () => {
+  const openCameraForMessage = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת מצלמה כדי לצלם תמונות.');
+      Alert.alert('Permission needed', 'Camera permission is required to take photos.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: [4, 3],
       quality: 0.8,
     });
     if (!result.canceled && result.assets && result.assets[0]) {
-      uploadGroupImage(result.assets[0].uri);
-    } else if (result.canceled) {
-      console.log('User cancelled the image picker.');
-    } else {
-      console.log('Image picker returned with no assets.');
+      uploadImageAndSendMessage(result.assets[0].uri); // ✅ שינוי: קורא לפונקציה החדשה
     }
   };
 
-  const openGalleryForGroupImage = async () => {
+  const openGalleryForMessage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('הרשאה נדרשת', 'נדרשת הרשאת גלריה כדי לבחור תמונות.');
+      Alert.alert('Permission needed', 'Media library permission is required to pick photos.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: [4, 3],
       quality: 0.8,
     });
     if (!result.canceled && result.assets && result.assets[0]) {
-      uploadGroupImage(result.assets[0].uri);
-    } else if (result.canceled) {
-      console.log('User cancelled the image picker.');
-    } else {
-      console.log('Image picker returned with no assets.');
+      uploadImageAndSendMessage(result.assets[0].uri); // ✅ שינוי: קורא לפונקציה החדשה
     }
   };
 
+  //... (שאר הקוד נשאר כפי שהיה, למעט שינויים קטנים)
   useEffect(() => {
     if (!eventTitle || typeof eventTitle !== 'string' || !currentUid) {
       console.log('Event title or current user ID is not defined. Exiting useEffect.');
@@ -320,61 +362,6 @@ const GroupChatModal = () => {
 
   const goBack = () => router.back();
 
-  const handleImagePicker = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['ביטול', 'מצלמה', 'גלריה'],
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) openCameraForMessage();
-          if (buttonIndex === 2) openGalleryForMessage();
-        }
-      );
-    } else {
-      Alert.alert('בחר תמונה', '', [
-        { text: 'ביטול', style: 'cancel' },
-        { text: 'מצלמה', onPress: openCameraForMessage },
-        { text: 'גלריה', onPress: openGalleryForMessage },
-      ]);
-    }
-  };
-
-  const openCameraForMessage = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera permission is required to take photos.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets && result.assets[0]) {
-      sendMessage(result.assets[0].uri);
-    }
-  };
-
-  const openGalleryForMessage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Media library permission is required to pick photos.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets && result.assets[0]) {
-      sendMessage(result.assets[0].uri);
-    }
-  };
-
   const formatTime = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -419,7 +406,8 @@ const GroupChatModal = () => {
               {item.senderUsername}
             </Text>
           )}
-          {item.imageUrl && (
+          {/* ✅ תצוגת התמונה: תנאי מורכב יותר */}
+          {item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('http') && (
             <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
           )}
           {item.text && (
