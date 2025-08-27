@@ -15,7 +15,6 @@ interface Props {
   setVisible: (visible: boolean) => void;
 }
 
-// Updated event types list to match CreateEventPage - in the specified order
 const EVENT_TYPES = [
   { id: 'trip', name: 'טיול', emoji: '🚗' },
   { id: 'party', name: 'מסיבה', emoji: '🎉' },
@@ -33,27 +32,31 @@ export default function EventFilterButton({
   visible, 
   setVisible 
 }: Props) {
-  
-  // State זמני לאחסון הבחירות לפני השמירה
   const [tempSelectedTypes, setTempSelectedTypes] = useState<string[]>(selectedEventTypes);
-  
-  // כשהמודל נפתח, נטען את הערכים הנוכחיים ל-state הזמני
+  const [isPressable, setIsPressable] = useState(false); // **מצב חדש**
+
+  // כשהמודל נפתח, נטען את הערכים הנוכחיים ל-state הזמני ונתזמן את הפעלת ה-onPress
   useEffect(() => {
     if (visible) {
       setTempSelectedTypes([...selectedEventTypes]);
+      // **הוספנו setTimeout כדי למנוע את הסגירה המיידית**
+      const timer = setTimeout(() => {
+        setIsPressable(true);
+      }, 200); // 200 מילישניות הן מספיקות למנוע את הבעיה
+
+      return () => clearTimeout(timer); // ניקוי הטיימר כדי למנוע דליפות זיכרון
+    } else {
+      setIsPressable(false); // כשהמודל נסגר, נאפס את המצב
     }
   }, [visible, selectedEventTypes]);
-  
-  // Create a filtered list to ensure only valid event types are considered
+
   const eventTypeIds = EVENT_TYPES.map(type => type.id);
   const validTempSelectedTypes = tempSelectedTypes.filter(typeId => eventTypeIds.includes(typeId));
   
   const toggleEventType = (eventTypeId: string) => {
     if (tempSelectedTypes.includes(eventTypeId)) {
-      // אם הסוג כבר נבחר, נסיר אותו מהמצב הזמני
       setTempSelectedTypes(tempSelectedTypes.filter(type => type !== eventTypeId));
     } else {
-      // אם הסוג לא נבחר, נוסיף אותו למצב הזמני
       setTempSelectedTypes([...tempSelectedTypes, eventTypeId]);
     }
   };
@@ -66,27 +69,26 @@ export default function EventFilterButton({
     setTempSelectedTypes([]);
   };
 
-  // פונקציה לשמירה - מעדכנת את הערכים האמיתיים וסוגרת את המודל
   const handleSave = () => {
     setSelectedEventTypes([...tempSelectedTypes]);
     setVisible(false);
   };
 
-  // פונקציה לביטול - מחזירה את הערכים הזמניים למצב המקורי וסוגרת את המודל
   const handleCancel = () => {
-    setTempSelectedTypes([...selectedEventTypes]);
-    setVisible(false);
+    if (isPressable) { // **וודא שה-onPress מופעל רק לאחר שה-Modal יציב**
+      setTempSelectedTypes([...selectedEventTypes]);
+      setVisible(false);
+    }
   };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        {/* לחיצה על הרקע תבטל את הבחירות */}
+        {/* **עדכנו את ה-onPress של TouchableWithoutFeedback** */}
         <TouchableWithoutFeedback onPress={handleCancel}>
           <View style={{ flex: 1 }} />
         </TouchableWithoutFeedback>
 
-        {/* התוכן של המודל – מוצג באמצע המסך למטה */}  
         <View style={{
           backgroundColor: 'white',
           borderTopLeftRadius: 20,
@@ -108,7 +110,6 @@ export default function EventFilterButton({
             בחר סוגי אירועים
           </Text>
           
-          {/* כפתורים לבחירת הכל/ניקוי הכל - RTL layout */}
           <View style={{ 
             flexDirection: 'row-reverse', 
             justifyContent: 'space-between', 
@@ -122,7 +123,7 @@ export default function EventFilterButton({
                 padding: 12, 
                 borderRadius: 8, 
                 flex: 1, 
-                marginLeft: 6 // Changed from marginRight for RTL
+                marginLeft: 6
               }}
             >
               <Text style={{ 
@@ -135,7 +136,7 @@ export default function EventFilterButton({
               </Text>
             </TouchableOpacity>
             
-            <View style={{ width: 12 }} /> {/* Spacer between buttons */}
+            <View style={{ width: 12 }} />
             
             <TouchableOpacity
               onPress={clearAll}
@@ -144,7 +145,7 @@ export default function EventFilterButton({
                 padding: 12, 
                 borderRadius: 8, 
                 flex: 1,
-                marginRight: 6, // Changed from marginLeft for RTL
+                marginRight: 6,
                 borderWidth: 1,
                 borderColor: '#d0d0d0'
               }}
@@ -160,7 +161,6 @@ export default function EventFilterButton({
             </TouchableOpacity>
           </View>
 
-          {/* רשימת סוגי האירועים */}
           <ScrollView 
             style={{ width: '100%', maxHeight: 300 }} 
             showsVerticalScrollIndicator={false}
@@ -173,7 +173,7 @@ export default function EventFilterButton({
                   key={eventType.id}
                   onPress={() => toggleEventType(eventType.id)}
                   style={{ 
-                    flexDirection: 'row-reverse', // RTL
+                    flexDirection: 'row-reverse',
                     alignItems: 'center',
                     padding: 16,
                     marginVertical: 4,
@@ -188,7 +188,6 @@ export default function EventFilterButton({
                     elevation: 2,
                   }}
                 >
-                  {/* תיבת סימון */}
                   <View style={{
                     width: 26,
                     height: 26,
@@ -198,29 +197,27 @@ export default function EventFilterButton({
                     backgroundColor: isSelected ? '#3A8DFF' : 'transparent',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginRight: 12 // RTL: marginRight instead of marginLeft
+                    marginRight: 12
                   }}>
                     {isSelected && (
                       <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>✓</Text>
                     )}
                   </View>
                   
-                  {/* שם הסוג */}
                   <Text style={{ 
                     fontSize: 17, 
                     fontWeight: isSelected ? 'bold' : '500',
                     color: isSelected ? '#3A8DFF' : '#333',
                     flex: 1,
-                    textAlign: 'right', // RTL
-                    marginRight: 8, // RTL spacing
+                    textAlign: 'right',
+                    marginRight: 8,
                   }}>
                     {eventType.name}
                   </Text>
                   
-                  {/* אמוג'י */}
                   <Text style={{ 
                     fontSize: 22, 
-                    marginLeft: 8 // RTL: marginLeft for emoji
+                    marginLeft: 8
                   }}>
                     {eventType.emoji}
                   </Text>
@@ -229,7 +226,6 @@ export default function EventFilterButton({
             })}
           </ScrollView>
 
-          {/* מספר האירועים שנבחרו */}
           <View style={{
             backgroundColor: '#F8F9FA',
             borderRadius: 8,
@@ -248,13 +244,11 @@ export default function EventFilterButton({
             </Text>
           </View>
 
-          {/* כפתורי ביטול ושמירה */}
           <View style={{ 
             flexDirection: 'row-reverse', 
             justifyContent: 'space-between', 
             width: '100%' 
           }}>
-            {/* כפתור שמירה */}
             <TouchableOpacity
               onPress={handleSave}
               style={{ 
@@ -262,7 +256,7 @@ export default function EventFilterButton({
                 padding: 16, 
                 borderRadius: 12, 
                 flex: 1,
-                marginLeft: 6, // RTL: marginLeft for save button
+                marginLeft: 6,
                 shadowColor: '#3A8DFF',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.3,
@@ -280,9 +274,8 @@ export default function EventFilterButton({
               </Text>
             </TouchableOpacity>
 
-            <View style={{ width: 12 }} /> {/* Spacer between buttons */}
+            <View style={{ width: 12 }} />
 
-            {/* כפתור ביטול */}
             <TouchableOpacity
               onPress={handleCancel}
               style={{ 
@@ -290,7 +283,7 @@ export default function EventFilterButton({
                 padding: 16, 
                 borderRadius: 12, 
                 flex: 1,
-                marginRight: 6, // RTL: marginRight for cancel button
+                marginRight: 6,
                 borderWidth: 1,
                 borderColor: '#d0d0d0'
               }}

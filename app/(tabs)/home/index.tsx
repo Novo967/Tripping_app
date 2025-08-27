@@ -1,4 +1,3 @@
-// app/(tabs)/home/index.tsx
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
@@ -91,12 +90,12 @@ export default function HomeScreen() {
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
   const [eventFilterModalVisible, setEventFilterModalVisible] = useState(false);
+  const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false); // **מצב חדש**
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [currentUserUsername, setCurrentUserUsername] = useState('');
   const { isChoosingLocation: shouldChooseLocationParam } = useLocalSearchParams();
   const { theme } = useTheme();
 
-  // מצב חדש לתוצאות החיפוש
   const [searchbarResults, setSearchbarResults] = useState([]);
   
   const auth = getAuth();
@@ -291,6 +290,9 @@ export default function HomeScreen() {
   const handleAddEventPress = useCallback(() => {
     setDistanceModalVisible(false);
     setEventFilterModalVisible(false);
+    setIsFilterMenuVisible(false); // **סגור את התפריט של FilterButton**
+    setSearchbarResults([]);
+    Keyboard.dismiss();
     setTimeout(() => {
       setIsChoosingLocation(true);
     }, 500);
@@ -317,7 +319,6 @@ export default function HomeScreen() {
       console.log('Updating location:', location);
       setCurrentLocation(location);
       setSearchCenter(null);
-      // Keep the current displayDistance
       
       const newRegion = {
         latitude: location.latitude,
@@ -362,6 +363,7 @@ export default function HomeScreen() {
           });
           setDistanceModalVisible(false);
           setEventFilterModalVisible(false);
+          setIsFilterMenuVisible(false); // **סגור את התפריט של FilterButton**
         } else {
           console.warn('Pin document not found in Firestore.');
           setSelectedEvent(null);
@@ -374,19 +376,30 @@ export default function HomeScreen() {
     []
   );
 
-   const handleMapPress = useCallback(() => {
-    // סוגר את המקלדת
-    Keyboard.dismiss(); 
-    setDistanceModalVisible(false);
-    setEventFilterModalVisible(false);
-    setSelectedEvent(null);
-    setSearchCenter(null);
-    setSearchbarResults([]);
+  const handleMapPress = useCallback((event: any) => {
+    if (isChoosingLocation) {
+        const { coordinate } = event.nativeEvent;
+        router.push({
+            pathname: '/IndexServices/CreateEventPage',
+            params: { 
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude
+            },
+        });
+        setIsChoosingLocation(false);
+    } else {
+      Keyboard.dismiss(); 
+      setDistanceModalVisible(false);
+      setEventFilterModalVisible(false);
+      setIsFilterMenuVisible(false); // **סגור את התפריט של FilterButton**
+      setSelectedEvent(null);
+      setSearchCenter(null);
+      setSearchbarResults([]);
+    }
   }, [isChoosingLocation, user]);
 
   const handleSelectSearchResult = useCallback(
     (latitude: number, longitude: number) => {
-      // סוגר את המקלדת לאחר בחירה
       Keyboard.dismiss();
       setSearchCenter({ latitude, longitude });
       setRegion({
@@ -411,6 +424,10 @@ export default function HomeScreen() {
     []
   );
 
+  const handleToggleFilterMenu = useCallback(() => {
+    setIsFilterMenuVisible(prev => !prev);
+  }, []);
+
   if (!initialDataLoaded || !region) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
@@ -422,12 +439,14 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <Searchbar 
-        onSelectResult={handleSelectSearchResult}
-        results={searchbarResults}
-        setResults={setSearchbarResults}
-        onFocus={() => {}} // פונקציה ריקה כדי שהמקלדת תיפתח
-      />
+      {!isChoosingLocation && (
+        <Searchbar 
+          onSelectResult={handleSelectSearchResult}
+          results={searchbarResults}
+          setResults={setSearchbarResults}
+          onFocus={() => {}}
+        />
+      )}
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -474,6 +493,8 @@ export default function HomeScreen() {
         onEventFilterPress={handleEventFilterPress}
         onAddEventPress={handleAddEventPress}
         isChoosingLocation={isChoosingLocation}
+        isFilterMenuVisible={isFilterMenuVisible} // **העברת המצב**
+        onToggleFilterMenu={handleToggleFilterMenu} // **העברת הפונקציה**
       />
 
       <MyLocationButton onLocationUpdate={handleLocationUpdate} />

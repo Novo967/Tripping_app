@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Animated,
   StyleSheet,
@@ -14,6 +14,8 @@ interface FilterButtonProps {
   onEventFilterPress: () => void;
   onAddEventPress: () => void;
   isChoosingLocation: boolean;
+  isFilterMenuVisible: boolean;
+  onToggleFilterMenu: () => void;
 }
 
 export default function FilterButton({
@@ -21,34 +23,37 @@ export default function FilterButton({
   onDistanceFilterPress,
   onEventFilterPress,
   onAddEventPress,
-  isChoosingLocation
+  isChoosingLocation,
+  isFilterMenuVisible,
+  onToggleFilterMenu
 }: FilterButtonProps) {
-  const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
-  const [filterAnimation] = useState(new Animated.Value(0));
+  const [filterAnimation] = useState(new Animated.Value(isFilterMenuVisible ? 1 : 0));
 
-  const toggleFilterMenu = () => {
-    const toValue = isFilterMenuVisible ? 0 : 1;
-    setIsFilterMenuVisible(!isFilterMenuVisible);
-    Animated.spring(filterAnimation, { toValue, useNativeDriver: true }).start();
-  };
+  useEffect(() => {
+    Animated.spring(filterAnimation, {
+      toValue: isFilterMenuVisible ? 1 : 0,
+      useNativeDriver: true,
+    }).start();
+  }, [isFilterMenuVisible]);
 
   const handleAddEventPress = () => {
-    setIsFilterMenuVisible(false);
     onAddEventPress();
-    Animated.spring(filterAnimation, { toValue: 0, useNativeDriver: true }).start();
+    // No need to call onToggleFilterMenu here, as the parent will handle it
+    // through the closeAllModals logic
   };
 
   const handleDistanceFilterPress = () => {
     onDistanceFilterPress();
-    toggleFilterMenu();
+    // No need to call onToggleFilterMenu here, as the parent will handle it
+    // through the closeAllModals logic
   };
 
   const handleEventFilterPress = () => {
     onEventFilterPress();
-    toggleFilterMenu();
+    // No need to call onToggleFilterMenu here, as the parent will handle it
+    // through the closeAllModals logic
   };
 
-  // הסתר את הכפתור כאשר נמצאים במצב בחירת מיקום
   if (isChoosingLocation) {
     return null;
   }
@@ -62,36 +67,36 @@ export default function FilterButton({
 
   return (
     <View style={styles.filterContainer}>
-      <TouchableOpacity 
-        style={styles.filterButton} 
-        onPress={toggleFilterMenu}
+      <TouchableOpacity
+        style={styles.filterButton}
+        onPress={onToggleFilterMenu}
         activeOpacity={0.7}
       >
         <Ionicons name={isFilterMenuVisible ? "close" : "options"} size={24} color="white" />
       </TouchableOpacity>
-      
+
       {isFilterMenuVisible && (
         <Animated.View style={[styles.filterMenu, filterMenuStyle]}>
-          <TouchableOpacity 
-            style={styles.menuItemContainer} 
+          <TouchableOpacity
+            style={styles.menuItemContainer}
             onPress={handleDistanceFilterPress}
             activeOpacity={0.7}
           >
             <Ionicons name="resize" size={18} color="#3A8DFF" style={styles.menuIcon} />
             <Text style={styles.menuItemText}>מרחק תצוגה ({displayDistance} קמ)</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.menuItemContainer} 
+
+          <TouchableOpacity
+            style={styles.menuItemContainer}
             onPress={handleEventFilterPress}
             activeOpacity={0.7}
           >
             <Ionicons name="filter" size={18} color="#3A8DFF" style={styles.menuIcon} />
             <Text style={styles.menuItemText}>סוגי אירועים</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.menuItemContainer, styles.lastMenuItem]} 
+
+          <TouchableOpacity
+            style={[styles.menuItemContainer, styles.lastMenuItem]}
             onPress={handleAddEventPress}
             activeOpacity={0.7}
           >
