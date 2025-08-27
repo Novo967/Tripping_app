@@ -2,10 +2,10 @@
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore'; // ייבוא של doc ו-setDoc
+import { doc, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator, // ייבוא של ActivityIndicator
+  ActivityIndicator,
   Alert,
   Dimensions,
   KeyboardAvoidingView,
@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { auth, db } from '../../firebaseConfig'; // ודא ש-db מיוצא מ-firebaseConfig
+import { auth, db } from '../../firebaseConfig';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,28 +27,24 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   // פונקציית עזר חדשה לשמירת מיקום ב-Firestore
-  const saveLocationToFirestore = async (user: import('firebase/auth').User) => {
+  const saveLocationToFirestore = async (user) => {
     try {
-      console.log('Requesting location permissions...');
+      console.log('LoginScreen: מתחיל שמירת מיקום ב-Firestore.');
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status === 'granted') {
-        console.log('Location permission granted. Getting current position...');
         const location = await Location.getCurrentPositionAsync({});
         const { latitude, longitude } = location.coords;
-        console.log('Location received:', { latitude, longitude });
-
-        // עדכון מסמך המשתמש ב-Firestore עם נתוני המיקום
         await setDoc(doc(db, 'users', user.uid), {
           latitude,
           longitude,
-        }, { merge: true }); // השתמש ב-merge כדי לא לדרוס שדות קיימים
-        console.log('User location saved to Firestore.');
+        }, { merge: true });
+        console.log('LoginScreen: מיקום המשתמש נשמר ב-Firestore בהצלחה.');
       } else {
-        console.warn('Location permission not granted. User document not updated with location.');
+        console.warn('LoginScreen: הרשאת מיקום לא ניתנה, לא ניתן לשמור מיקום.');
       }
     } catch (error) {
-      console.error("Error saving location to Firestore:", error);
+      console.error("LoginScreen: שגיאה בשמירת מיקום ב-Firestore:", error);
     }
   };
 
@@ -59,19 +55,22 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
+    console.log('LoginScreen: מנסה להתחבר עם:', email);
+
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
 
-      // קריאה לפונקציה המאוחדת לשמירת מיקום במקום שליחה לשרת חיצוני
+      console.log('LoginScreen: התחברות מוצלחת! UID של המשתמש:', user.uid);
       await saveLocationToFirestore(user);
       
       router.push('/(tabs)/home');
     } catch (error) {
-      console.error("שגיאה בהתחברות:", error);
-      // שיפור טיפול בשגיאות והצגת הודעות ספציפיות יותר
+      console.error("LoginScreen: שגיאה בהתחברות:", error);
+      
       if (typeof error === 'object' && error !== null && 'code' in error) {
-        const errorCode = (error as { code: string }).code;
+        const errorCode = error.code;
+        console.error("LoginScreen: קוד שגיאה של Firebase:", errorCode);
         if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/wrong-password') {
           Alert.alert('שגיאה בהתחברות', 'כתובת אימייל או סיסמה שגויים. אנא נסה שוב.');
         } else if (errorCode === 'auth/user-not-found') {
