@@ -11,7 +11,7 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { useTheme } from '../../../app/ProfileServices/ThemeContext';
 import { app } from '../../../firebaseConfig';
@@ -23,6 +23,7 @@ import MyLocationButton from '../../MapButtons/MyLocationButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
+import Searchbar from '../../components/Searchbar';
 import UserMarker from '../../components/UserMarker';
 import { useNotificationListeners } from '../../hooks/useNotificationListeners';
 
@@ -95,10 +96,17 @@ export default function HomeScreen() {
   const { isChoosingLocation: shouldChooseLocationParam } = useLocalSearchParams();
   const { theme } = useTheme();
 
+  // מצב חדש לתוצאות החיפוש
+  const [searchbarResults, setSearchbarResults] = useState([]);
+  
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // מעבירים את אובייקט המשתמש כפרמטר ל-Hook
+  const [searchCenter, setSearchCenter] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
   useNotificationListeners(user);
 
   const deletePin = useCallback(async (pinId: string) => {
@@ -160,18 +168,19 @@ export default function HomeScreen() {
         latitudeDelta: 0.1,
         longitudeDelta: 0.1,
       });
+      setSearchCenter(null);
     } catch (error) {
       console.error('Error fetching current location:', error);
       Alert.alert('שגיאה', 'לא ניתן לטעון את המיקום הנוכחי.');
     }
   }, []);
-  
+
   useEffect(() => {
     if (shouldChooseLocationParam === 'true') {
       setIsChoosingLocation(true);
     }
   }, [shouldChooseLocationParam]);
-  
+
   useEffect(() => {
     const loadInitialData = async () => {
       await fetchLocation();
@@ -248,22 +257,38 @@ export default function HomeScreen() {
   }, []);
 
   const visibleEvents = useMemo(() => {
-    if (!currentLocation) return events;
+    const center = searchCenter || currentLocation;
+    if (!center) return events;
     return events.filter((ev) => {
       const withinDistance =
         calculateDistance(
-          currentLocation.latitude,
-          currentLocation.longitude,
+          center.latitude,
+          center.longitude,
           ev.latitude,
           ev.longitude
         ) <= displayDistance;
       const eventTypeMatches = selectedEventTypes.includes(ev.event_type);
       return withinDistance && eventTypeMatches;
     });
-  }, [events, currentLocation, displayDistance, selectedEventTypes]);
+  }, [events, currentLocation, displayDistance, selectedEventTypes, searchCenter]);
+
+  const visibleUsers = useMemo(() => {
+    const center = searchCenter || currentLocation;
+    if (!center) return users;
+    return users.filter(
+      (u) =>
+        u.uid !== user?.uid &&
+        calculateDistance(
+          center.latitude,
+          center.longitude,
+          u.latitude,
+          u.longitude
+        ) <= displayDistance
+    );
+  }, [users, currentLocation, displayDistance, searchCenter, user?.uid]);
+
 
   const handleAddEventPress = useCallback(() => {
-    // Before opening the new event flow, close other modals
     setDistanceModalVisible(false);
     setEventFilterModalVisible(false);
     setTimeout(() => {
@@ -291,12 +316,14 @@ export default function HomeScreen() {
     (location: { latitude: number; longitude: number }) => {
       console.log('Updating location:', location);
       setCurrentLocation(location);
-
+      setSearchCenter(null);
+      // Keep the current displayDistance
+      
       const newRegion = {
         latitude: location.latitude,
         longitude: location.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
       };
 
       setRegion(newRegion);
@@ -333,7 +360,6 @@ export default function HomeScreen() {
             id: pinId,
             ...pinData,
           });
-          // Close other modals when an event marker is pressed
           setDistanceModalVisible(false);
           setEventFilterModalVisible(false);
         } else {
@@ -348,26 +374,42 @@ export default function HomeScreen() {
     []
   );
 
-  const handleMapPress = useCallback((e: import('react-native-maps').MapPressEvent) => {
-    // Always close any open modals first
+   const handleMapPress = useCallback(() => {
+    // סוגר את המקלדת
+    Keyboard.dismiss(); 
     setDistanceModalVisible(false);
     setEventFilterModalVisible(false);
     setSelectedEvent(null);
-
-    // Then handle location selection for creating events
-    if (isChoosingLocation) {
-      const { latitude, longitude } = e.nativeEvent.coordinate;
-      router.push({
-        pathname: '/IndexServices/CreateEventPage',
-        params: {
-          latitude: latitude.toString(),
-          longitude: longitude.toString(),
-          owner_uid: user?.uid || '',
-        },
-      });
-      setIsChoosingLocation(false);
-    }
+    setSearchCenter(null);
+    setSearchbarResults([]);
   }, [isChoosingLocation, user]);
+
+  const handleSelectSearchResult = useCallback(
+    (latitude: number, longitude: number) => {
+      // סוגר את המקלדת לאחר בחירה
+      Keyboard.dismiss();
+      setSearchCenter({ latitude, longitude });
+      setRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.5,
+        longitudeDelta: 0.5,
+      });
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(
+          {
+            latitude,
+            longitude,
+            latitudeDelta: 0.5,
+            longitudeDelta: 0.5,
+          },
+          1000
+        );
+      }
+      setSearchbarResults([]);
+    },
+    []
+  );
 
   if (!initialDataLoaded || !region) {
     return (
@@ -380,6 +422,12 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <Searchbar 
+        onSelectResult={handleSelectSearchResult}
+        results={searchbarResults}
+        setResults={setSearchbarResults}
+        onFocus={() => {}} // פונקציה ריקה כדי שהמקלדת תיפתח
+      />
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -407,29 +455,17 @@ export default function HomeScreen() {
             onPress={(id) => handleMarkerPress(id)}
           />
         ))}
-        {users
-          .filter(
-            (u) =>
-              u.uid !== user?.uid &&
-              currentLocation &&
-              calculateDistance(
-                currentLocation.latitude,
-                currentLocation.longitude,
-                u.latitude,
-                u.longitude
-              ) <= displayDistance
-          )
-          .map((userMarker) => (
-            <UserMarker
-              key={userMarker.uid}
-              user={userMarker}
-              currentUserUid={user?.uid}
-              onPress={(u) => {
-                setSelectedEvent(null);
-                router.push({ pathname: '/ProfileServices/OtherUserProfile', params: { uid: u.uid } });
-              }}
-            />
-          ))}
+        {visibleUsers.map((userMarker) => (
+          <UserMarker
+            key={userMarker.uid}
+            user={userMarker}
+            currentUserUid={user?.uid}
+            onPress={(u) => {
+              setSelectedEvent(null);
+              router.push({ pathname: '/ProfileServices/OtherUserProfile', params: { uid: u.uid } });
+            }}
+          />
+        ))}
       </MapView>
 
       <FilterButton
