@@ -39,14 +39,22 @@ import { app, db } from '../../firebaseConfig';
 
 const storage = getStorage(app);
 
-interface Message {
+type Message = {
   id: string;
   text: string;
   senderId: string;
   receiverId: string;
   createdAt: any;
   imageUrl?: string;
-}
+};
+
+type DateSeparator = {
+  id: string;
+  type: 'date-separator';
+  date: any;
+};
+
+type CombinedData = (Message | DateSeparator)[];
 
 const ChatModal = () => {
   const { otherUserId, otherUsername } = useLocalSearchParams<{
@@ -55,7 +63,7 @@ const ChatModal = () => {
   }>();
 
   const [otherUserProfileImage, setOtherUserProfileImage] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<CombinedData>([]);
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
@@ -104,9 +112,16 @@ const ChatModal = () => {
     }
 
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'desc'));
+    // ✅ שינוי כאן: orderBy('createdAt', 'desc') ל- orderBy('createdAt', 'asc')
+    const q = query(messagesRef, orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Message)));
+      const fetchedMessages = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Message[];
+      // הפוך את המערך כאן, כדי שהרכיב החדש יוצג למעלה
+      const combinedData = processMessagesWithSeparators(fetchedMessages).reverse();
+      setMessages(combinedData);
     });
 
     const userDocRef = doc(db, 'users', currentUid);
@@ -141,15 +156,35 @@ const ChatModal = () => {
 
   }, [chatId, currentUid]); 
 
-  // ✅ פונקציה חדשה להעלאת תמונה
+  const processMessagesWithSeparators = (msgs: Message[]): CombinedData => {
+    if (msgs.length === 0) return [];
+    
+    const combined: CombinedData = [];
+    let lastDate = null;
+
+    msgs.forEach((msg) => {
+      const msgDate = msg.createdAt.toDate().toDateString();
+      if (msgDate !== lastDate) {
+        combined.push({
+          id: `date-separator-${msgDate}`,
+          type: 'date-separator',
+          date: msg.createdAt,
+        });
+        lastDate = msgDate;
+      }
+      combined.push(msg);
+    });
+
+    return combined;
+  };
+  
   const uploadImageAndSendMessage = async (localUri: string) => {
     if (!localUri || !currentUid) return;
 
     try {
-      // אופטימיזציה: דחיסה ושינוי גודל של התמונה
       const manipResult = await ImageManipulator.manipulateAsync(
         localUri,
-        [{ resize: { width: 800 } }], // שינוי גודל לרוחב מקסימלי של 800 פיקסלים
+        [{ resize: { width: 800 } }], 
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
 
@@ -163,7 +198,6 @@ const ChatModal = () => {
       
       uploadTask.on('state_changed',
         (snapshot) => {
-          // ניתן להוסיף כאן לוגיקת התקדמות העלאה (אחוזים)
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           console.log('Upload is ' + progress + '% done');
         }, 
@@ -174,7 +208,6 @@ const ChatModal = () => {
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           console.log('File available at', downloadURL);
-          // שליחת ההודעה עם ה-URL הציבורי
           sendMessage(downloadURL);
         }
       );
@@ -274,8 +307,50 @@ const ChatModal = () => {
     });
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isMe = item.senderId === currentUid;
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const isToday = date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+    
+    const isYesterday = date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      yesterday.getFullYear() === date.getFullYear();
+
+    if (isToday) {
+      return 'היום';
+    }
+    if (isYesterday) {
+      return 'אתמול';
+    }
+
+    return date.toLocaleDateString('he-IL', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  const renderItem = ({ item }: { item: Message | DateSeparator }) => {
+    if ('type' in item && item.type === 'date-separator') {
+      const dateSeparatorItem = item as DateSeparator;
+      return (
+        <View style={styles.dateSeparatorContainer}>
+          <Text style={[styles.dateSeparatorText, { color: theme.colors.text }]}>
+            {formatDate(dateSeparatorItem.date)}
+          </Text>
+        </View>
+      );
+    }
+
+    const messageItem = item as Message;
+    const isMe = messageItem.senderId === currentUid;
+    
     return (
       <View
         style={[
@@ -289,18 +364,17 @@ const ChatModal = () => {
             isMe ? styles.myMessage : [styles.theirMessage, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }],
           ]}
         >
-          {/* ✅ תצוגת התמונה: תנאי מורכב יותר כדי לוודא שה-URL תקין */}
-          {item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('http') && (
-            <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
+          {messageItem.imageUrl && typeof messageItem.imageUrl === 'string' && messageItem.imageUrl.startsWith('http') && (
+            <Image source={{ uri: messageItem.imageUrl }} style={styles.messageImage} />
           )}
-          {item.text && (
+          {messageItem.text && (
             <Text
               style={[
                 styles.messageText,
                 isMe ? styles.myMessageText : [styles.theirMessageText, { color: theme.isDark ? '#F8F9FA' : '#2C3E50' }],
               ]}
             >
-              {item.text}
+              {messageItem.text}
             </Text>
           )}
           <Text
@@ -309,7 +383,7 @@ const ChatModal = () => {
               isMe ? styles.myMessageTime : [styles.theirMessageTime, { color: theme.isDark ? '#D0D0D0' : '#95A5A6' }],
             ]}
           >
-            {formatTime(item.createdAt)}
+            {formatTime(messageItem.createdAt)}
           </Text>
         </View>
       </View>
@@ -381,7 +455,7 @@ const ChatModal = () => {
             <FlatList
               ref={flatListRef}
               data={messages}
-              renderItem={renderMessage}
+              renderItem={renderItem}
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.messagesContainer}
               showsVerticalScrollIndicator={false}
@@ -572,7 +646,6 @@ const styles = StyleSheet.create({
   inputWrapper: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    // הוסר: paddingBottom: 24,
     borderTopWidth: 1,
   },
   inputContainer: {
@@ -628,5 +701,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8E8E8',
     shadowOpacity: 0,
     elevation: 0,
+  },
+  dateSeparatorContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  dateSeparatorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 15,
+    backgroundColor: 'rgba(150, 150, 150, 0.2)',
+    color: '#888',
   },
 });
