@@ -163,7 +163,7 @@ const ChatModal = () => {
     let lastDate = null;
 
     msgs.forEach((msg) => {
-      const msgDate = msg.createdAt.toDate().toDateString();
+      const msgDate = msg.createdAt?.toDate().toDateString();
       if (msgDate !== lastDate) {
         combined.push({
           id: `date-separator-${msgDate}`,

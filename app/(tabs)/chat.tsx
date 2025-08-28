@@ -1,4 +1,3 @@
-// הקוד המתוקן עם תיקון לכותרת
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
@@ -6,6 +5,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -62,7 +62,6 @@ const Chat = () => {
   const { theme } = useTheme();
   const chatMapRef = useRef<Map<string, ChatItem>>(new Map());
 
-  // הפונקציות נשארות אותו דבר...
   const getProfileImageUrl = async (userId: string) => {
     if (!userId) {
       return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
@@ -89,6 +88,7 @@ const Chat = () => {
     }
   };
 
+  // ✅ הפונקציה המתוקנת
   const countUnreadMessages = async (chatId: string, isGroup: boolean, lastReadTimestamp?: Date) => {
     try {
       const collectionName = isGroup ? 'group_chats' : 'chats';
@@ -108,12 +108,9 @@ const Chat = () => {
         );
       }
 
-      return new Promise<number>((resolve) => {
-        const unsubscribe = onSnapshot(unreadQuery, (snapshot) => {
-          resolve(snapshot.docs.length);
-          unsubscribe();
-        });
-      });
+      // ✅ שימוש ב-getDocs לביצוע קריאה חד-פעמית
+      const snapshot = await getDocs(unreadQuery);
+      return snapshot.docs.length;
     } catch (error) {
       console.error('Error counting unread messages:', error);
       return 0;
@@ -126,7 +123,6 @@ const Chat = () => {
     );
   };
 
-  // כל ה-useEffect נשארים אותו דבר...
   useEffect(() => {
     const auth = getAuth();
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
@@ -344,7 +340,6 @@ const Chat = () => {
     }
   }, [searchQuery, chats]);
 
-  // הפונקציות הנוספות נשארות אותו דבר...
   const openChat = (chat: ChatItem) => {
     if (user && chat.hasUnreadMessages) {
       const collectionName = chat.isGroup ? 'group_chats' : 'chats';
@@ -606,7 +601,6 @@ const Chat = () => {
   );
 };
 
-// עדכון הסטיילים - הוספת סטיילים חדשים וחלוקה נכונה
 const styles = StyleSheet.create({
   container: {
     flex: 1,
