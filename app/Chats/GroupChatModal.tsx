@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as ImageManipulator from 'expo-image-manipulator'; // ✅ ייבוא חדש
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
@@ -20,7 +20,7 @@ import {
   getStorage,
   listAll,
   ref,
-  uploadBytesResumable, // ✅ ייבוא מעודכן
+  uploadBytesResumable,
 } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -58,10 +58,20 @@ interface Message {
   imageUrl?: string;
 }
 
+// ✅ הוספת מבני נתונים חדשים
+type DateSeparator = {
+  id: string;
+  type: 'date-separator';
+  date: any;
+};
+
+type CombinedData = (Message | DateSeparator)[];
+
 const GroupChatModal = () => {
   const { eventTitle } = useLocalSearchParams<{ eventTitle: string }>();
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  // ✅ שינוי ה-State כדי שיקבל את ה-CombinedData החדש
+  const [messages, setMessages] = useState<CombinedData>([]);
   const [input, setInput] = useState('');
   const [groupName, setGroupName] = useState(eventTitle);
   const [groupImageUrl, setGroupImageUrl] = useState<string | null>(null);
@@ -97,7 +107,6 @@ const GroupChatModal = () => {
   const getGroupImageUrl = async (groupId: string) => {
     if (!groupId) return null;
     try {
-      // ✅ שינוי נתיב ל group_images
       const folderRef = ref(storage, `group_images/${groupId}`);
       const result = await listAll(folderRef);
       if (result.items.length === 0) return null;
@@ -127,15 +136,11 @@ const GroupChatModal = () => {
       }
       const response = await fetch(uri);
       const blob = await response.blob();
-
-      // ✅ שינוי נתיב ל group_images
       const storageRef = ref(storage, `group_images/${eventTitle}/groupImage.jpg`);
-      await uploadBytesResumable(storageRef, blob); // ✅ שינוי ל-uploadBytesResumable
+      await uploadBytesResumable(storageRef, blob);
       const newImageUrl = await getDownloadURL(storageRef);
-
       const groupDocRef = doc(db, 'group_chats', eventTitle);
       await updateDoc(groupDocRef, { groupImage: newImageUrl });
-
       setGroupImageUrl(newImageUrl);
       Alert.alert('התמונה עודכנה בהצלחה!');
     } catch (error) {
@@ -146,26 +151,20 @@ const GroupChatModal = () => {
     }
   };
 
-  // ✅ פונקציה חדשה להעלאת תמונה לצ'אט
   const uploadImageAndSendMessage = async (localUri: string) => {
     if (!localUri || !currentUid || !eventTitle) return;
-
     try {
       setIsUploading(true);
-      // אופטימיזציה: דחיסה ושינוי גודל של התמונה
       const manipResult = await ImageManipulator.manipulateAsync(
         localUri,
-        [{ resize: { width: 800 } }], // שינוי גודל לרוחב מקסימלי של 800 פיקסלים
+        [{ resize: { width: 800 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
 
       const response = await fetch(manipResult.uri);
       const blob = await response.blob();
-      
-      // ✅ שינוי נתיב ל groupchat_images
       const storagePath = `groupchat_images/${eventTitle}/${Date.now()}_${currentUid}.jpg`;
       const imageRef = ref(storage, storagePath);
-      
       const uploadTask = uploadBytesResumable(imageRef, blob);
       
       uploadTask.on('state_changed',
@@ -185,14 +184,12 @@ const GroupChatModal = () => {
           setIsUploading(false);
         }
       );
-
     } catch (e) {
       console.error('שגיאה בתהליך העלאת התמונה:', e);
       Alert.alert('שגיאה', 'אירעה שגיאה בתהליך העלאת התמונה. נסה שוב.');
       setIsUploading(false);
     }
   };
-
 
   const handleImagePicker = () => {
     if (Platform.OS === 'ios') {
@@ -228,7 +225,7 @@ const GroupChatModal = () => {
       quality: 0.8,
     });
     if (!result.canceled && result.assets && result.assets[0]) {
-      uploadImageAndSendMessage(result.assets[0].uri); // ✅ שינוי: קורא לפונקציה החדשה
+      uploadImageAndSendMessage(result.assets[0].uri);
     }
   };
 
@@ -245,17 +242,15 @@ const GroupChatModal = () => {
       quality: 0.8,
     });
     if (!result.canceled && result.assets && result.assets[0]) {
-      uploadImageAndSendMessage(result.assets[0].uri); // ✅ שינוי: קורא לפונקציה החדשה
+      uploadImageAndSendMessage(result.assets[0].uri);
     }
   };
 
-  //... (שאר הקוד נשאר כפי שהיה, למעט שינויים קטנים)
   useEffect(() => {
     if (!eventTitle || typeof eventTitle !== 'string' || !currentUid) {
       console.log('Event title or current user ID is not defined. Exiting useEffect.');
       return;
     }
-
     const groupDocRef = doc(db, 'group_chats', eventTitle);
     const unsubscribeGroupDetails = onSnapshot(
       groupDocRef,
@@ -278,24 +273,24 @@ const GroupChatModal = () => {
         console.error('Error fetching group details:', error);
       }
     );
-
     const messagesRef = collection(db, 'group_chats', eventTitle, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'desc'));
+    // ✅ שינוי כאן: orderBy('createdAt', 'desc') ל- orderBy('createdAt', 'asc')
+    const q = query(messagesRef, orderBy('createdAt', 'asc'));
     const unsubscribeMessages = onSnapshot(
       q,
       (snapshot) => {
-        setMessages(
-          snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Message[]
-        );
+        const fetchedMessages = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Message[];
+        // ✅ קריאה לפונקציה החדשה והיפוך המערך
+        const combinedData = processMessagesWithSeparators(fetchedMessages).reverse();
+        setMessages(combinedData);
       },
       (error) => {
         console.error('Error listening to group messages:', error);
       }
     );
-
     const userDocRef = doc(db, 'users', currentUid);
     const setChatActive = async () => {
       try {
@@ -307,7 +302,6 @@ const GroupChatModal = () => {
         console.error('שגיאה בעדכון activeChatId:', e);
       }
     };
-
     const clearChatActive = async () => {
       try {
         await updateDoc(userDocRef, {
@@ -318,15 +312,12 @@ const GroupChatModal = () => {
         console.error('שגיאה באיפוס activeChatId:', e);
       }
     };
-
     setChatActive();
-
     return () => {
       unsubscribeGroupDetails();
       unsubscribeMessages();
       clearChatActive();
     };
-
   }, [eventTitle, currentUid]);
 
   const sendMessage = async (imageUrl?: string) => {
@@ -372,8 +363,66 @@ const GroupChatModal = () => {
     });
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isMe = item.senderId === currentUid;
+  // ✅ פונקציה לעיצוב התאריך (פורמט 'היום', 'אתמול')
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isToday = date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+    const isYesterday = date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      yesterday.getFullYear() === date.getFullYear();
+    if (isToday) {
+      return 'היום';
+    }
+    if (isYesterday) {
+      return 'אתמול';
+    }
+    return date.toLocaleDateString('he-IL', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  // ✅ פונקציה לעיבוד ההודעות והוספת מפרידי תאריך
+  const processMessagesWithSeparators = (msgs: Message[]): CombinedData => {
+    if (msgs.length === 0) return [];
+    const combined: CombinedData = [];
+    let lastDate = null;
+    msgs.forEach((msg) => {
+      const msgDate = msg.createdAt.toDate().toDateString();
+      if (msgDate !== lastDate) {
+        combined.push({
+          id: `date-separator-${msgDate}`,
+          type: 'date-separator',
+          date: msg.createdAt,
+        });
+        lastDate = msgDate;
+      }
+      combined.push(msg);
+    });
+    return combined;
+  };
+
+  // ✅ עדכון פונקציית renderItem לטיפול בשני סוגי הפריטים
+  const renderItem = ({ item }: { item: Message | DateSeparator }) => {
+    if ('type' in item && item.type === 'date-separator') {
+      const dateSeparatorItem = item as DateSeparator;
+      return (
+        <View style={styles.dateSeparatorContainer}>
+          <Text style={[styles.dateSeparatorText, { color: theme.colors.text }]}>
+            {formatDate(dateSeparatorItem.date)}
+          </Text>
+        </View>
+      );
+    }
+    const messageItem = item as Message;
+    const isMe = messageItem.senderId === currentUid;
     return (
       <View
         style={[
@@ -403,14 +452,13 @@ const GroupChatModal = () => {
                 { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' },
               ]}
             >
-              {item.senderUsername}
+              {messageItem.senderUsername}
             </Text>
           )}
-          {/* ✅ תצוגת התמונה: תנאי מורכב יותר */}
-          {item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('http') && (
-            <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
+          {messageItem.imageUrl && typeof messageItem.imageUrl === 'string' && messageItem.imageUrl.startsWith('http') && (
+            <Image source={{ uri: messageItem.imageUrl }} style={styles.messageImage} />
           )}
-          {item.text && (
+          {messageItem.text && (
             <Text
               style={[
                 styles.messageText,
@@ -418,7 +466,7 @@ const GroupChatModal = () => {
                 { color: isMe ? '#FFFFFF' : theme.isDark ? '#E0E0E0' : '#2C3E50' },
               ]}
             >
-              {item.text}
+              {messageItem.text}
             </Text>
           )}
           <Text
@@ -428,7 +476,7 @@ const GroupChatModal = () => {
               { color: isMe ? '#FFE0B3' : theme.isDark ? '#BDC3C7' : '#95A5A6' },
             ]}
           >
-            {formatTime(item.createdAt)}
+            {formatTime(messageItem.createdAt)}
           </Text>
         </View>
       </View>
@@ -486,7 +534,6 @@ const GroupChatModal = () => {
     );
   }
 
-  // ✅ תיקון מלא של keyboard handling
   const getKeyboardAvoidingViewProps = () => {
     if (Platform.OS === 'android') {
       return {
@@ -494,10 +541,7 @@ const GroupChatModal = () => {
         keyboardVerticalOffset: 0,
       };
     }
-
-    // עבור iOS - חישוב מדויק
     const bottomOffset = insets.bottom;
-
     return {
       behavior: 'padding' as const,
       keyboardVerticalOffset: bottomOffset,
@@ -698,7 +742,7 @@ const GroupChatModal = () => {
             <FlatList
               ref={flatListRef}
               data={messages}
-              renderItem={renderMessage}
+              renderItem={renderItem}
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.messagesContainer}
               showsVerticalScrollIndicator={false}
@@ -726,7 +770,6 @@ const GroupChatModal = () => {
             { backgroundColor: theme.isDark ? '#2C3E50' : '#F5F5F5' },
           ]}
         >
-        {/* כפתור מצלמה */}
         <TouchableOpacity
         style={[
           styles.cameraButton,
@@ -735,16 +778,16 @@ const GroupChatModal = () => {
             shadowColor: theme.isDark ? '#000' : '#000',
           },
         ]}
-            onPress={handleImagePicker}
-            activeOpacity={0.7}
-            >
-            <Ionicons
-              name="camera"
-              size={24}
-              color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
-            />
-            </TouchableOpacity>
-          
+          onPress={handleImagePicker}
+          activeOpacity={0.7}
+          >
+          <Ionicons
+            name="camera"
+            size={24}
+            color={theme.isDark ? '#A0C4FF' : '#3A8DFF'}
+          />
+          </TouchableOpacity>
+        
         <TextInput
           style={[
             styles.input,
@@ -760,27 +803,26 @@ const GroupChatModal = () => {
           multiline
           maxLength={500}
         />
-        {/* כפתור שליחה */}
         <TouchableOpacity
-            onPress={() => sendMessage()}
-            style={[
-              styles.sendButton,
-              !input.trim() && styles.sendButtonDisabled,
-            {
-            backgroundColor: input.trim()
-              ? '#3A8DFF'
-              : theme.isDark
-              ? '#3E506B'
-              : '#E8E8E8',
-            shadowColor: input.trim()
-              ? theme.isDark
-              ? '#1F2937'
-              : '#3A8DFF'
-              : '#000',
-            shadowOpacity: input.trim() ? 0.3 : 0,
-            elevation: input.trim() ? 4 : 0,
-            },
-            ]}
+          onPress={() => sendMessage()}
+          style={[
+            styles.sendButton,
+            !input.trim() && styles.sendButtonDisabled,
+          {
+          backgroundColor: input.trim()
+            ? '#3A8DFF'
+            : theme.isDark
+            ? '#3E506B'
+            : '#E8E8E8',
+          shadowColor: input.trim()
+            ? theme.isDark
+            ? '#1F2937'
+            : '#3A8DFF'
+            : '#000',
+          shadowOpacity: input.trim() ? 0.3 : 0,
+          elevation: input.trim() ? 4 : 0,
+          },
+          ]}
           activeOpacity={0.8}
           disabled={!input.trim()}
         >
@@ -993,7 +1035,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    // הוסר: paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
   },
@@ -1081,5 +1122,19 @@ const styles = StyleSheet.create({
     color: '#95A5A6',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  // ✅ הוספת סגנונות חדשים
+  dateSeparatorContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  dateSeparatorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 15,
+    backgroundColor: 'rgba(150, 150, 150, 0.2)',
+    color: '#888',
   },
 });
