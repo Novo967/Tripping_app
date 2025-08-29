@@ -19,8 +19,8 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../app/ProfileServices/ThemeContext';
-import { db } from '../../firebaseConfig';
+import { useTheme } from '../../../app/ProfileServices/ThemeContext';
+import { db } from '../../../firebaseConfig';
 
 interface Member {
   uid: string;

@@ -8,7 +8,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useTheme } from '../../app/ProfileServices/ThemeContext';
+import { useTheme } from '../../ProfileServices/ThemeContext';
 
 interface ChatItemProps {
   item: {
