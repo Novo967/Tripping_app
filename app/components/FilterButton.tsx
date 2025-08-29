@@ -93,7 +93,7 @@ export default function FilterButton({
             activeOpacity={0.7}
           >
             <Ionicons name="resize" size={18} color="#3A8DFF" style={styles.menuIcon} />
-            <Text style={styles.menuItemText}>מרחק תצוגה ({displayDistance} קמ)</Text>
+            <Text style={styles.menuItemText}>מרחק תצוגה       ({displayDistance} קמ)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
