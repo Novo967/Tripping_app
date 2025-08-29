@@ -143,7 +143,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         if (eventTitle) {
             onClose();
             router.push({
-                pathname: '/Chats/GroupChatModal',
+                pathname: '/Chats/GroupChat/GroupChatModal',
                 params: { eventTitle: eventTitle }
             });
         }
