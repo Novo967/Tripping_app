@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useLocationVisibility } from './HideMyLocation';
 
 interface FilterButtonProps {
   displayDistance: number;
   onDistanceFilterPress: () => void;
   onEventFilterPress: () => void;
   onAddEventPress: () => void;
+  onLocationVisibilityChange?: (isVisible: boolean) => void;
   isChoosingLocation: boolean;
   isFilterMenuVisible: boolean;
   onToggleFilterMenu: () => void;
@@ -23,11 +25,15 @@ export default function FilterButton({
   onDistanceFilterPress,
   onEventFilterPress,
   onAddEventPress,
+  onLocationVisibilityChange = () => {},
   isChoosingLocation,
   isFilterMenuVisible,
   onToggleFilterMenu
 }: FilterButtonProps) {
   const [filterAnimation] = useState(new Animated.Value(isFilterMenuVisible ? 1 : 0));
+  
+  // שימוש בהוק החדש לניהול הסתרת המיקום
+  const locationVisibility = useLocationVisibility(onLocationVisibilityChange, true);
 
   useEffect(() => {
     Animated.spring(filterAnimation, {
@@ -52,6 +58,10 @@ export default function FilterButton({
     onEventFilterPress();
     // No need to call onToggleFilterMenu here, as the parent will handle it
     // through the closeAllModals logic
+  };
+
+  const handleLocationVisibilityPress = () => {
+    locationVisibility.toggleLocationVisibility();
   };
 
   if (isChoosingLocation) {
@@ -96,12 +106,26 @@ export default function FilterButton({
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.menuItemContainer}
+            onPress={handleLocationVisibilityPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name={locationVisibility.getIconName() as any} 
+              size={18} 
+              color="#3A8DFF" 
+              style={styles.menuIcon} 
+            />
+            <Text style={styles.menuItemText}>{locationVisibility.getButtonText()}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.menuItemContainer, styles.lastMenuItem]}
             onPress={handleAddEventPress}
             activeOpacity={0.7}
           >
             <Ionicons name="add-circle-outline" size={18} color="#3A8DFF" style={styles.menuIcon} />
-            <Text style={styles.menuItemText}>בחר במפה להוספת אירוע</Text>
+            <Text style={styles.menuItemText}>הוספת אירוע</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -112,7 +136,7 @@ export default function FilterButton({
 const styles = StyleSheet.create({
   filterContainer: {
     position: 'absolute',
-    top: 120,
+    top: 110,
     right: 15,
     zIndex: 10,
   },
