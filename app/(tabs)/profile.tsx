@@ -386,6 +386,7 @@ export default function ProfileScreen() {
           />
         </Animated.View>
 
+        
         <ProfileImage
           profilePic={profilePic}
           username={username}

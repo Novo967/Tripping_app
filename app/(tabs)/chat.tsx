@@ -29,8 +29,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { app, db } from '../../firebaseConfig';
-import ChatHeader from '../Chats/ChatHeader';
-import ChatItem from '../Chats/ChatItem';
+import ChatHeader from '../Chats/PersonalChat/ChatHeader';
+import ChatItem from '../Chats/PersonalChat/ChatItem';
 
 moment.locale('he');
 
@@ -285,12 +285,12 @@ const Chat = () => {
     }
     if (chat.isGroup) {
       router.push({
-        pathname: '/Chats/GroupChatModal',
+        pathname: '/Chats/GroupChat/GroupChatModal',
         params: { eventTitle: chat.chatId },
       });
     } else {
       router.push({
-        pathname: '/Chats/chatModal',
+        pathname: '/Chats/PersonalChat/chatModal',
         params: {
           otherUserId: chat.otherUserId!,
           otherUsername: chat.otherUsername,
