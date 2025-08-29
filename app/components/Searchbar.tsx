@@ -7,6 +7,7 @@ import {
     ActivityIndicator,
     Alert,
     Animated,
+    Dimensions,
     FlatList,
     StyleSheet,
     Text,
@@ -18,8 +19,8 @@ import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { app } from '../../firebaseConfig';
 
 const GOOGLE_PLACES_API_KEY = 'AIzaSyCGB--Rhj7I5Ld28GV7zwc2Oe8OpjquqnI';
-
 const db = getFirestore(app);
+const { width: screenWidth } = Dimensions.get('window');
 
 interface SearchResult {
     id: string;
@@ -41,11 +42,10 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
     const [open, setOpen] = useState(false);
     const { theme } = useTheme();
 
-    const widthAnim = useRef(new Animated.Value(0)).current; // אנימציה לפתיחה/סגירה
+    const widthAnim = useRef(new Animated.Value(0)).current;
 
     const toggleSearch = () => {
         if (open) {
-            // סוגר
             Animated.timing(widthAnim, {
                 toValue: 0,
                 duration: 250,
@@ -141,6 +141,7 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
             onSelectResult(result.location.latitude, result.location.longitude);
             setQueryText('');
             setResults([]);
+            toggleSearch();
         }
     };
 
@@ -157,53 +158,75 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
 
     const animatedWidth = widthAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ['0%', '100%'],
+        outputRange: [52, screenWidth - 30], // מרוחב מלא פחות מרווחים
     });
 
     return (
         <View style={styles.wrapper}>
-            {/* כפתור חיפוש */}
-            <TouchableOpacity style={[styles.searchButton, { backgroundColor: theme.colors.primary }]} onPress={toggleSearch}>
-                <Ionicons name="search" size={24} color="#fff" />
-            </TouchableOpacity>
-
-            {/* תיבת חיפוש נפתחת */}
-            {open && (
-                <Animated.View style={[styles.container, { width: animatedWidth }]}>
-                    <TextInput
+            <Animated.View style={[styles.container, { width: animatedWidth }]}>
+                {open ? (
+                    // מצב פתוח - מציג את תיבת החיפוש
+                    <View style={styles.searchContainer}>
+                        <TextInput
+                            style={[
+                                styles.input,
+                                {
+                                    backgroundColor: theme.colors.background,
+                                    color: theme.colors.text,
+                                    borderColor: theme.colors.border,
+                                },
+                            ]}
+                            placeholder="חיפוש מקום או משתמש..."
+                            placeholderTextColor={theme.colors.text}
+                            value={queryText}
+                            onChangeText={handleSearch}
+                            onFocus={onFocus}
+                            textAlign="right"
+                            autoFocus
+                        />
+                        <TouchableOpacity 
+                            style={styles.closeButton} 
+                            onPress={toggleSearch}
+                        >
+                            <Ionicons name="close" size={20} color={theme.colors.text} />
+                        </TouchableOpacity>
+                        {loading && (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="small" color={theme.colors.primary} />
+                            </View>
+                        )}
+                    </View>
+                ) : (
+                    // מצב סגור - מציג רק את כפתור החיפוש
+                    <TouchableOpacity 
+                        style={[styles.searchButton, { backgroundColor: theme.colors.primary }]} 
+                        onPress={toggleSearch}
+                    >
+                        <Ionicons name="search" size={24} color="#fff" />
+                    </TouchableOpacity>
+                )}
+            </Animated.View>
+            
+            {/* תוצאות החיפוש */}
+            {results.length > 0 && queryText.length > 0 && open && (
+                <View style={styles.resultsContainer}>
+                    <FlatList
                         style={[
-                            styles.input,
-                            {
-                                backgroundColor: theme.colors.background,
-                                color: theme.colors.text,
+                            styles.resultsList,
+                            { 
+                                backgroundColor: theme.colors.background, 
                                 borderColor: theme.colors.border,
-                                textAlign: 'right', // טקסט בצד ימין
+                                width: screenWidth - 30, // רוחב מלא פחות מרווחים
                             },
                         ]}
-                        placeholder="חיפוש מקום או משתמש..."
-                        placeholderTextColor={theme.colors.text}
-                        value={queryText}
-                        onChangeText={handleSearch}
-                        onFocus={onFocus}
+                        data={results}
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderItem}
+                        keyboardShouldPersistTaps="handled"
+                        maxToRenderPerBatch={10}
+                        windowSize={5}
                     />
-                    {loading && (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="small" color={theme.colors.primary} />
-                        </View>
-                    )}
-                    {results.length > 0 && queryText.length > 0 && (
-                        <FlatList
-                            style={[
-                                styles.resultsList,
-                                { backgroundColor: theme.colors.background, borderColor: theme.colors.border },
-                            ]}
-                            data={results}
-                            keyExtractor={(item) => item.id}
-                            renderItem={renderItem}
-                            keyboardShouldPersistTaps="handled"
-                        />
-                    )}
-                </Animated.View>
+                </View>
             )}
         </View>
     );
@@ -216,8 +239,15 @@ const styles = StyleSheet.create({
         right: 15,
         left: 15,
         zIndex: 10,
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
+        alignItems: 'flex-end',
+    },
+    container: {
+        borderRadius: 26,
+        overflow: 'hidden',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
     searchButton: {
         backgroundColor: '#3A8DFF',
@@ -226,54 +256,54 @@ const styles = StyleSheet.create({
         borderRadius: 26,
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 8,
-        shadowColor: '#3A8DFF',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
     },
-    container: {
-        position: 'absolute',
-        right:5,
-        marginHorizontal: 12,
-        marginRight: 50,
-        flex: 1,
-        top: 5,
-        borderRadius: 10,
-        overflow: 'hidden',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 52,
+        backgroundColor: 'white',
+        paddingHorizontal: 12,
     },
     input: {
-        height: 50,
+        flex: 1,
+        height: 40,
         paddingHorizontal: 12,
-        borderRadius: 10,
+        borderRadius: 20,
         borderWidth: 1,
         fontSize: 16,
+        marginRight: 8,
+    },
+    closeButton: {
+        padding: 8,
     },
     loadingContainer: {
         position: 'absolute',
-        right: 20,
-        top: 15,
+        right: 50,
+        top: 16,
+    },
+    resultsContainer: {
+        position: 'absolute',
+        top: 60,
+        right: 0,
+        left: 0,
+        zIndex: 999,
     },
     resultsList: {
         maxHeight: 200,
         borderWidth: 1,
         borderRadius: 10,
-        marginTop: 5,
-        width: '100%',         // יתפוס את כל רוחב המסך
-        alignSelf: 'stretch',  // יוודא שזה באמת נמתח
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
     resultItem: {
         padding: 15,
         borderBottomWidth: 1,
-        width: '100%',         // כל פריט ברוחב מלא
     },
     resultText: {
         fontSize: 16,
-        textAlign: 'right',     // טקסט מימין לשמאל
-        writingDirection: 'rtl' // כיוון כתיבה RTL
+        textAlign: 'right',
+        writingDirection: 'rtl'
     },
 });
