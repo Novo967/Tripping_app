@@ -79,7 +79,7 @@ export default function HideMyLocation({
 
   // פונקציה לקבלת טקסט הכפתור הדינמי
   const getButtonText = (): string => {
-    return isLocationVisible ? 'הסתר את המיקום' : 'הצג מיקום';
+    return isLocationVisible ? 'הסתר מיקום' : 'הצג מיקום';
   };
 
   // פונקציה לקבלת שם האייקון הדינמי
