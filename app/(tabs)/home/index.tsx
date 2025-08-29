@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
@@ -10,7 +11,7 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { useTheme } from '../../../app/ProfileServices/ThemeContext';
 import { app } from '../../../firebaseConfig';
@@ -90,7 +91,7 @@ export default function HomeScreen() {
   const [isChoosingLocation, setIsChoosingLocation] = useState(false);
   const [distanceModalVisible, setDistanceModalVisible] = useState(false);
   const [eventFilterModalVisible, setEventFilterModalVisible] = useState(false);
-  const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false); // **מצב חדש**
+  const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [currentUserUsername, setCurrentUserUsername] = useState('');
   const { isChoosingLocation: shouldChooseLocationParam } = useLocalSearchParams();
@@ -105,6 +106,8 @@ export default function HomeScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
+
+  const [isSearchbarVisible, setIsSearchbarVisible] = useState(false);
 
   useNotificationListeners(user);
 
@@ -290,7 +293,7 @@ export default function HomeScreen() {
   const handleAddEventPress = useCallback(() => {
     setDistanceModalVisible(false);
     setEventFilterModalVisible(false);
-    setIsFilterMenuVisible(false); // **סגור את התפריט של FilterButton**
+    setIsFilterMenuVisible(false);
     setSearchbarResults([]);
     Keyboard.dismiss();
     setTimeout(() => {
@@ -363,7 +366,7 @@ export default function HomeScreen() {
           });
           setDistanceModalVisible(false);
           setEventFilterModalVisible(false);
-          setIsFilterMenuVisible(false); // **סגור את התפריט של FilterButton**
+          setIsFilterMenuVisible(false);
         } else {
           console.warn('Pin document not found in Firestore.');
           setSelectedEvent(null);
@@ -375,6 +378,12 @@ export default function HomeScreen() {
     },
     []
   );
+
+  const handleCloseSearchbar = useCallback(() => {
+      setIsSearchbarVisible(false);
+      setSearchbarResults([]);
+      Keyboard.dismiss();
+  }, []);
 
   const handleMapPress = useCallback((event: any) => {
     if (isChoosingLocation) {
@@ -388,19 +397,17 @@ export default function HomeScreen() {
         });
         setIsChoosingLocation(false);
     } else {
-      Keyboard.dismiss(); 
+      handleCloseSearchbar();
       setDistanceModalVisible(false);
       setEventFilterModalVisible(false);
-      setIsFilterMenuVisible(false); // **סגור את התפריט של FilterButton**
+      setIsFilterMenuVisible(false);
       setSelectedEvent(null);
       setSearchCenter(null);
-      setSearchbarResults([]);
     }
-  }, [isChoosingLocation, user]);
+  }, [isChoosingLocation, user, handleCloseSearchbar]);
 
   const handleSelectSearchResult = useCallback(
     (latitude: number, longitude: number) => {
-      Keyboard.dismiss();
       setSearchCenter({ latitude, longitude });
       setRegion({
         latitude,
@@ -419,9 +426,9 @@ export default function HomeScreen() {
           1000
         );
       }
-      setSearchbarResults([]);
+      handleCloseSearchbar(); // קריאה לפונקציית הסגירה במקום להגדיר מצב פה
     },
-    []
+    [handleCloseSearchbar]
   );
 
   const handleToggleFilterMenu = useCallback(() => {
@@ -439,14 +446,25 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      {!isChoosingLocation && (
-        <Searchbar 
-          onSelectResult={handleSelectSearchResult}
-          results={searchbarResults}
-          setResults={setSearchbarResults}
-          onFocus={() => {}}
-        />
-      )}
+      <View style={styles.searchContainer}>
+        {isSearchbarVisible ? (
+          <Searchbar
+            onSelectResult={handleSelectSearchResult}
+            results={searchbarResults}
+            setResults={setSearchbarResults}
+            onFocus={() => {}}
+            onClose={handleCloseSearchbar} // העברת הפונקציה כפרופ
+          />
+        ) : (
+          <TouchableOpacity
+            style={[styles.searchButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => setIsSearchbarVisible(true)}
+          >
+            <Ionicons name="search" size={24} color="#fff" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -493,8 +511,8 @@ export default function HomeScreen() {
         onEventFilterPress={handleEventFilterPress}
         onAddEventPress={handleAddEventPress}
         isChoosingLocation={isChoosingLocation}
-        isFilterMenuVisible={isFilterMenuVisible} // **העברת המצב**
-        onToggleFilterMenu={handleToggleFilterMenu} // **העברת הפונקציה**
+        isFilterMenuVisible={isFilterMenuVisible}
+        onToggleFilterMenu={handleToggleFilterMenu}
       />
 
       <MyLocationButton onLocationUpdate={handleLocationUpdate} />
@@ -539,5 +557,26 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
+  },
+  searchContainer: {
+    position: 'absolute',
+    top: 55,
+    right: 15,
+    left: 15,
+    zIndex: 11,
+    alignItems: 'flex-end',
+  },
+  searchButton: {
+    backgroundColor: '#3A8DFF',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });

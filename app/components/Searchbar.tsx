@@ -1,8 +1,7 @@
-// app/components/Searchbar.tsx
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { collection, getDocs, getFirestore } from 'firebase/firestore';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -13,7 +12,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { app } from '../../firebaseConfig';
@@ -34,32 +33,25 @@ interface SearchbarProps {
     results: SearchResult[];
     setResults: (results: SearchResult[]) => void;
     onFocus: () => void;
+    onClose: () => void; // פרופ חדש וברור לסגירת הסרגל
 }
 
-export default function Searchbar({ onSelectResult, results, setResults, onFocus }: SearchbarProps) {
+export default function Searchbar({ onSelectResult, results, setResults, onFocus, onClose }: SearchbarProps) {
     const [queryText, setQueryText] = useState('');
     const [loading, setLoading] = useState(false);
-    const [open, setOpen] = useState(false);
     const { theme } = useTheme();
 
     const widthAnim = useRef(new Animated.Value(0)).current;
 
-    const toggleSearch = () => {
-        if (open) {
-            Animated.timing(widthAnim, {
-                toValue: 0,
-                duration: 250,
-                useNativeDriver: false,
-            }).start(() => setOpen(false));
-        } else {
-            setOpen(true);
-            Animated.timing(widthAnim, {
-                toValue: 1,
-                duration: 250,
-                useNativeDriver: false,
-            }).start();
-        }
-    };
+    // הפעלת האנימציה עם טעינת הקומפוננטה
+    useEffect(() => {
+        Animated.timing(widthAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: false,
+        }).start();
+        // אין צורך בפונקציית toggleSearch פנימית, הלוגיקה מנוהלת ע"י האב
+    }, [widthAnim]);
 
     const handleSearch = useCallback(async (text: string) => {
         setQueryText(text);
@@ -139,9 +131,7 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
     const handleResultPress = (result: SearchResult) => {
         if (result.location) {
             onSelectResult(result.location.latitude, result.location.longitude);
-            setQueryText('');
-            setResults([]);
-            toggleSearch();
+            onClose(); // קריאה לפרופ onClose לאחר בחירת תוצאה
         }
     };
 
@@ -158,57 +148,42 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
 
     const animatedWidth = widthAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [52, screenWidth - 30], // מרוחב מלא פחות מרווחים
+        outputRange: [52, screenWidth - 30],
     });
 
     return (
-        <View style={styles.wrapper}>
-            <Animated.View style={[styles.container, { width: animatedWidth }]}>
-                {open ? (
-                    // מצב פתוח - מציג את תיבת החיפוש
-                    <View style={styles.searchContainer}>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: theme.colors.background,
-                                    color: theme.colors.text,
-                                    borderColor: theme.colors.border,
-                                },
-                            ]}
-                            placeholder="חיפוש מקום או משתמש..."
-                            placeholderTextColor={theme.colors.text}
-                            value={queryText}
-                            onChangeText={handleSearch}
-                            onFocus={onFocus}
-                            textAlign="right"
-                            autoFocus
-                        />
-                        <TouchableOpacity 
-                            style={styles.closeButton} 
-                            onPress={toggleSearch}
-                        >
-                            <Ionicons name="close" size={20} color={theme.colors.text} />
-                        </TouchableOpacity>
-                        {loading && (
-                            <View style={styles.loadingContainer}>
-                                <ActivityIndicator size="small" color={theme.colors.primary} />
-                            </View>
-                        )}
+        <Animated.View style={[styles.container, { width: animatedWidth }]}>
+            <View style={[styles.searchContainer, { backgroundColor: theme.colors.background }]}>
+                <TextInput
+                    style={[
+                        styles.input,
+                        {
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border,
+                        },
+                    ]}
+                    placeholder="חיפוש מקום או משתמש..."
+                    placeholderTextColor={theme.colors.text}
+                    value={queryText}
+                    onChangeText={handleSearch}
+                    onFocus={onFocus}
+                    textAlign="right"
+                    autoFocus
+                />
+                <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={onClose} // קריאה לפרופ onClose לסגירת הסרגל
+                >
+                    <Ionicons name="close" size={20} color={theme.colors.text} />
+                </TouchableOpacity>
+                {loading && (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
                     </View>
-                ) : (
-                    // מצב סגור - מציג רק את כפתור החיפוש
-                    <TouchableOpacity 
-                        style={[styles.searchButton, { backgroundColor: theme.colors.primary }]} 
-                        onPress={toggleSearch}
-                    >
-                        <Ionicons name="search" size={24} color="#fff" />
-                    </TouchableOpacity>
                 )}
-            </Animated.View>
+            </View>
             
-            {/* תוצאות החיפוש */}
-            {results.length > 0 && queryText.length > 0 && open && (
+            {results.length > 0 && queryText.length > 0 && (
                 <View style={styles.resultsContainer}>
                     <FlatList
                         style={[
@@ -216,7 +191,6 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
                             { 
                                 backgroundColor: theme.colors.background, 
                                 borderColor: theme.colors.border,
-                                width: screenWidth - 30, // רוחב מלא פחות מרווחים
                             },
                         ]}
                         data={results}
@@ -228,20 +202,13 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
                     />
                 </View>
             )}
-        </View>
+        </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
-        position: 'absolute',
-        top: 55,
-        right: 15,
-        left: 15,
-        zIndex: 10,
-        alignItems: 'flex-end',
-    },
     container: {
+        width: '100%',
         borderRadius: 26,
         overflow: 'hidden',
         shadowOffset: { width: 0, height: 2 },
@@ -249,19 +216,10 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
     },
-    searchButton: {
-        backgroundColor: '#3A8DFF',
-        width: 52,
-        height: 52,
-        borderRadius: 26,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         height: 52,
-        backgroundColor: 'white',
         paddingHorizontal: 12,
     },
     input: {
@@ -286,7 +244,7 @@ const styles = StyleSheet.create({
         top: 60,
         right: 0,
         left: 0,
-        zIndex: 999,
+        zIndex: 9999,
     },
     resultsList: {
         maxHeight: 200,
