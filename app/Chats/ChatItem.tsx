@@ -163,7 +163,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    marginRight: 15,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -185,6 +184,7 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
+    marginRight: 10,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
