@@ -48,7 +48,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ otherUserId, otherUsername }) =
 
   const handleUserProfilePress = () => {
     router.push({
-      pathname: '/ProfileServices/OtherUserProfile',
+      pathname: '/ProfileServices/OtherUser/OtherUserProfile',
       params: { uid: otherUserId },
     });
   };
