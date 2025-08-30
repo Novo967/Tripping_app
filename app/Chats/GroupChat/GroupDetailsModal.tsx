@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -9,7 +10,6 @@ import {
     FlatList,
     Image,
     Linking,
-    Modal,
     SafeAreaView,
     ScrollView,
     Share,
@@ -19,9 +19,10 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import Modal from 'react-native-modal'; // Use react-native-modal instead of native Modal
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/ProfileServices/ThemeContext';
-import { db } from '../../../firebaseConfig';
+import { app, db } from '../../../firebaseConfig';
 
 interface Member {
     uid: string;
@@ -60,6 +61,8 @@ const GroupDetailsModal = ({
     const insets = useSafeAreaInsets();
     const { theme } = useTheme();
 
+    const storage = getStorage(app);
+
     useEffect(() => {
         if (!eventTitle) {
             setLoading(false);
@@ -76,21 +79,21 @@ const GroupDetailsModal = ({
                     setGroupName(data.name || eventTitle);
                     setGroupImageUrl(data.groupImage || null);
                     const memberIds = data.members || [];
+                    const fetchedMembers: Member[] = [];
 
-                    const memberPromises = memberIds.map(uid => getDoc(doc(db, 'users', uid)));
-                    const userDocSnaps = await Promise.all(memberPromises);
-
-                    const fetchedMembers: Member[] = userDocSnaps.map((userDocSnap, index) => {
-                        const uid = memberIds[index];
+                    for (const uid of memberIds) {
+                        const userDocRef = doc(db, 'users', uid);
+                        const userDocSnap = await getDoc(userDocRef);
                         const userData = userDocSnap.exists() ? userDocSnap.data() : null;
+
                         const profileImageUrl = userData?.profile_image || null;
 
-                        return {
+                        fetchedMembers.push({
                             uid,
                             username: userData?.username || 'משתמש',
                             profileImageUrl,
-                        };
-                    });
+                        });
+                    }
                     setMembers(fetchedMembers);
                 } else {
                     setGroupName(eventTitle);
@@ -345,105 +348,26 @@ const GroupDetailsModal = ({
         );
     };
 
-    const renderContent = () => {
+    if (loading) {
         return (
-            <ScrollView
-                style={styles.flexContainer}
-                contentContainerStyle={{ paddingBottom: 30 }}
-                keyboardShouldPersistTaps="handled"
+            <Modal
+                isVisible={true}
+                style={styles.modal}
+                onBackButtonPress={onClose}
+                onBackdropPress={onClose}
             >
-                <View style={styles.groupHeader}>
-                    <TouchableOpacity onPress={() => onOpenImageModal(groupImageUrl)}>
-                        <View style={styles.groupImageContainer}>
-                            {groupImageUrl ? (
-                                <Image source={{ uri: groupImageUrl }} style={styles.groupImage} />
-                            ) : (
-                                <View style={[styles.groupImagePlaceholder, { backgroundColor: theme.isDark ? '#2C3E50' : '#E0E0E0' }]}>
-                                    <Ionicons name="people" size={60} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} />
-                                </View>
-                            )}
-                        </View>
-                    </TouchableOpacity>
-                    <Text style={[styles.groupName, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{groupName}</Text>
-                    <Text style={[styles.memberCount, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{members.length} חברים</Text>
+                <View style={[styles.loadingContainer, { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' }]}>
+                    <ActivityIndicator size="large" color={theme.isDark ? '#A0C4FF' : '#3A8DFF'} />
                 </View>
-
-                {eventDetails && (
-                    <View style={[styles.detailsSection, { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA', width: '95%', alignSelf: 'center' }]}>
-                        <Text style={[styles.sectionTitle, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>פרטי האירוע</Text>
-                        <View style={[styles.detailCard, { backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF', borderColor: theme.isDark ? '#3E506B' : '#E8E8E8' }]}>
-                            <View style={styles.detailRow}>
-                                <Ionicons name="person-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                                <View style={styles.detailTextContainer}>
-                                    <Text style={styles.detailLabel}>מאת:</Text>
-                                    <Text style={styles.detailText}>{eventDetails.organizer}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.detailRow}>
-                                <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                                <View style={styles.detailTextContainer}>
-                                    <Text style={styles.detailLabel}>תאריך:</Text>
-                                    <Text style={styles.detailText}>{eventDetails.date}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.detailRow}>
-                                <Ionicons name="time-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                                <View style={styles.detailTextContainer}>
-                                    <Text style={styles.detailLabel}>שעה:</Text>
-                                    <Text style={styles.detailText}>{eventDetails.time}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.detailRow}>
-                                <Ionicons name="location-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                                <View style={styles.detailTextContainer}>
-                                    <Text style={styles.detailLabel}>מיקום:</Text>
-                                    {eventDetails.location !== 'לא צוין' ? (
-                                        <TouchableOpacity onPress={handleOpenInMaps}>
-                                            <Text style={[styles.detailText, styles.detailLocationLink, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>{eventDetails.location}</Text>
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <Text style={styles.detailText}>{eventDetails.location}</Text>
-                                    )}
-                                </View>
-                            </View>
-                            <View style={styles.detailRow}>
-                                <Ionicons name="document-text-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
-                                <View style={styles.detailTextContainer}>
-                                    <Text style={styles.detailLabel}>תיאור:</Text>
-                                    <Text style={styles.detailText}>{eventDetails.description}</Text>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-                )}
-
-                <View style={[styles.membersSection, { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA', width: '95%', alignSelf: 'center' }]}>
-                    <Text style={[styles.sectionTitle, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>חברי קבוצה</Text>
-                    <FlatList
-                        data={members}
-                        renderItem={renderMember}
-                        keyExtractor={(item) => item.uid}
-                        scrollEnabled={false}
-                    />
-                </View>
-
-                <TouchableOpacity style={styles.shareButton} onPress={handleShareEvent}>
-                    <Text style={styles.shareText}>שתף אירוע</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.leaveGroupButton} onPress={handleLeaveGroup}>
-                    <Text style={styles.leaveGroupText}>יציאה מהקבוצה</Text>
-                </TouchableOpacity>
-            </ScrollView>
+            </Modal>
         );
-    };
+    }
 
     return (
         <Modal
-            animationType="slide"
-            transparent={false}
-            visible={true}
-            onRequestClose={onClose}
+            isVisible={true}
+            style={styles.modal}
+            onBackButtonPress={onClose}
         >
             <View style={[styles.fullScreenContainer, { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' }]}>
                 <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.isDark ? '#2C3946' : '#3A8DFF'} />
@@ -456,19 +380,105 @@ const GroupDetailsModal = ({
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>
-                {loading ? (
-                    <View style={[styles.loadingContainer, { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' }]}>
-                        <ActivityIndicator size="large" color={theme.isDark ? '#A0C4FF' : '#3A8DFF'} />
+
+                <ScrollView
+                    style={styles.flexContainer}
+                    contentContainerStyle={{ paddingBottom: 30 }}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.groupHeader}>
+                        <TouchableOpacity onPress={() => onOpenImageModal(groupImageUrl)}>
+                            <View style={styles.groupImageContainer}>
+                                {groupImageUrl ? (
+                                    <Image source={{ uri: groupImageUrl }} style={styles.groupImage} />
+                                ) : (
+                                    <View style={[styles.groupImagePlaceholder, { backgroundColor: theme.isDark ? '#2C3E50' : '#E0E0E0' }]}>
+                                        <Ionicons name="people" size={60} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} />
+                                    </View>
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                        <Text style={[styles.groupName, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{groupName}</Text>
+                        <Text style={[styles.memberCount, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>{members.length} חברים</Text>
                     </View>
-                ) : (
-                    renderContent()
-                )}
+
+                    {eventDetails && (
+                        <View style={[styles.detailsSection, { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA', width: '95%', alignSelf: 'center' }]}>
+                            <Text style={[styles.sectionTitle, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>פרטי האירוע</Text>
+                            <View style={[styles.detailCard, { backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF', borderColor: theme.isDark ? '#3E506B' : '#E8E8E8' }]}>
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="person-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                                    <View style={styles.detailTextContainer}>
+                                        <Text style={styles.detailLabel}>מאת:</Text>
+                                        <Text style={styles.detailText}>{eventDetails.organizer}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                                    <View style={styles.detailTextContainer}>
+                                        <Text style={styles.detailLabel}>תאריך:</Text>
+                                        <Text style={styles.detailText}>{eventDetails.date}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="time-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                                    <View style={styles.detailTextContainer}>
+                                        <Text style={styles.detailLabel}>שעה:</Text>
+                                        <Text style={styles.detailText}>{eventDetails.time}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="location-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                                    <View style={styles.detailTextContainer}>
+                                        <Text style={styles.detailLabel}>מיקום:</Text>
+                                        {eventDetails.location !== 'לא צוין' ? (
+                                            <TouchableOpacity onPress={handleOpenInMaps}>
+                                                <Text style={[styles.detailText, styles.detailLocationLink, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>{eventDetails.location}</Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <Text style={styles.detailText}>{eventDetails.location}</Text>
+                                        )}
+                                    </View>
+                                </View>
+                            
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="document-text-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                                    <View style={styles.detailTextContainer}>
+                                        <Text style={styles.detailLabel}>תיאור:</Text>
+                                        <Text style={styles.detailText}>{eventDetails.description}</Text>
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+                    )}
+
+                    <View style={[styles.membersSection, { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA', width: '95%', alignSelf: 'center' }]}>
+                        <Text style={[styles.sectionTitle, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>חברי קבוצה</Text>
+                        <FlatList
+                            data={members}
+                            renderItem={renderMember}
+                            keyExtractor={(item) => item.uid}
+                            scrollEnabled={false}
+                        />
+                    </View>
+
+                    <TouchableOpacity style={styles.shareButton} onPress={handleShareEvent}>
+                        <Text style={styles.shareText}>שתף אירוע</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.leaveGroupButton} onPress={handleLeaveGroup}>
+                        <Text style={styles.leaveGroupText}>יציאה מהקבוצה</Text>
+                    </TouchableOpacity>
+                </ScrollView>
             </View>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
+    modal: {
+        margin: 0,
+    },
     fullScreenContainer: { flex: 1 },
     flexContainer: { flex: 1 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
