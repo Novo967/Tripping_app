@@ -159,7 +159,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             router.push('/profile');
         } else {
             router.push({
-                pathname: '/ProfileServices/OtherUserProfile',
+                pathname: '/ProfileServices/OtherUser/OtherUserProfile',
                 params: { uid: selectedEvent.owner_uid }
             });
         }

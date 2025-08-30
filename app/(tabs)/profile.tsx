@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import {
-  arrayRemove,
-  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -13,7 +11,7 @@ import {
   updateDoc,
   where
 } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,9 +28,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, auth } from '../../firebaseConfig';
 
+import Gallery from '../IndexServices/GalleryServices/Gallery';
 import Bio from '../ProfileServices/bio';
 import EventRequestsHandler from '../ProfileServices/EventRequestsHandler';
-import Gallery from '../ProfileServices/Gallery';
 import ImageModal from '../ProfileServices/ImageModal';
 import NotificationBell from '../ProfileServices/NoficationBell';
 import ProfileImage from '../ProfileServices/ProfileImage';
@@ -52,21 +50,9 @@ const uploadToFirebase = async (uri: string, path: string): Promise<string> => {
   return getDownloadURL(uploadTask.ref);
 };
 
-// Helper function to delete image from Firebase Storage
-const deleteFromFirebase = async (imageUrl: string) => {
-  try {
-    const storageRefToDelete = ref(storage, imageUrl);
-    await deleteObject(storageRefToDelete);
-    console.log("Image deleted from Firebase Storage:", imageUrl);
-  } catch (firebaseErr: any) {
-    console.warn(`Could not delete image from Firebase Storage (${imageUrl}):`, firebaseErr.message);
-  }
-};
-
 export default function ProfileScreen() {
   const [bio, setBio] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
-  const [gallery, setGallery] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
@@ -78,7 +64,6 @@ export default function ProfileScreen() {
   const notificationTimeoutRef = useRef<number | null>(null);
   const [showRequests, setShowRequests] = useState(false);
 
-  const navigation = useNavigation();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -86,28 +71,29 @@ export default function ProfileScreen() {
   const requestsPanelAnim = useRef(new Animated.Value(0)).current;
 
   const insets = useSafeAreaInsets();
-
+  
   const uploadImageToFirebase = async (uri: string, isProfilePic = false) => {
     const user = auth.currentUser;
     if (!user) {
       Alert.alert('שגיאה', 'יש להתחבר כדי להעלות תמונות.');
       return;
     }
-
+  
     try {
       const pathSegment = isProfilePic ? 'profile_images' : 'gallery_images';
       const fileName = `${user.uid}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.jpg`;
       const storagePath = `${pathSegment}/${user.uid}/${fileName}`;
-
+  
       const firebaseImageUrl = await uploadToFirebase(uri, storagePath);
-
+  
       const userDocRef = doc(db, 'users', user.uid);
-
+  
       if (isProfilePic) {
         // Deleting the previous profile picture if it exists
         if (profilePic) {
           try {
-            await deleteFromFirebase(profilePic);
+            const previousPicRef = ref(storage, profilePic);
+            await deleteObject(previousPicRef);
           } catch (deleteError) {
             console.warn('Failed to delete previous profile pic:', deleteError);
           }
@@ -118,42 +104,12 @@ export default function ProfileScreen() {
         setProfilePic(firebaseImageUrl);
         Alert.alert('הצלחה', 'תמונת הפרופיל עודכנה בהצלחה!');
       } else {
-        // Adding the new image to the gallery in Firestore
-        await updateDoc(userDocRef, {
-          gallery: arrayUnion(firebaseImageUrl),
-        });
-        setGallery(prev => [...prev, firebaseImageUrl]);
+        // The gallery component now handles its own uploads
         Alert.alert('הצלחה', 'התמונה עלתה לגלריה בהצלחה!');
       }
     } catch (err: any) {
       console.error('Upload process error:', err);
       Alert.alert('שגיאה', `העלאת התמונה נכשלה: ${err.message || 'שגיאה לא ידועה'}`);
-    }
-  };
-
-  const handleDeleteImagesFromGallery = async (deletedImageUrls: string[]) => {
-    const user = auth.currentUser;
-    if (!user) {
-      Alert.alert('שגיאה', 'יש להתחבר כדי למחוק תמונות.');
-      return;
-    }
-
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      for (const imageUrl of deletedImageUrls) {
-        await deleteFromFirebase(imageUrl);
-        await updateDoc(userDocRef, {
-          gallery: arrayRemove(imageUrl),
-        });
-      }
-
-      setGallery(prevGallery =>
-        prevGallery.filter(imageUrl => !deletedImageUrls.includes(imageUrl))
-      );
-      Alert.alert('הצלחה', 'התמונות נמחקו בהצלחה!');
-    } catch (err: any) {
-      Alert.alert('שגיאה', `מחיקת התמונה נכשלה: ${err.message}`);
-      console.error('Delete process error:', err);
     }
   };
 
@@ -171,12 +127,12 @@ export default function ProfileScreen() {
     try {
       const user = auth.currentUser;
       if (!user) return;
-
+  
       const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, {
         bio: newBio,
       });
-
+  
       setBio(newBio);
       setIsEditingBio(false);
       Alert.alert('הצלחה', 'הביוגרפיה נשמרה בהצלחה!');
@@ -186,11 +142,10 @@ export default function ProfileScreen() {
       throw error; // זורק את השגיאה חזרה לקומפוננטת הביו
     }
   };
-
-  // פונקציה חדשה לפתיחת עריכת ביו מההגדרות
+  
   const handleEditBioFromSettings = () => {
-    setShowSettings(false); // סגירת ההגדרות
-    setIsEditingBio(true); // פתיחת עריכת הביו
+    setShowSettings(false);
+    setIsEditingBio(true);
   };
 
   const init = useCallback(async () => {
@@ -209,10 +164,10 @@ export default function ProfileScreen() {
         setProfilePic(profileDataFromFirestore.profile_image || null);
         setUsername(profileDataFromFirestore.username || '');
         setBio(profileDataFromFirestore.bio || '');
-        setGallery(profileDataFromFirestore.gallery || []);
+        // Gallery images are now managed and loaded directly by the Gallery component
+        // setGallery(profileDataFromFirestore.gallery || []); // <-- REMOVED THIS LINE
       } else {
         console.warn("User document not found in Firestore for UID:", user.uid);
-        // Create a basic document if one doesn't exist
         await updateDoc(userDocRef, {
           username: '',
           bio: '',
@@ -231,46 +186,43 @@ export default function ProfileScreen() {
     init();
   }, [init]);
 
-  // Use onSnapshot to listen for real-time requests
   useFocusEffect(useCallback(() => {
-  const user = auth.currentUser;
-  if (!user) {
-    setPendingRequests([]);
-    return () => {};
-  }
-
-  const requestsQuery = query(
-    collection(db, 'event_requests'), 
-    where('receiver_uid', '==', user.uid),
-    where('status', '==', 'pending')
-  );
-  
-  const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
-    const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-    // Clear any existing timeout
-    if (notificationTimeoutRef.current) {
-      clearTimeout(notificationTimeoutRef.current);
+    const user = auth.currentUser;
+    if (!user) {
+      setPendingRequests([]);
+      return () => {};
     }
-    
-    // Add a small delay to prevent flickering
-    notificationTimeoutRef.current = setTimeout(() => {
-      setPendingRequests(requests);
-      notificationTimeoutRef.current = null;
-    }, 100);
-  }, (error) => {
-    console.error('Error fetching pending requests from Firestore:', error);
-    Alert.alert('שגיאה', 'שגיאה בקבלת בקשות לאירועים.');
-  });
 
-  return () => {
-    unsubscribe();
-    if (notificationTimeoutRef.current) {
-      clearTimeout(notificationTimeoutRef.current);
-      notificationTimeoutRef.current = null;
-    }
-  };
-}, [])); 
+    const requestsQuery = query(
+      collection(db, 'event_requests'), 
+      where('receiver_uid', '==', user.uid),
+      where('status', '==', 'pending')
+    );
+    
+    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+      
+      notificationTimeoutRef.current = setTimeout(() => {
+        setPendingRequests(requests);
+        notificationTimeoutRef.current = null;
+      }, 100);
+    }, (error) => {
+      console.error('Error fetching pending requests from Firestore:', error);
+      Alert.alert('שגיאה', 'שגיאה בקבלת בקשות לאירועים.');
+    });
+
+    return () => {
+      unsubscribe();
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+        notificationTimeoutRef.current = null;
+      }
+    };
+  }, []));
 
   const fadeOutAndLogout = () => {
     Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(async () => {
@@ -338,39 +290,35 @@ export default function ProfileScreen() {
           left: 'auto',
           top: insets.top + (Platform.OS === 'ios' ? 50 : 60),
         }]}>
-        {/* New line for editing bio */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => {
             handleEditBioFromSettings();
-            toggleSettings(); // Close settings panel
+            toggleSettings();
           }}>
-          <Ionicons name="create-outline" size={20} color={theme.colors.text} />
-          <Text style={[styles.settingsText, { color: theme.colors.text }]}>עריכת ביו</Text>
+            <Ionicons name="create-outline" size={20} color={theme.colors.text} />
+            <Text style={[styles.settingsText, { color: theme.colors.text }]}>עריכת ביו</Text>
           </TouchableOpacity>
-          {/* Link to the Terms of Service page */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => {
             router.push('/ProfileServices/TermsOfServiceProfile');
             toggleSettings();
           }}>
-          <Ionicons name="document-text-outline" size={20} color={theme.colors.text} />
-          <Text style={[styles.settingsText, { color: theme.colors.text }]}>תנאי שימוש</Text>
+            <Ionicons name="document-text-outline" size={20} color={theme.colors.text} />
+            <Text style={[styles.settingsText, { color: theme.colors.text }]}>תנאי שימוש</Text>
           </TouchableOpacity>
-          {/* Dark/Light mode toggle */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => {
             toggleTheme();
-            toggleSettings(); // Close settings panel
+            toggleSettings();
           }}>
-          <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
-          <Text style={[styles.settingsText, { color: theme.colors.text }]}>
-            {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
-          </Text>
+            <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
+            <Text style={[styles.settingsText, { color: theme.colors.text }]}>
+              {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
+            </Text>
           </TouchableOpacity>
-          {/* Sign Out */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => {
             toggleSettings();
             fadeOutAndLogout();
           }}>
-          <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-          <Text style={[styles.settingsText, { color: '#FF3B30' }]}>התנתקות</Text>
+            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+            <Text style={[styles.settingsText, { color: '#FF3B30' }]}>התנתקות</Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -386,16 +334,10 @@ export default function ProfileScreen() {
           />
         </Animated.View>
 
-        
         <ProfileImage
           profilePic={profilePic}
           username={username}
-          galleryLength={gallery.length}
           onChangeImage={(uri: string) => uploadImageToFirebase(uri, true)}
-          onImagePress={openImageModal}
-          gallery={gallery}
-          onAddImage={(uri: string) => uploadImageToFirebase(uri, false)}
-          onDeleteImages={handleDeleteImagesFromGallery}
         />
 
         <Bio
@@ -405,9 +347,8 @@ export default function ProfileScreen() {
           onSave={saveBio}
           onEditToggle={() => setIsEditingBio(prev => !prev)}
         />
-
+        
         <Gallery
-          gallery={gallery}
           onImagePress={openImageModal}
         />
 

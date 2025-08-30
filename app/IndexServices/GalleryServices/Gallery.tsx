@@ -1,13 +1,11 @@
+// app/IndexServices/GalleyrServices/Gallery.tsx
+
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { arrayRemove, arrayUnion, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, getStorage, listAll, ref, uploadBytes } from 'firebase/storage';
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -17,212 +15,33 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { auth, db } from '../../firebaseConfig';
-import { useTheme } from '../ProfileServices/ThemeContext';
+import { useTheme } from '../../ProfileServices/ThemeContext';
+import { useGallery } from './useGallery'; // ייבוא ה-hook החדש
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GALLERY_IMAGE_SIZE = (SCREEN_WIDTH - 32 - 4) / 3;
-
-const storage = getStorage();
 
 type Props = {
   onImagePress: (imageUri: string) => void;
 };
 
-const GALLERY_STORAGE_PATH = 'gallery_images';
-const LIKES_COLLECTION = 'imageLikes';
-
-interface LikesData {
-  [key: string]: number; // Store like count for each image URI
-}
-
-interface IsLikedData {
-  [key: string]: boolean; // Store liked status for each image URI
-}
-
 export default function Gallery({ onImagePress }: Props) {
   const { theme } = useTheme();
-  const [uploading, setUploading] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
-  const [longPressActive, setLongPressActive] = useState(false);
-  const [firebaseGalleryImages, setFirebaseGalleryImages] = useState<string[]>([]);
-  const [loadingGallery, setLoadingGallery] = useState(true);
-  const [likesData, setLikesData] = useState<LikesData>({});
-  const [isLikedData, setIsLikedData] = useState<IsLikedData>({});
-
-  const user = auth.currentUser;
-
-  const fetchLikesData = useCallback(async (imageUrls: string[]) => {
-    const newLikesData: LikesData = {};
-    const newIsLikedData: IsLikedData = {};
-    if (!user) return;
-
-    const currentUserId = user.uid;
-
-    for (const [index, url] of imageUrls.entries()) {
-      try {
-        const imageDocRef = doc(db, LIKES_COLLECTION, `${user.uid}_${index}`);
-        const imageDoc = await getDoc(imageDocRef);
-
-        if (imageDoc.exists()) {
-          const data = imageDoc.data();
-          const likes = data.likes || [];
-          newLikesData[url] = likes.length;
-          newIsLikedData[url] = likes.includes(currentUserId);
-        } else {
-          newLikesData[url] = 0;
-          newIsLikedData[url] = false;
-        }
-      } catch (error) {
-        console.error(`Error fetching likes for image ${index}:`, error);
-      }
-    }
-    setLikesData(newLikesData);
-    setIsLikedData(newIsLikedData);
-  }, [user]);
-
-  const fetchFirebaseGalleryImages = useCallback(async () => {
-    if (!user) {
-      console.log('User not logged in, cannot fetch gallery.');
-      setLoadingGallery(false);
-      return;
-    }
-
-    setLoadingGallery(true);
-
-    try {
-      const userGalleryRef = ref(storage, `${GALLERY_STORAGE_PATH}/${user.uid}`);
-      const res = await listAll(userGalleryRef);
-      const urls = await Promise.all(
-        res.items.map((itemRef) => getDownloadURL(itemRef))
-      );
-      setFirebaseGalleryImages(urls);
-      await fetchLikesData(urls);
-    } catch (error) {
-      console.error('Error fetching gallery images from Firebase Storage:', error);
-      Alert.alert('שגיאה', 'אירעה שגיאה בטעינת התמונות מהגלריה.');
-    } finally {
-      setLoadingGallery(false);
-    }
-  }, [user, fetchLikesData]);
-
-  useEffect(() => {
-    fetchFirebaseGalleryImages();
-  }, [fetchFirebaseGalleryImages]);
-
-  const uploadImageToFirebaseStorage = async (uri: string) => {
-    if (!user) {
-      throw new Error('משתמש לא מחובר');
-    }
-
-    try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const filename = `image_${Date.now()}.jpg`;
-      const imageRef = ref(storage, `${GALLERY_STORAGE_PATH}/${user.uid}/${filename}`);
-      await uploadBytes(imageRef, blob);
-      const downloadUrl = await getDownloadURL(imageRef);
-      return downloadUrl;
-    } catch (error) {
-      console.error('Error uploading image to Firebase Storage:', error);
-      throw error;
-    }
-  };
-
-  const handlePickImage = async () => {
-    try {
-      // בדיקה שהמשתמש מחובר
-      if (!user) {
-        Alert.alert('שגיאה', 'יש להתחבר כדי להעלות תמונות.');
-        return;
-      }
-
-      // בקשת הרשאות
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
-        Alert.alert('הרשאה נדרשת', 'אנחנו צריכים הרשאה לגשת לגלריה שלך');
-        return;
-      }
-
-      setUploading(true);
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7, // הורדת האיכות לביצועים טובים יותר
-        allowsEditing: true,
-        aspect: [1, 1],
-        allowsMultipleSelection: false,
-      });
-
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        setUploading(false);
-        return;
-      }
-
-      const uri = result.assets[0].uri;
-      
-      // בדיקת תקינות ה-URI
-      if (!uri) {
-        throw new Error('URI של התמונה לא חוקי');
-      }
-
-      const newImageUrl = await uploadImageToFirebaseStorage(uri);
-      
-      if (newImageUrl) {
-        setFirebaseGalleryImages((prevImages) => [...prevImages, newImageUrl]);
-        
-        // רענון נתוני הלייקים עבור התמונה החדשה
-        await fetchLikesData([...firebaseGalleryImages, newImageUrl]);
-      }
-    } catch (error: any) {
-      console.error('Error picking or uploading image:', error);
-      Alert.alert('שגיאה', `לא הצלחנו להעלות את התמונה: ${error.message || 'שגיאה לא ידועה'}`);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDeleteSelected = async () => {
-    if (selectedImages.size === 0) {
-      Alert.alert('שגיאה', 'יש לבחור תמונות למחיקה.');
-      return;
-    }
-
-    Alert.alert(
-      'מחיקת תמונות',
-      `האם אתה בטוח שתרצה למחוק ${selectedImages.size} תמונות? פעולה זו הינה בלתי הפיכה.`,
-      [
-        { text: 'ביטול', style: 'cancel' },
-        {
-          text: 'מחק',
-          style: 'destructive',
-          onPress: async () => {
-            const toDeleteUrls: string[] = [];
-            const deletePromises: Promise<void>[] = [];
-
-            for (const index of Array.from(selectedImages)) {
-              const imageUrl = firebaseGalleryImages[index];
-              if (imageUrl) {
-                toDeleteUrls.push(imageUrl);
-                const fileRef = ref(storage, imageUrl);
-                deletePromises.push(deleteObject(fileRef));
-              }
-            }
-
-            try {
-              await Promise.all(deletePromises);
-              setFirebaseGalleryImages((prevImages) => prevImages.filter((url) => !toDeleteUrls.includes(url)));
-              setSelectedImages(new Set());
-              setLongPressActive(false);
-            } catch (error) {
-              console.error('שגיאה במחיקת תמונות:', error);
-              Alert.alert('שגיאה', 'אירעה שגיאה במחיקת התמונות. אנא נסה שוב.');
-            }
-          },
-        },
-      ]
-    );
-  };
+  const {
+    uploading,
+    selectedImages,
+    longPressActive,
+    firebaseGalleryImages,
+    loadingGallery,
+    likesData,
+    isLikedData,
+    handlePickImage,
+    handleDeleteSelected,
+    handleToggleSelect,
+    handleLongPressStart,
+    handleLike,
+    clearSelection,
+  } = useGallery();
 
   const handleItemPress = (index: number, isAddButton: boolean) => {
     if (isAddButton) {
@@ -231,13 +50,7 @@ export default function Gallery({ onImagePress }: Props) {
     }
 
     if (longPressActive) {
-      const newSelected = new Set(selectedImages);
-      if (newSelected.has(index)) {
-        newSelected.delete(index);
-      } else {
-        newSelected.add(index);
-      }
-      setSelectedImages(newSelected);
+      handleToggleSelect(index);
     } else {
       onImagePress(firebaseGalleryImages[index]);
     }
@@ -245,61 +58,7 @@ export default function Gallery({ onImagePress }: Props) {
 
   const handleLongPress = (index: number, isAddButton: boolean) => {
     if (isAddButton) return;
-
-    setLongPressActive(true);
-    const newSelected = new Set(selectedImages);
-    if (!newSelected.has(index)) {
-      newSelected.add(index);
-      setSelectedImages(newSelected);
-    }
-  };
-
-  const handleLike = async (imageUri: string, imageIndex: number) => {
-    if (!user) {
-      Alert.alert('שגיאה', 'עליך להתחבר כדי לאהוב תמונות');
-      return;
-    }
-
-    const currentUserId = user.uid;
-    const isCurrentlyLiked = isLikedData[imageUri];
-    const imageDocRef = doc(db, LIKES_COLLECTION, `${user.uid}_${imageIndex}`);
-
-    try {
-      // Optimistically update the UI
-      setLikesData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked ? prev[imageUri] - 1 : prev[imageUri] + 1 }));
-      setIsLikedData(prev => ({ ...prev, [imageUri]: !isCurrentlyLiked }));
-
-      if (!isCurrentlyLiked) {
-        // User is liking the image
-        const existingDoc = await getDoc(imageDocRef);
-        if (!existingDoc.exists()) {
-          await setDoc(imageDocRef, {
-            likes: [currentUserId],
-            imageUri,
-            profileOwnerId: user.uid,
-            imageIndex,
-            lastUpdated: new Date().toISOString(),
-          });
-        } else {
-          await updateDoc(imageDocRef, {
-            likes: arrayUnion(currentUserId),
-            lastUpdated: new Date().toISOString(),
-          });
-        }
-      } else {
-        // User is unliking the image
-        await updateDoc(imageDocRef, {
-          likes: arrayRemove(currentUserId),
-          lastUpdated: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error('Error updating like:', error);
-      // Revert UI on error
-      setLikesData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked ? prev[imageUri] + 1 : prev[imageUri] - 1 }));
-      setIsLikedData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked }));
-      Alert.alert('שגיאה', 'לא הצלחנו לעדכן את הלייק');
-    }
+    handleLongPressStart(index);
   };
 
   const renderAddButton = () => (
@@ -479,10 +238,7 @@ export default function Gallery({ onImagePress }: Props) {
       {(selectedImages.size > 0 || longPressActive) && (
         <TouchableOpacity
           style={styles.floatingClearButton}
-          onPress={() => {
-            setSelectedImages(new Set());
-            setLongPressActive(false);
-          }}
+          onPress={clearSelection}
         >
           <BlurView
             intensity={80}

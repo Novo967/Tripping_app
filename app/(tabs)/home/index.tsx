@@ -499,7 +499,7 @@ export default function HomeScreen() {
             currentUserUid={user?.uid}
             onPress={(u) => {
               setSelectedEvent(null);
-              router.push({ pathname: '/ProfileServices/OtherUserProfile', params: { uid: u.uid } });
+              router.push({ pathname: '/ProfileServices/OtherUser/OtherUserProfile', params: { uid: u.uid } });
             }}
           />
         ))}
