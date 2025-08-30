@@ -60,7 +60,18 @@ const GroupDetailsModal = ({
     const currentUid = currentUser?.uid;
     const insets = useSafeAreaInsets();
     const { theme } = useTheme();
-
+   const handleMemberPress = (uid: string) => {
+        if (uid === currentUid) {
+            // נווט לפרופיל של המשתמש הנוכחי
+            router.push('/profile');
+        } else {
+            // נווט לפרופיל של משתמש אחר
+            router.push({
+                pathname: `/ProfileServices/OtherUserProfile`,
+                params: { uid: uid },
+            });
+        }
+    };
     const storage = getStorage(app);
 
     useEffect(() => {
@@ -314,7 +325,8 @@ const GroupDetailsModal = ({
 
     const renderMember = ({ item }: { item: Member }) => {
         return (
-            <View
+            <TouchableOpacity
+                onPress={() => handleMemberPress(item.uid)}
                 style={[
                     styles.memberItem,
                     {
@@ -344,7 +356,7 @@ const GroupDetailsModal = ({
                         {item.username} {item.uid === currentUid && '(אני)'}
                     </Text>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 
