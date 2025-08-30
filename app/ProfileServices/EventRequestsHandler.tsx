@@ -57,7 +57,7 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
 
     const handleUsernamePress = (request: EventRequest) => {
         router.push({
-            pathname: "/ProfileServices/OtherUserProfile",
+            pathname: "/ProfileServices/OtherUser/OtherUserProfile",
             params: { uid: request.sender_uid }
         });
     };
