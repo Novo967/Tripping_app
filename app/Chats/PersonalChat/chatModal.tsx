@@ -15,9 +15,12 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   StatusBar,
   StyleSheet,
   TouchableWithoutFeedback,
@@ -58,6 +61,8 @@ const ChatModal = () => {
   const [messages, setMessages] = useState<CombinedData>([]);
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
+
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const auth = getAuth();
   const currentUser = auth.currentUser;
@@ -112,7 +117,6 @@ const ChatModal = () => {
       unsubscribe();
       clearChatActive();
     };
-
   }, [chatId, currentUid]);
 
   const processMessagesWithSeparators = (msgs: Message[]): CombinedData => {
@@ -156,7 +160,13 @@ const ChatModal = () => {
   };
 
   const renderItem = ({ item }: { item: Message | DateSeparator }) => {
-    return <ChatMessage item={item} currentUid={currentUid} />;
+    return (
+      <ChatMessage
+        item={item}
+        currentUid={currentUid}
+        onImagePress={(url) => setSelectedImage(url)}
+      />
+    );
   };
 
   const getKeyboardAvoidingViewProps = () => {
@@ -207,10 +217,25 @@ const ChatModal = () => {
           input={input}
           onSetInput={setInput}
           onSendMessage={sendMessage}
-          onHandleImagePicker={() => handleImagePicker(currentUid, chatId, sendMessage)}
+          onHandleImagePicker={() =>
+            handleImagePicker(currentUid, chatId, sendMessage)
+          }
         />
       </KeyboardAvoidingView>
-    </View> 
+
+      {/* Modal for fullscreen image */}
+      <Modal visible={!!selectedImage} transparent={true}>
+        <Pressable
+          style={styles.modalContainer}
+          onPress={() => setSelectedImage(null)}
+        >
+          <Image
+            source={{ uri: selectedImage ?? '' }}
+            style={styles.fullscreenImage}
+          />
+        </Pressable>
+      </Modal>
+    </View>
   );
 };
 
@@ -230,5 +255,16 @@ const styles = StyleSheet.create({
   },
   flatListMain: {
     flex: 1,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
 });
