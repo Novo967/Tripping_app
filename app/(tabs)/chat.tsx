@@ -178,7 +178,8 @@ const Chat = () => {
                 otherUserId,
                 otherUsername: userData.username || 'משתמש',
                 otherUserImage: profileImageUrl,
-                lastMessage: msg.text || '',
+                // שינוי כאן: בדיקה אם יש שדה imageUrl
+                lastMessage: msg.imageUrl ? 'תמונה' : (msg.text || 'התחל שיחה חדשה'),
                 lastMessageTimestamp: lastMessageTimestamp?.getTime() || 0,
                 isGroup: false,
                 hasUnreadMessages,
@@ -235,7 +236,8 @@ const Chat = () => {
                 chatId: groupId,
                 otherUsername: groupData.name || 'קבוצה',
                 otherUserImage: groupData.groupImage || 'https://cdn-icons-png.flaticon.com/512/2621/2621042.png',
-                lastMessage: msg.text || '',
+                // שינוי כאן: בדיקה אם יש שדה imageUrl
+                lastMessage: msg.imageUrl ? 'תמונה' : (msg.text || 'התחל שיחה חדשה'),
                 lastMessageTimestamp: lastMessageTimestamp?.getTime() || 0,
                 isGroup: true,
                 hasUnreadMessages,
