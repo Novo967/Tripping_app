@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, db } from '../../../firebaseConfig';
+import ImageViewerModal from '../../components/ImageViewerModal'; // נניח שזה הנתיב לקומפוננטה
 import { useTheme } from '../../ProfileServices/ThemeContext';
 import GroupChatEmptyState from './GroupChatEmptyState';
 import GroupChatErrorState from './GroupChatErrorState';
@@ -48,7 +49,7 @@ const storage = getStorage(app);
 
 interface Message {
   id: string;
-  text: string;
+  text?: string;
   senderId: string;
   senderUsername: string;
   createdAt: any;
@@ -74,6 +75,11 @@ const GroupChatModal = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isGroupImageModalVisible, setIsGroupImageModalVisible] = useState(false);
   const [isGroupDetailsModalVisible, setIsGroupDetailsModalVisible] = useState(false);
+  
+  // State חדש לניהול מציג התמונות
+  const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
@@ -97,6 +103,17 @@ const GroupChatModal = () => {
 
   const closeGroupDetailsModal = () => {
     setIsGroupDetailsModalVisible(false);
+  };
+
+  // פונקציות לפתיחה וסגירה של מציג התמונות
+  const openImageViewer = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+    setIsImageViewerVisible(true);
+  };
+
+  const closeImageViewer = () => {
+    setSelectedImage(null);
+    setIsImageViewerVisible(false);
   };
 
   const uploadGroupImage = async (uri: string) => {
@@ -158,7 +175,7 @@ const GroupChatModal = () => {
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           console.log('File available at', downloadURL);
-          sendMessage(downloadURL);
+          await sendMessage(undefined, downloadURL);
           setIsUploading(false);
         }
       );
@@ -293,11 +310,13 @@ const GroupChatModal = () => {
     };
   }, [eventTitle, currentUid]);
 
-  const sendMessage = async (imageUrl?: string) => {
-    if ((!input.trim() && !imageUrl) || !currentUid || typeof eventTitle !== 'string')
+  const sendMessage = async (text?: string, imageUrl?: string) => {
+    if ((!text && !imageUrl) || !currentUid || typeof eventTitle !== 'string')
       return;
+
     const chatDocRef = doc(db, 'group_chats', eventTitle);
     const docSnap = await getDoc(chatDocRef);
+
     if (!docSnap.exists()) {
       await setDoc(chatDocRef, {
         name: eventTitle,
@@ -313,23 +332,41 @@ const GroupChatModal = () => {
         });
       }
     }
+
     const messagesRef = collection(chatDocRef, 'messages');
-    await addDoc(messagesRef, {
-      text: input.trim(),
+    
+    const messageData: any = {
       senderId: currentUid,
       senderUsername: currentUsername,
       createdAt: serverTimestamp(),
-      ...(imageUrl && { imageUrl }),
-    });
-    setInput('');
+    };
+
+    if (imageUrl) {
+        messageData.imageUrl = imageUrl;
+    } else if (text) {
+        messageData.text = text.trim();
+    }
+    
+    await addDoc(messagesRef, messageData);
+    
+    if (text) {
+      setInput('');
+    }
+  };
+    
+  const handleSendMessage = () => {
+      if (input.trim() === '') return;
+      sendMessage(input);
   };
 
-  const goBack = () => router.back();
+  const handleImageUploadAndSend = (imageUrl: string) => {
+      sendMessage(undefined, imageUrl);
+  };
 
   const processMessagesWithSeparators = (msgs: Message[]): CombinedData => {
     if (msgs.length === 0) return [];
       const combined: CombinedData = [];
-      let lastDate: string | null = null; // הוספת הגדרת הטיפוס
+      let lastDate: string | null = null;
       msgs.forEach((msg) => {
       const msgDate = msg.createdAt?.toDate().toDateString();
     if (msgDate !== lastDate) {
@@ -346,8 +383,9 @@ const GroupChatModal = () => {
 };
 
   const renderItem = ({ item }: { item: Message | DateSeparator }) => {
+    // שליחת הפונקציה openImageViewer ל-GroupChatMessage
     return (
-      <GroupChatMessage item={item} currentUid={currentUid} />
+      <GroupChatMessage item={item} currentUid={currentUid} onImagePress={openImageViewer} />
     );
   };
 
@@ -368,12 +406,12 @@ const GroupChatModal = () => {
       keyboardVerticalOffset: bottomOffset,
     };
   };
-
+  const goBack = () => router.back();
   const keyboardProps = getKeyboardAvoidingViewProps();
 
+  // מודלים מוצגים לפי סדר העדיפות או המצב שלהם
   if (isGroupImageModalVisible) {
     return (
-      
         <GroupImageModal
           groupImageUrl={groupImageUrl}
           isUploading={isUploading}
@@ -393,7 +431,6 @@ const GroupChatModal = () => {
           onClose={closeGroupDetailsModal}
           onOpenImageModal={openGroupImageModal}
         />
-      
     );
   }
 
@@ -448,11 +485,18 @@ const GroupChatModal = () => {
         <GroupChatInput
           input={input}
           onSetInput={setInput}
-          onSendMessage={sendMessage}
+          onSendMessage={handleSendMessage}
           onHandleImagePicker={handleImagePicker}
           isUploading={isUploading}
         />
       </KeyboardAvoidingView>
+      
+      {/* הוספת ה-ImageViewerModal */}
+      <ImageViewerModal
+        isVisible={isImageViewerVisible}
+        imageUrl={selectedImage}
+        onClose={closeImageViewer}
+      />
     </View>
   );
 };

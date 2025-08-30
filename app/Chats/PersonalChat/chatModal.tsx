@@ -15,12 +15,9 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
   StatusBar,
   StyleSheet,
   TouchableWithoutFeedback,
@@ -29,6 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../firebaseConfig';
 import { useTheme } from '../../ProfileServices/ThemeContext';
+import ImageViewerModal from '../../components/ImageViewerModal';
 import ChatEmptyState from './ChatEmptyState';
 import ChatInput from './ChatInput';
 import ChatMessage from './ChatMessage';
@@ -62,6 +60,7 @@ const ChatModal = () => {
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
+  const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const auth = getAuth();
@@ -119,6 +118,16 @@ const ChatModal = () => {
     };
   }, [chatId, currentUid]);
 
+  const openImageViewer = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+    setIsImageViewerVisible(true);
+  };
+
+  const closeImageViewer = () => {
+    setSelectedImage(null);
+    setIsImageViewerVisible(false);
+  };
+
   const processMessagesWithSeparators = (msgs: Message[]): CombinedData => {
     if (msgs.length === 0) return [];
     const combined: CombinedData = [];
@@ -164,7 +173,7 @@ const ChatModal = () => {
       <ChatMessage
         item={item}
         currentUid={currentUid}
-        onImagePress={(url) => setSelectedImage(url)}
+        onImagePress={openImageViewer}
       />
     );
   };
@@ -223,18 +232,11 @@ const ChatModal = () => {
         />
       </KeyboardAvoidingView>
 
-      {/* Modal for fullscreen image */}
-      <Modal visible={!!selectedImage} transparent={true}>
-        <Pressable
-          style={styles.modalContainer}
-          onPress={() => setSelectedImage(null)}
-        >
-          <Image
-            source={{ uri: selectedImage ?? '' }}
-            style={styles.fullscreenImage}
-          />
-        </Pressable>
-      </Modal>
+      <ImageViewerModal
+        isVisible={isImageViewerVisible}
+        imageUrl={selectedImage}
+        onClose={closeImageViewer}
+      />
     </View>
   );
 };
@@ -255,16 +257,5 @@ const styles = StyleSheet.create({
   },
   flatListMain: {
     flex: 1,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'black',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullscreenImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
   },
 });
