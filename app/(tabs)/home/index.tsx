@@ -23,7 +23,7 @@ import MyLocationButton from '../../MapButtons/MyLocationButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
-import Searchbar from '../../components/Searchbar';
+import Searchbar, { SearchResult } from '../../components/Searchbar';
 import UserMarker from '../../components/UserMarker';
 import { useNotificationListeners } from '../../hooks/useNotificationListeners';
 
@@ -97,7 +97,7 @@ export default function HomeScreen() {
   const { isChoosingLocation: shouldChooseLocationParam } = useLocalSearchParams();
   const { theme } = useTheme();
 
-  const [searchbarResults, setSearchbarResults] = useState([]);
+  const [searchbarResults, setSearchbarResults] = useState<SearchResult[]>([]);
   
   const auth = getAuth();
   const user = auth.currentUser;

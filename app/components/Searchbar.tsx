@@ -21,7 +21,7 @@ const GOOGLE_PLACES_API_KEY = 'AIzaSyCGB--Rhj7I5Ld28GV7zwc2Oe8OpjquqnI';
 const db = getFirestore(app);
 const { width: screenWidth } = Dimensions.get('window');
 
-interface SearchResult {
+export interface SearchResult {
     id: string;
     name: string;
     type: 'place' | 'user';
@@ -102,7 +102,7 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
         const places: SearchResult[] = [];
         try {
             const response = await axios.get(
-                `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${text}&key=${GOOGLE_PLACES_API_KEY}&language=he&components=country:il`
+                `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${text}&key=${GOOGLE_PLACES_API_KEY}&language=he`
             );
 
             if (response.data.status === 'OK') {
@@ -240,11 +240,9 @@ const styles = StyleSheet.create({
         top: 16,
     },
     resultsContainer: {
-        position: 'absolute',
-        top: 60,
         right: 0,
         left: 0,
-        zIndex: 9999,
+        zIndex: 100,
     },
     resultsList: {
         maxHeight: 200,
@@ -253,7 +251,6 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.15,
         shadowRadius: 3.84,
-        elevation: 5,
     },
     resultItem: {
         padding: 15,
