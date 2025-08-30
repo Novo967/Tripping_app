@@ -17,9 +17,8 @@ import {
 import {
   getDownloadURL,
   getStorage,
-  listAll,
   ref,
-  uploadBytesResumable,
+  uploadBytesResumable
 } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -98,23 +97,6 @@ const GroupChatModal = () => {
 
   const closeGroupDetailsModal = () => {
     setIsGroupDetailsModalVisible(false);
-  };
-
-  const getGroupImageUrl = async (groupId: string) => {
-    if (!groupId) return null;
-    try {
-      const folderRef = ref(storage, `group_images/${groupId}`);
-      const result = await listAll(folderRef);
-      if (result.items.length === 0) return null;
-      const latestFileRef = result.items.sort((a, b) =>
-        b.name.localeCompare(a.name)
-      )[0];
-      const url = await getDownloadURL(latestFileRef);
-      return url;
-    } catch (e) {
-      console.warn(`Error fetching group image for ${groupId}:`, e);
-      return null;
-    }
   };
 
   const uploadGroupImage = async (uri: string) => {
@@ -255,10 +237,7 @@ const GroupChatModal = () => {
           const data = docSnap.data();
           setGroupName(data.name || eventTitle);
           setMemberCount(data.members?.length || 0);
-          if (!groupImageUrl) {
-            const imageUrl = await getGroupImageUrl(eventTitle);
-            setGroupImageUrl(imageUrl);
-          }
+          setGroupImageUrl(data.groupImage || null);
         } else {
           setGroupName(eventTitle);
           setGroupImageUrl(null);

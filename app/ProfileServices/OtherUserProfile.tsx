@@ -107,16 +107,10 @@ const OtherUserProfile = () => {
           return;
         }
 
-        let profileImageUrl = '';
-        try {
-          const profileImageRef = ref(storage, `profile_images/${uid}`);
-          const profileImageList = await listAll(profileImageRef);
-          if (profileImageList.items.length > 0) {
-            profileImageUrl = await getDownloadURL(profileImageList.items[0]);
-          }
-        } catch (error) {
-          console.warn("Profile image not found in Firebase Storage:", error);
-        }
+         let profileImageUrl = firestoreData?.profile_image || '';
+        if (!profileImageUrl) {
+          console.warn("Profile image not found in Firestore data. Using default.");
+        }
 
         let galleryImageUrls: string[] = [];
         try {
