@@ -1,10 +1,10 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // ייבוא Dimensions
 import { useTheme } from '../../ProfileServices/ThemeContext';
 
 interface Message {
   id: string;
-  text: string;
+  text?: string;
   senderId: string;
   senderUsername: string;
   createdAt: any;
@@ -20,9 +20,12 @@ type DateSeparator = {
 interface GroupChatMessageProps {
   item: Message | DateSeparator;
   currentUid: string | undefined;
+  onImagePress?: (imageUrl: string) => void; // הוספת prop לפונקציה שתפתח את התמונה
 }
 
-const GroupChatMessage: React.FC<GroupChatMessageProps> = ({ item, currentUid }) => {
+const { width } = Dimensions.get('window'); // קבלת רוחב המסך לחישוב גודל התמונה
+
+const GroupChatMessage: React.FC<GroupChatMessageProps> = ({ item, currentUid, onImagePress }) => {
   const { theme } = useTheme();
 
   const formatTime = (timestamp: any) => {
@@ -87,8 +90,8 @@ const GroupChatMessage: React.FC<GroupChatMessageProps> = ({ item, currentUid })
             backgroundColor: isMe
               ? '#3A8DFF'
               : theme.isDark
-              ? '#2C3E50'
-              : '#FFFFFF',
+                ? '#2C3E50'
+                : '#FFFFFF',
             borderColor: theme.isDark && !isMe ? '#3E506B' : '#E8E8E8',
             shadowColor: theme.isDark ? '#000' : '#000',
           },
@@ -104,19 +107,22 @@ const GroupChatMessage: React.FC<GroupChatMessageProps> = ({ item, currentUid })
             {messageItem.senderUsername}
           </Text>
         )}
-        {messageItem.imageUrl && typeof messageItem.imageUrl === 'string' && messageItem.imageUrl.startsWith('http') && (
-          <Image source={{ uri: messageItem.imageUrl }} style={styles.messageImage} />
-        )}
-        {messageItem.text && (
-          <Text
-            style={[
-              styles.messageText,
-              isMe ? styles.myMessageText : styles.theirMessageText,
-              { color: isMe ? '#FFFFFF' : theme.isDark ? '#E0E0E0' : '#2C3E50' },
-            ]}
-          >
-            {messageItem.text}
-          </Text>
+        {messageItem.imageUrl ? (
+          <TouchableOpacity onPress={() => onImagePress && onImagePress(messageItem.imageUrl!)}>
+            <Image source={{ uri: messageItem.imageUrl }} style={styles.messageImage} />
+          </TouchableOpacity>
+        ) : (
+          messageItem.text && (
+            <Text
+              style={[
+                styles.messageText,
+                isMe ? styles.myMessageText : styles.theirMessageText,
+                { color: isMe ? '#FFFFFF' : theme.isDark ? '#E0E0E0' : '#2C3E50' },
+              ]}
+            >
+              {messageItem.text}
+            </Text>
+          )
         )}
         <Text
           style={[
@@ -187,8 +193,8 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
   },
   messageImage: {
-    width: 200,
-    height: 150,
+    width: width * 0.6, // התאמת רוחב התמונה ל-60% מרוחב המסך
+    height: width * 0.6 * (3 / 4), // שמירה על יחס גובה-רוחב 4:3
     borderRadius: 12,
     marginBottom: 8,
   },
