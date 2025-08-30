@@ -1,14 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-  getDownloadURL,
-  getStorage,
-  listAll,
-  ref
-} from 'firebase/storage';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { app } from '../../firebaseConfig';
+import { db } from '../../firebaseConfig';
 
 interface UserMarkerProps {
   user: {
@@ -22,42 +17,41 @@ interface UserMarkerProps {
   onPress: (user: any) => void;
 }
 
-const storage = getStorage(app);
-
 const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-
   const isCurrentUser = user.uid === currentUserUid;
-  
-  const fetchLatestImageUrl = async () => {
-    if (!user.uid) {
-      setImageUrl(null);
-      return;
+
+  // Function to get the profile image URL from Firestore
+  const getProfileImageUrl = async (userId: string) => {
+    if (!userId) {
+      return null;
     }
-
     try {
-      const folderRef = ref(storage, `profile_images/${user.uid}`);
-      const result = await listAll(folderRef);
-
-      if (result.items.length === 0) {
-        setImageUrl(null);
-        return;
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists() && userDoc.data().profile_image) {
+        return userDoc.data().profile_image;
       }
-
-      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
-      const latestFileRef = sortedItems[0];
-      const url = await getDownloadURL(latestFileRef);
-      setImageUrl(url);
+      return null;
     } catch (e) {
-      console.warn(`Error fetching user image for ${user.uid}:`, e);
-      setImageUrl(null);
+      console.warn(`Error fetching user image for ${userId}:`, e);
+      return null;
     }
   };
 
   useEffect(() => {
-    // Fetch the image URL only once when the component mounts
-    fetchLatestImageUrl();
-  }, [user.uid]);
+    const fetchImage = async () => {
+      // Use the profile_image URL if it's already provided in the user object
+      if (user.profile_image) {
+        setImageUrl(user.profile_image);
+      } else {
+        // Otherwise, fetch it from Firestore
+        const fetchedUrl = await getProfileImageUrl(user.uid);
+        setImageUrl(fetchedUrl);
+      }
+    };
+    fetchImage();
+  }, [user.uid, user.profile_image]);
 
   const renderMarkerContent = () => {
     // If an image URL exists, display the image
@@ -71,7 +65,7 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }
           />
         </View>
       );
-    } 
+    }
     // If no image URL, display a placeholder icon
     else {
       return (

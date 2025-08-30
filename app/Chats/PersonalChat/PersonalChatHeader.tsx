@@ -1,13 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { app } from '../../../firebaseConfig';
+import { db } from '../../../firebaseConfig';
 import { useTheme } from '../../ProfileServices/ThemeContext';
-
-const storage = getStorage(app);
 
 interface ChatHeaderProps {
   otherUserId: string;
@@ -17,23 +15,22 @@ interface ChatHeaderProps {
 const ChatHeader: React.FC<ChatHeaderProps> = ({ otherUserId, otherUsername }) => {
   const [otherUserProfileImage, setOtherUserProfileImage] = useState<string | null>(null);
   const { theme } = useTheme();
-  
+
+  // New function to get the profile image URL from Firestore
   const getProfileImageUrl = async (userId: string) => {
     if (!userId) {
       return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
     }
     try {
-      const folderRef = ref(storage, `profile_images/${userId}`);
-      const result = await listAll(folderRef);
-      if (result.items.length === 0) {
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists() && userDoc.data().profile_image) {
+        return userDoc.data().profile_image;
+      } else {
         return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
       }
-      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
-      const latestFileRef = sortedItems[0];
-      const url = await getDownloadURL(latestFileRef);
-      return url;
     } catch (e) {
-      console.warn(`Error fetching user image for ${userId}:`, e);
+      console.warn(`שגיאה בשליפת תמונת פרופיל עבור המשתמש ${userId}:`, e);
       return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
     }
   };
