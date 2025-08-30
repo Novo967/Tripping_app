@@ -12,7 +12,6 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
 import moment from 'moment';
 import 'moment/locale/he';
 import React, { useEffect, useRef, useState } from 'react';
@@ -28,7 +27,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../app/ProfileServices/ThemeContext';
-import { app, db } from '../../firebaseConfig';
+import { db } from '../../firebaseConfig';
 import ChatHeader from '../Chats/PersonalChat/ChatHeader';
 import ChatItem from '../Chats/PersonalChat/ChatItem';
 
@@ -56,24 +55,22 @@ const Chat = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const chatListeners = useRef<(() => void)[]>([]);
-  const storage = getStorage(app);
   const { theme } = useTheme();
   const chatMapRef = useRef<Map<string, ChatItem>>(new Map());
 
+  // Function to get the profile image URL from Firestore
   const getProfileImageUrl = async (userId: string) => {
-    if (!userId) {
-      return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
-    }
     try {
-      const folderRef = ref(storage, `profile_images/${userId}`);
-      const result = await listAll(folderRef);
-      if (result.items.length === 0) {
+      if (!userId) {
         return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
       }
-      const sortedItems = result.items.sort((a, b) => b.name.localeCompare(a.name));
-      const latestFileRef = sortedItems[0];
-      const url = await getDownloadURL(latestFileRef);
-      return url;
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists() && userDoc.data().profile_image) {
+        return userDoc.data().profile_image;
+      } else {
+        return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
+      }
     } catch (e) {
       console.warn(`Error fetching user image for ${userId}:`, e);
       return 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
@@ -92,10 +89,7 @@ const Chat = () => {
           where('senderId', '!=', user?.uid)
         );
       } else {
-        unreadQuery = query(
-          messagesRef,
-          where('senderId', '!=', user?.uid)
-        );
+        unreadQuery = query(messagesRef, where('senderId', '!=', user?.uid));
       }
       const snapshot = await getDocs(unreadQuery);
       return snapshot.docs.length;
@@ -153,7 +147,8 @@ const Chat = () => {
             return;
           }
           const userData = userDoc.data();
-          const profileImageUrl = await getProfileImageUrl(otherUserId);
+          // Use the `profile_image` field from the fetched user data
+          const profileImageUrl = userData.profile_image || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png';
           const messagesRef = collection(db, 'chats', chatId, 'messages');
           const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
           const unsubscribeMsg = onSnapshot(lastMsgQuery, async (lastMsgSnapshot) => {
@@ -281,7 +276,7 @@ const Chat = () => {
       const chatDocRef = doc(db, collectionName, chat.chatId);
       updateDoc(chatDocRef, {
         [`lastReadMessageTimestamp.${user.uid}`]: new Date(),
-      }).catch(e => console.error("Error updating read timestamp:", e));
+      }).catch((e) => console.error('Error updating read timestamp:', e));
     }
     if (chat.isGroup) {
       router.push({
@@ -313,7 +308,7 @@ const Chat = () => {
           backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
         />
         <View style={styles.loadingContent}>
-          <ActivityIndicator size="large" color={theme.isDark ? '#4A90E2' : '#3A8DFF'} />
+          <ActivityIndicator size='large' color={theme.isDark ? '#4A90E2' : '#3A8DFF'} />
           <Text
             style={[
               styles.loadingText,
