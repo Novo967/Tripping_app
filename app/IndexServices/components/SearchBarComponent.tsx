@@ -38,7 +38,7 @@ export const SearchBarComponent: React.FC<SearchBarComponentProps> = ({
         />
       ) : (
         <TouchableOpacity
-          style={[homeScreenStyles.searchButton, { backgroundColor: theme.colors.primary }]}
+          style={[homeScreenStyles.searchButton, { backgroundColor: '#3A8DFF' }]}
           onPress={onOpen}
         >
           <Ionicons name="search" size={24} color="#fff" />
