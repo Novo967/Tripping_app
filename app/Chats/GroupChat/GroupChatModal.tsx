@@ -400,10 +400,9 @@ const GroupChatModal = () => {
         keyboardVerticalOffset: 0,
       };
     }
-    const bottomOffset = insets.bottom;
     return {
       behavior: 'padding' as const,
-      keyboardVerticalOffset: bottomOffset,
+      keyboardVerticalOffset: 0,
     };
   };
   const goBack = () => router.back();
