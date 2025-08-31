@@ -185,10 +185,9 @@ const ChatModal = () => {
         keyboardVerticalOffset: 0,
       };
     }
-    const bottomOffset = insets.bottom;
     return {
       behavior: 'padding' as const,
-      keyboardVerticalOffset: bottomOffset,
+      keyboardVerticalOffset: 0,
     };
   };
 
@@ -253,7 +252,7 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flexGrow: 1,
     paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingVertical: 14,
   },
   flatListMain: {
     flex: 1,

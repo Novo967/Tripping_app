@@ -93,7 +93,7 @@ export default function FilterButton({
             activeOpacity={0.7}
           >
             <Ionicons name="resize" size={18} color="#3A8DFF" style={styles.menuIcon} />
-            <Text style={styles.menuItemText}>מרחק תצוגה       ({displayDistance} קמ)</Text>
+            <Text style={styles.menuItemText}>סנן מרחק({displayDistance} קמ)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -102,7 +102,7 @@ export default function FilterButton({
             activeOpacity={0.7}
           >
             <Ionicons name="filter" size={18} color="#3A8DFF" style={styles.menuIcon} />
-            <Text style={styles.menuItemText}>סוגי אירועים</Text>
+            <Text style={styles.menuItemText}>סנן אירועים</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -171,8 +171,8 @@ const styles = StyleSheet.create({
   menuItemContainer: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f2f2f2',
   },

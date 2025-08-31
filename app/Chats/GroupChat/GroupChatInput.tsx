@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useTheme } from '../../ProfileServices/ThemeContext';
 
@@ -98,18 +98,7 @@ const GroupChatInput: React.FC<GroupChatInputProps> = ({
           activeOpacity={0.8}
           disabled={!input.trim()}
         >
-          <Ionicons
-            name="send"
-            size={20}
-            color={
-              input.trim()
-                ? '#FFFFFF'
-                : theme.isDark
-                ? '#BDC3C7'
-                : '#CCC'
-            }
-            style={{ transform: [{ scaleX: -1 }] }}
-          />
+          <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
         </TouchableOpacity>
       </View>
     </View>
