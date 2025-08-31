@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { useLocationVisibility } from './HideMyLocation';
+import { useLocationVisibility } from './FilterButtons/HideMyLocation';
 
 interface FilterButtonProps {
   displayDistance: number;

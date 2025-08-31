@@ -1,6 +1,6 @@
 // Export all types
-export type { SearchResult } from '../components/Searchbar';
 export type { SelectedEventType, SelectedUserType } from './hooks/useFirestoreService';
+export type { SearchResult } from './MapButtons/Searchbar';
 
 // Export all hooks
 export { useFirestoreService } from './hooks/useFirestoreService';

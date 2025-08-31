@@ -1,15 +1,17 @@
+// SearchBarComponent.tsx
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { TouchableOpacity } from 'react-native';
 import { useTheme } from '../../../app/ProfileServices/ThemeContext';
-import Searchbar, { SearchResult } from '../../components/Searchbar';
+import Searchbar, { SearchResult } from '../MapButtons/Searchbar';
 import { homeScreenStyles } from '../styles/homeScreenStyles';
 
 interface SearchBarComponentProps {
   isSearchbarVisible: boolean;
   searchbarResults: SearchResult[];
   setSearchbarResults: (results: SearchResult[]) => void;
-  onSelectResult: (latitude: number, longitude: number) => void;
+  // עדכון: הוספת zoomLevel לפונקציה onSelectResult
+  onSelectResult: (latitude: number, longitude: number, zoomLevel: number) => void;
   onClose: () => void;
   onOpen: () => void;
 }
@@ -28,7 +30,7 @@ export const SearchBarComponent: React.FC<SearchBarComponentProps> = ({
     <>
       {isSearchbarVisible ? (
         <Searchbar
-          onSelectResult={onSelectResult}
+          onSelectResult={(latitude, longitude, zoomLevel) => onSelectResult(latitude, longitude, zoomLevel)}
           results={searchbarResults}
           setResults={setSearchbarResults}
           onFocus={() => {}}

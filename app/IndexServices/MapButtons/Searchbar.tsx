@@ -1,3 +1,4 @@
+// Searchbar.tsx
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { collection, getDocs, getFirestore } from 'firebase/firestore';
@@ -14,12 +15,12 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { useTheme } from '../../app/ProfileServices/ThemeContext';
-import { app } from '../../firebaseConfig';
+import { app } from '../../../firebaseConfig';
+import { useTheme } from '../../ProfileServices/ThemeContext';
 
 const GOOGLE_PLACES_API_KEY = 'AIzaSyCGB--Rhj7I5Ld28GV7zwc2Oe8OpjquqnI';
 const db = getFirestore(app);
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window'); // התיקון כאן
 
 export interface SearchResult {
     id: string;
@@ -29,11 +30,11 @@ export interface SearchResult {
 }
 
 interface SearchbarProps {
-    onSelectResult: (latitude: number, longitude: number) => void;
+    onSelectResult: (latitude: number, longitude: number, zoomLevel: number) => void;
     results: SearchResult[];
     setResults: (results: SearchResult[]) => void;
     onFocus: () => void;
-    onClose: () => void; // פרופ חדש וברור לסגירת הסרגל
+    onClose: () => void;
 }
 
 export default function Searchbar({ onSelectResult, results, setResults, onFocus, onClose }: SearchbarProps) {
@@ -43,14 +44,12 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
 
     const widthAnim = useRef(new Animated.Value(0)).current;
 
-    // הפעלת האנימציה עם טעינת הקומפוננטה
     useEffect(() => {
         Animated.timing(widthAnim, {
             toValue: 1,
             duration: 250,
             useNativeDriver: false,
         }).start();
-        // אין צורך בפונקציית toggleSearch פנימית, הלוגיקה מנוהלת ע"י האב
     }, [widthAnim]);
 
     const handleSearch = useCallback(async (text: string) => {
@@ -130,8 +129,9 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
 
     const handleResultPress = (result: SearchResult) => {
         if (result.location) {
-            onSelectResult(result.location.latitude, result.location.longitude);
-            onClose(); // קריאה לפרופ onClose לאחר בחירת תוצאה
+            const zoomLevel = result.type === 'user' ? 200 : 200;
+            onSelectResult(result.location.latitude, result.location.longitude, zoomLevel);
+            onClose();
         }
     };
 
@@ -172,7 +172,7 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
                 />
                 <TouchableOpacity
                     style={styles.closeButton}
-                    onPress={onClose} // קריאה לפרופ onClose לסגירת הסרגל
+                    onPress={onClose}
                 >
                     <Ionicons name="close" size={20} color={theme.colors.text} />
                 </TouchableOpacity>

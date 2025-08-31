@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { SearchResult } from '../../components/Searchbar';
+import type { SearchResult } from '../MapButtons/Searchbar';
 import { calculateDistance } from '../MapUtils';
 import type { SelectedEventType, SelectedUserType } from './useFirestoreService';
 
