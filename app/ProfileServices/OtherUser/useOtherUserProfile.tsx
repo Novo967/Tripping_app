@@ -2,23 +2,13 @@
 
 import { getAuth } from 'firebase/auth';
 import {
-  arrayRemove,
-  arrayUnion,
   doc,
   DocumentData,
   getDoc,
-  setDoc,
-  updateDoc,
 } from 'firebase/firestore';
 import { getDownloadURL, getStorage, listAll, ref } from 'firebase/storage';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated } from 'react-native';
+import { useEffect, useState } from 'react';
 import { db } from '../../../firebaseConfig';
-
-export interface ImageLikesData {
-  isLiked: boolean;
-  count: number;
-}
 
 interface UserData {
   username: string;
@@ -42,12 +32,8 @@ export const useOtherUserProfile = (uid: string) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  const [imageLikes, setImageLikes] = useState<{ [key: string]: ImageLikesData }>({});
-  const [likeLoading, setLikeLoading] = useState<{ [key: string]: boolean }>({});
-  const likeScaleAnim = useRef<{ [key: string]: Animated.Value }>({});
 
   const auth = getAuth();
-  const currentUserId = auth.currentUser?.uid;
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -94,8 +80,6 @@ export const useOtherUserProfile = (uid: string) => {
           isOnline: firestoreData?.isOnline || false,
         });
 
-        await fetchLikesForAllImages(galleryImageUrls);
-
       } catch (error) {
         console.error('An error occurred during data fetching:', error);
       } finally {
@@ -105,28 +89,6 @@ export const useOtherUserProfile = (uid: string) => {
     fetchUserData();
   }, [uid]);
 
-  const fetchLikesForAllImages = async (imageUrls: string[]) => {
-    const allLikesData: { [key: string]: ImageLikesData } = {};
-    for (let i = 0; i < imageUrls.length; i++) {
-      const imageDocRef = doc(db, 'imageLikes', `${uid}_${i}`);
-      try {
-        const imageDoc = await getDoc(imageDocRef);
-        if (imageDoc.exists()) {
-          const data = imageDoc.data();
-          const likes = data.likes || [];
-          const isLiked = currentUserId ? likes.includes(currentUserId) : false;
-          allLikesData[`${uid}_${i}`] = { isLiked, count: likes.length };
-        } else {
-          allLikesData[`${uid}_${i}`] = { isLiked: false, count: 0 };
-        }
-      } catch (error) {
-        console.error(`Error fetching like data for image ${i}:`, error);
-        allLikesData[`${uid}_${i}`] = { isLiked: false, count: 0 };
-      }
-    }
-    setImageLikes(allLikesData);
-  };
-
   const openImageModal = (imageIndex: number) => {
     setSelectedImageIndex(imageIndex);
     setModalVisible(true);
@@ -135,83 +97,6 @@ export const useOtherUserProfile = (uid: string) => {
   const closeImageModal = () => {
     setModalVisible(false);
     setSelectedImageIndex(null);
-  };
-
-  const handleLike = async (imageIndex: number, imageUri: string) => {
-    if (!currentUserId) {
-      Alert.alert('שגיאה', 'עליך להתחבר כדי לאהוב תמונות');
-      return;
-    }
-
-    const key = `${uid}_${imageIndex}`;
-    if (likeLoading[key]) return;
-
-    setLikeLoading((prev) => ({ ...prev, [key]: true }));
-
-    const currentLikes = imageLikes[key] || { isLiked: false, count: 0 };
-    const newIsLiked = !currentLikes.isLiked;
-    const newCount = newIsLiked ? currentLikes.count + 1 : currentLikes.count - 1;
-
-    setImageLikes((prev) => ({
-      ...prev,
-      [key]: { isLiked: newIsLiked, count: newCount },
-    }));
-
-    if (!likeScaleAnim.current[key]) {
-      likeScaleAnim.current[key] = new Animated.Value(1);
-    }
-
-    Animated.sequence([
-      Animated.timing(likeScaleAnim.current[key], {
-        toValue: 1.2,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(likeScaleAnim.current[key], {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    const imageDocRef = doc(db, 'imageLikes', key);
-
-    try {
-      const existingDoc = await getDoc(imageDocRef);
-
-      if (!existingDoc.exists()) {
-        if (newIsLiked) {
-          await setDoc(imageDocRef, {
-            likes: [currentUserId],
-            imageUri,
-            profileOwnerId: uid,
-            imageIndex,
-            lastUpdated: new Date().toISOString(),
-          });
-        }
-      } else {
-        if (newIsLiked) {
-          await updateDoc(imageDocRef, {
-            likes: arrayUnion(currentUserId),
-            lastUpdated: new Date().toISOString(),
-          });
-        } else {
-          await updateDoc(imageDocRef, {
-            likes: arrayRemove(currentUserId),
-            lastUpdated: new Date().toISOString(),
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error updating like:', error);
-      setImageLikes((prev) => ({
-        ...prev,
-        [key]: currentLikes,
-      }));
-      Alert.alert('שגיאה', 'לא הצלחנו לעדכן את הלייק');
-    } finally {
-      setLikeLoading((prev) => ({ ...prev, [key]: false }));
-    }
   };
 
   const formatJoinDate = (dateString: string) => {
@@ -225,12 +110,8 @@ export const useOtherUserProfile = (uid: string) => {
     loading,
     modalVisible,
     selectedImageIndex,
-    imageLikes,
-    likeLoading,
-    likeScaleAnim,
     openImageModal,
     closeImageModal,
-    handleLike,
     formatJoinDate,
   };
 };
