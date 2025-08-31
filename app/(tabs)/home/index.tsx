@@ -15,13 +15,13 @@ import { useLocationService } from '../../IndexServices/hooks/useLocationSevice'
 import { useMapInteractions } from '../../IndexServices/hooks/useMapInteractions';
 import { useModalState } from '../../IndexServices/hooks/useModalState';
 import { useSearchState } from '../../IndexServices/hooks/useSearchState';
+import DistanceFilterButton from '../../IndexServices/MapButtons/DistanceFilterButton';
+import EventFilterButton from '../../IndexServices/MapButtons/EventFilterButton';
+import MyLocationButton from '../../IndexServices/MapButtons/MyLocationButton';
+import SearchInAreaButton from '../../IndexServices/MapButtons/SearchInAreaButton';
 import { homeScreenStyles } from '../../IndexServices/styles/homeScreenStyles';
 import { darkMapStyle } from '../../IndexServices/styles/mapStyles';
 import { useDistanceCalculation } from '../../IndexServices/utils/distanceUtils';
-import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
-import EventFilterButton from '../../MapButtons/EventFilterButton';
-import MyLocationButton from '../../MapButtons/MyLocationButton';
-import SearchInAreaButton from '../../MapButtons/SearchInAreaButton';
 
 export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);
