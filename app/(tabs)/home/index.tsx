@@ -1,511 +1,220 @@
-import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import { router, useLocalSearchParams } from 'expo-router';
-import { getAuth } from 'firebase/auth';
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getFirestore,
-  onSnapshot,
-} from 'firebase/firestore';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { View } from 'react-native';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import { useTheme } from '../../../app/ProfileServices/ThemeContext';
-import { app } from '../../../firebaseConfig';
+import FilterButton from '../../components/FilterButton';
+import LocationSelector from '../../components/LocationSelector';
+import { useNotificationListeners } from '../../hooks/useNotificationListeners';
+import { LoadingComponent } from '../../IndexServices/components/LoadingComponent';
+import { MapMarkersComponent } from '../../IndexServices/components/MapMarkersComponent';
+import { SearchBarComponent } from '../../IndexServices/components/SearchBarComponent';
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
-import { calculateDistance } from '../../IndexServices/MapUtils';
+import { useFirestoreService } from '../../IndexServices/hooks/useFirestoreService';
+import { useLocationService } from '../../IndexServices/hooks/useLocationSevice';
+import { useMapInteractions } from '../../IndexServices/hooks/useMapInteractions';
+import { useModalState } from '../../IndexServices/hooks/useModalState';
+import { useSearchState } from '../../IndexServices/hooks/useSearchState';
+import { homeScreenStyles } from '../../IndexServices/styles/homeScreenStyles';
+import { darkMapStyle } from '../../IndexServices/styles/mapStyles';
+import { useDistanceCalculation } from '../../IndexServices/utils/distanceUtils';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventFilterButton from '../../MapButtons/EventFilterButton';
 import MyLocationButton from '../../MapButtons/MyLocationButton';
 import SearchInAreaButton from '../../MapButtons/SearchInAreaButton';
-import EventMarker from '../../components/EventMarker';
-import FilterButton from '../../components/FilterButton';
-import LocationSelector from '../../components/LocationSelector';
-import Searchbar, { SearchResult } from '../../components/Searchbar';
-import UserMarker from '../../components/UserMarker';
-import { useNotificationListeners } from '../../hooks/useNotificationListeners';
-
-const db = getFirestore(app);
-
-const darkMapStyle = [
-  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
-  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
-  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
-  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
-  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
-  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] }
-];
-
-
-interface SelectedEventType {
-  id: string;
-  latitude: number;
-  longitude: number;
-  event_date: string;
-  username: string;
-  event_title: string;
-  event_type: string;
-  description?: string;
-  location?: string;
-  owner_uid: string;
-  approved_users?: string[];
-}
-
-interface SelectedUserType {
-  uid: string;
-  username: string;
-  latitude: number;
-  longitude: number;
-  profile_image?: string;
-}
 
 export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);
-  const [region, setRegion] = useState<Region | null>(null);
-  const [users, setUsers] = useState<SelectedUserType[]>([]);
-  const [events, setEvents] = useState<SelectedEventType[]>([]);
-  const [displayDistance, setDisplayDistance] = useState(250);
-  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([
-    'hiking', 'trip', 'camping', 'beach', 'party', 'food', 'sport',
-    'culture', 'nature', 'nightlife',
-  ]);
-  const [currentLocation, setCurrentLocation] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<SelectedEventType | null>(null);
-  const [isChoosingLocation, setIsChoosingLocation] = useState(false);
-  const [distanceModalVisible, setDistanceModalVisible] = useState(false);
-  const [eventFilterModalVisible, setEventFilterModalVisible] = useState(false);
-  const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  const [currentUserUsername, setCurrentUserUsername] = useState('');
   const { isChoosingLocation: shouldChooseLocationParam } = useLocalSearchParams();
   const { theme } = useTheme();
 
-  const [searchbarResults, setSearchbarResults] = useState<SearchResult[]>([]);
-
-  const auth = getAuth();
-  const user = auth.currentUser;
-
-  const [searchCenter, setSearchCenter] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+  // Custom hooks
+  const { 
+    users, 
+    events, 
+    currentUserUsername, 
+    fetchCurrentUserUsername, 
+    fetchSingleEvent,
+    user 
+  } = useFirestoreService();
   
-  const [isSearchbarVisible, setIsSearchbarVisible] = useState(false);
+  const { 
+    currentLocation, 
+    fetchLocation, 
+    updateLocation 
+  } = useLocationService();
   
-  const [mapCenter, setMapCenter] = useState<Region | null>(null);
-  const [isOutOfRange, setIsOutOfRange] = useState(false);
-  const [isCustomSearch, setIsCustomSearch] = useState(false);
+  const {
+    region,
+    setRegion,
+    mapCenter,
+    handleMapPress,
+    handleRegionChangeComplete,
+    animateToRegion,
+    handleSearchInArea
+  } = useMapInteractions();
+
+  const {
+    selectedEvent,
+    setSelectedEvent,
+    isChoosingLocation,
+    setIsChoosingLocation,
+    distanceModalVisible,
+    setDistanceModalVisible,
+    eventFilterModalVisible,
+    setEventFilterModalVisible,
+    isFilterMenuVisible,
+    closeAllModals,
+    handleDistanceFilterPress,
+    handleEventFilterPress,
+    handleToggleFilterMenu,
+    handleAddEventPress,
+    handleCancelLocationSelection
+  } = useModalState();
+
+  const {
+    searchCenter,
+    setSearchCenter,
+    isSearchbarVisible,
+    setIsSearchbarVisible,
+    searchbarResults,
+    setSearchbarResults,
+    isCustomSearch,
+    setIsCustomSearch,
+    displayDistance,
+    setDisplayDistance,
+    selectedEventTypes,
+    setSelectedEventTypes,
+    getCurrentSearchCenter,
+    getCurrentSearchDistance,
+    getVisibleEvents,
+    getVisibleUsers,
+    handleSelectSearchResult,
+    handleCloseSearchbar,
+    resetCustomSearch
+  } = useSearchState();
+
+  const { isOutOfRange } = useDistanceCalculation();
 
   useNotificationListeners(user);
 
-  const deletePin = useCallback(async (pinId: string) => {
-    try {
-      const pinDocRef = doc(db, 'pins', pinId);
-      await deleteDoc(pinDocRef);
-      console.log(`Pin ${pinId} deleted successfully from Firestore.`);
-    } catch (error) {
-      console.error(`Error deleting pin ${pinId} from Firestore:`, error);
-      Alert.alert('שגיאה', 'אירעה שגיאה במחיקת האירוע.');
-    }
-  }, []);
+  // Computed values
+  const currentSearchCenter = useMemo(() => 
+    getCurrentSearchCenter(currentLocation, mapCenter), 
+    [getCurrentSearchCenter, currentLocation, mapCenter]
+  );
 
-  const fetchCurrentUserUsername = useCallback(async () => {
-    if (!user) {
-      setCurrentUserUsername('');
-      return;
-    }
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
+  const currentSearchDistance = useMemo(() => 
+    getCurrentSearchDistance(), 
+    [getCurrentSearchDistance]
+  );
 
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        if (userData && userData.username) {
-          setCurrentUserUsername(userData.username);
-        } else {
-          console.warn('Current user username not found in Firestore.');
-          setCurrentUserUsername('');
-        }
-      } else {
-        console.warn('Current user document not found in Firestore.');
-        setCurrentUserUsername('');
-      }
-    } catch (error) {
-      console.error('Error fetching current user username from Firestore:', error);
-      setCurrentUserUsername('');
-    }
-  }, [user]);
+  const visibleEvents = useMemo(() => 
+    getVisibleEvents(events, currentSearchCenter, currentSearchDistance, selectedEventTypes),
+    [getVisibleEvents, events, currentSearchCenter, currentSearchDistance, selectedEventTypes]
+  );
 
-  const fetchLocation = useCallback(async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      console.warn('Permission to access location was denied');
-      Alert.alert(
-        'הרשאה נדחתה',
-        'לא ניתנה הרשאה לגישה למיקום. ייתכן שהמפה לא תפעל כראוי.'
-      );
-      return;
-    }
-    try {
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-      setRegion({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-      });
-      setSearchCenter(null);
-    } catch (error) {
-      console.error('Error fetching current location:', error);
-      Alert.alert('שגיאה', 'לא ניתן לטעון את המיקום הנוכחי.');
-    }
-  }, []);
+  const visibleUsers = useMemo(() => 
+    getVisibleUsers(users, currentSearchCenter, currentSearchDistance, user?.uid),
+    [getVisibleUsers, users, currentSearchCenter, currentSearchDistance, user?.uid]
+  );
 
+  const isOutOfRangeResult = useMemo(() => 
+    isOutOfRange(currentLocation, mapCenter, displayDistance),
+    [isOutOfRange, currentLocation, mapCenter, displayDistance]
+  );
+
+  // Effect hooks
   useEffect(() => {
     if (shouldChooseLocationParam === 'true') {
       setIsChoosingLocation(true);
     }
-  }, [shouldChooseLocationParam]);
+  }, [shouldChooseLocationParam, setIsChoosingLocation]);
 
   useEffect(() => {
     const loadInitialData = async () => {
-      await fetchLocation();
+      const location = await fetchLocation();
       await fetchCurrentUserUsername();
+      
+      // Set initial region if location was fetched successfully
+      if (location) {
+        setRegion({
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        });
+      }
+      
       setInitialDataLoaded(true);
     };
 
     loadInitialData();
-  }, [fetchLocation, fetchCurrentUserUsername]);
-  
-  useEffect(() => {
-    if (currentLocation && mapCenter) {
-      const distance = calculateDistance(
-        currentLocation.latitude,
-        currentLocation.longitude,
-        mapCenter.latitude,
-        mapCenter.longitude
-      );
-      setIsOutOfRange(distance > displayDistance);
-    } else {
-      setIsOutOfRange(false);
-    }
-  }, [mapCenter, currentLocation, displayDistance]);
+  }, [fetchLocation, fetchCurrentUserUsername, setRegion]);
 
-  useEffect(() => {
-    const usersCollection = collection(db, 'users');
-    const unsubscribeUsers = onSnapshot(usersCollection, (snapshot) => {
-      const usersData: SelectedUserType[] = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (data.latitude != null && data.longitude != null) {
-          usersData.push({
-            uid: doc.id,
-            username: data.username,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            profile_image: data.profile_image || null,
-          });
-        }
-      });
-      setUsers(usersData);
-    }, (error) => {
-      console.error("Error fetching users from Firestore:", error);
-      Alert.alert('שגיאה', 'לא ניתן לטעון משתמשים.');
-    });
-
-    const pinsCollection = collection(db, 'pins');
-    const unsubscribePins = onSnapshot(pinsCollection, (snapshot) => {
-      const pins: SelectedEventType[] = [];
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      snapshot.forEach((doc) => {
-        const pinData = doc.data() as Omit<SelectedEventType, 'id'>;
-        const pinId = doc.id;
-        const eventDate = new Date(pinData.event_date);
-
-        if (todayStart.getTime() > eventDate.getTime()) {
-          deleteDoc(doc.ref)
-            .then(() => console.log(`Event ${pinId} has expired and was deleted.`))
-            .catch(error => console.error(`Error deleting expired pin ${pinId}:`, error));
-        } else {
-          pins.push({
-            id: pinId,
-            latitude: pinData.latitude,
-            longitude: pinData.longitude,
-            event_date: pinData.event_date,
-            username: pinData.username,
-            event_title: pinData.event_title,
-            event_type: pinData.event_type,
-            description: pinData.description,
-            location: pinData.location,
-            owner_uid: pinData.owner_uid,
-            approved_users: pinData.approved_users || [],
-          });
-        }
-      });
-      setEvents(pins);
-    }, (error) => {
-      console.error('Error fetching pins from Firestore:', error);
-      Alert.alert('שגיאה', 'לא ניתן לטעון אירועים.');
-    });
-
-    return () => {
-      unsubscribeUsers();
-      unsubscribePins();
-    };
-  }, []);
-
-  const currentSearchCenter = useMemo(() => {
-    if (isCustomSearch) {
-      return mapCenter;
-    }
-    return currentLocation;
-  }, [isCustomSearch, mapCenter, currentLocation]);
-
-  const currentSearchDistance = useMemo(() => {
-    if (isCustomSearch) {
-      return 100;
-    }
-    return displayDistance;
-  }, [isCustomSearch, displayDistance]);
-
-  const visibleEvents = useMemo(() => {
-    if (!currentSearchCenter) return events;
-    return events.filter((ev) => {
-      const withinDistance =
-        calculateDistance(
-          currentSearchCenter.latitude,
-          currentSearchCenter.longitude,
-          ev.latitude,
-          ev.longitude
-        ) <= currentSearchDistance;
-      const eventTypeMatches = selectedEventTypes.includes(ev.event_type);
-      return withinDistance && eventTypeMatches;
-    });
-  }, [events, currentSearchCenter, currentSearchDistance, selectedEventTypes]);
-
-  const visibleUsers = useMemo(() => {
-    if (!currentSearchCenter) return users;
-    return users.filter(
-      (u) =>
-        u.uid !== user?.uid &&
-        calculateDistance(
-          currentSearchCenter.latitude,
-          currentSearchCenter.longitude,
-          u.latitude,
-          u.longitude
-        ) <= currentSearchDistance
-    );
-  }, [users, currentSearchCenter, currentSearchDistance, user?.uid]);
-
-
-  const handleAddEventPress = useCallback(() => {
-    setDistanceModalVisible(false);
-    setEventFilterModalVisible(false);
-    setIsFilterMenuVisible(false);
-    setSearchbarResults([]);
-    Keyboard.dismiss();
-    setTimeout(() => {
-      setIsChoosingLocation(true);
-    }, 500);
-  }, []);
-
-  const handleCancelLocationSelection = useCallback(() => {
-    setIsChoosingLocation(false);
-  }, []);
-
-  const handleDistanceFilterPress = useCallback(() => {
-    setDistanceModalVisible(true);
-    setEventFilterModalVisible(false);
-    setSelectedEvent(null);
-  }, []);
-
-  const handleEventFilterPress = useCallback(() => {
-    setEventFilterModalVisible(true);
-    setDistanceModalVisible(false);
-    setSelectedEvent(null);
-  }, []);
-
+  // Event handlers
   const handleLocationUpdate = useCallback(
     (location: { latitude: number; longitude: number }) => {
       console.log('Updating location:', location);
-      setCurrentLocation(location);
-      setIsCustomSearch(false);
-      
-      const newRegion = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-      };
-
-      setRegion(newRegion);
-
-      if (mapRef.current) {
-        mapRef.current.animateToRegion(newRegion, 1000);
-      }
+      updateLocation(location);
+      animateToRegion(mapRef, location, resetCustomSearch);
     },
-    []
+    [updateLocation, animateToRegion, resetCustomSearch]
   );
 
   const handleMarkerPress = useCallback(
     async (pinId: string) => {
-      try {
-        const pinDocRef = doc(db, 'pins', pinId);
-        const pinDocSnap = await getDoc(pinDocRef);
-
-        if (pinDocSnap.exists()) {
-          const pinData = pinDocSnap.data() as Omit<SelectedEventType, 'id'>;
-          setSelectedEvent({
-            id: pinId,
-            latitude: pinData.latitude,
-            longitude: pinData.longitude,
-            event_date: pinData.event_date,
-            username: pinData.username,
-            event_title: pinData.event_title,
-            event_type: pinData.event_type,
-            description: pinData.description,
-            location: pinData.location,
-            owner_uid: pinData.owner_uid,
-            approved_users: pinData.approved_users || [],
-          });
-          console.log('Fetched single event data:', {
-            id: pinId,
-            ...pinData,
-          });
-          setDistanceModalVisible(false);
-          setEventFilterModalVisible(false);
-          setIsFilterMenuVisible(false);
-        } else {
-          console.warn('Pin document not found in Firestore.');
-          setSelectedEvent(null);
-        }
-      } catch (error) {
-        console.error('Error fetching single pin from Firestore:', error);
-        setSelectedEvent(null);
+      const eventData = await fetchSingleEvent(pinId);
+      if (eventData) {
+        setSelectedEvent(eventData);
+        console.log('Fetched single event data:', eventData);
+        closeAllModals();
       }
     },
-    []
+    [fetchSingleEvent, setSelectedEvent, closeAllModals]
   );
 
-  const handleCloseSearchbar = useCallback(() => {
-      setIsSearchbarVisible(false);
-      setSearchbarResults([]);
-      Keyboard.dismiss();
-  }, []);
-
-  const handleMapPress = useCallback((event: any) => {
-    if (isChoosingLocation) {
-        const { coordinate } = event.nativeEvent;
-        router.push({
-            pathname: '/IndexServices/CreateEventPage',
-            params: { 
-                latitude: coordinate.latitude,
-                longitude: coordinate.longitude
-            },
-        });
-        setIsChoosingLocation(false);
-    } else {
-      handleCloseSearchbar();
-      setDistanceModalVisible(false);
-      setEventFilterModalVisible(false);
-      setIsFilterMenuVisible(false);
-      setSelectedEvent(null);
-      setIsCustomSearch(false);
-    }
-  }, [isChoosingLocation, user, handleCloseSearchbar]);
-
-  const handleSelectSearchResult = useCallback(
-    (latitude: number, longitude: number) => {
-      setSearchCenter({ latitude, longitude });
-      setIsCustomSearch(true);
-      setRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.5,
-        longitudeDelta: 0.5,
-      });
-      if (mapRef.current) {
-        mapRef.current.animateToRegion(
-          {
-            latitude,
-            longitude,
-            latitudeDelta: 0.5,
-            longitudeDelta: 0.5,
-          },
-          1000
-        );
-      }
-      handleCloseSearchbar();
-    },
-    [handleCloseSearchbar]
-  );
-  
-  const handleRegionChangeComplete = useCallback((newRegion: Region) => {
-    setMapCenter(newRegion);
-  }, []);
-  
-  const handleSearchInArea = useCallback(() => {
-    if (mapCenter) {
-      setSearchCenter(mapCenter);
-      setIsCustomSearch(true);
-    }
-  }, [mapCenter]);
-
-  const handleToggleFilterMenu = useCallback(() => {
-    setIsFilterMenuVisible(prev => !prev);
-  }, []);
-
-  if (!initialDataLoaded || !region) {
-    return (
-      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.text }]}>📡 טוען מפה...</Text>
-      </View>
+  const handleMapPressInternal = useCallback((event: any) => {
+    handleMapPress(
+      event,
+      isChoosingLocation,
+      closeAllModals,
+      handleCloseSearchbar,
+      resetCustomSearch
     );
+    if (isChoosingLocation) {
+      setIsChoosingLocation(false);
+    }
+  }, [handleMapPress, isChoosingLocation, closeAllModals, handleCloseSearchbar, resetCustomSearch, setIsChoosingLocation]);
+
+  const handleSelectSearchResultInternal = useCallback(
+    (latitude: number, longitude: number) => {
+      handleSelectSearchResult(latitude, longitude, setRegion, mapRef);
+    },
+    [handleSelectSearchResult, setRegion]
+  );
+
+  const handleSearchInAreaInternal = useCallback(() => {
+    handleSearchInArea(mapCenter, setSearchCenter, setIsCustomSearch);
+  }, [handleSearchInArea, mapCenter, setSearchCenter, setIsCustomSearch]);
+
+  // Loading state
+  if (!initialDataLoaded || !region) {
+    return <LoadingComponent />;
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <View style={styles.searchContainer}>
-        {isSearchbarVisible ? (
-          <Searchbar
-            onSelectResult={handleSelectSearchResult}
-            results={searchbarResults}
-            setResults={setSearchbarResults}
-            onFocus={() => {}}
-            onClose={handleCloseSearchbar}
-          />
-        ) : (
-          <TouchableOpacity
-            style={[styles.searchButton, { backgroundColor: theme.colors.primary }]}
-            onPress={() => setIsSearchbarVisible(true)}
-          >
-            <Ionicons name="search" size={24} color="#fff" />
-          </TouchableOpacity>
-        )}
+      <View style={homeScreenStyles.searchContainer}>
+        <SearchBarComponent
+          isSearchbarVisible={isSearchbarVisible}
+          searchbarResults={searchbarResults}
+          setSearchbarResults={setSearchbarResults}
+          onSelectResult={handleSelectSearchResultInternal}
+          onClose={handleCloseSearchbar}
+          onOpen={() => setIsSearchbarVisible(true)}
+        />
       </View>
 
       <MapView
@@ -519,37 +228,28 @@ export default function HomeScreen() {
         userLocationPriority="high"
         userLocationUpdateInterval={5000}
         customMapStyle={theme.isDark ? darkMapStyle : []}
-        onPress={handleMapPress}
+        onPress={handleMapPressInternal}
         onUserLocationChange={(event) => {
           const coordinate = event.nativeEvent.coordinate;
           if (coordinate) {
             const { latitude, longitude } = coordinate;
-            setCurrentLocation({ latitude, longitude });
+            updateLocation({ latitude, longitude });
           }
         }}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
-        {visibleEvents.map((event) => (
-          <EventMarker
-            key={event.id}
-            event={event}
-            onPress={(id) => handleMarkerPress(id)}
-          />
-        ))}
-        {visibleUsers.map((userMarker) => (
-          <UserMarker
-            key={userMarker.uid}
-            user={userMarker}
-            currentUserUid={user?.uid}
-            onPress={(u) => {
-              setSelectedEvent(null);
-              router.push({ pathname: '/ProfileServices/OtherUser/OtherUserProfile', params: { uid: u.uid } });
-            }}
-          />
-        ))}
+        <MapMarkersComponent
+          visibleEvents={visibleEvents}
+          visibleUsers={visibleUsers}
+          currentUserUid={user?.uid}
+          onEventMarkerPress={handleMarkerPress}
+        />
       </MapView>
       
-      <SearchInAreaButton isVisible={isOutOfRange && !isCustomSearch} onPress={handleSearchInArea} />
+      <SearchInAreaButton 
+        isVisible={isOutOfRangeResult && !isCustomSearch} 
+        onPress={handleSearchInAreaInternal} 
+      />
 
       <FilterButton
         displayDistance={displayDistance}
@@ -593,36 +293,3 @@ export default function HomeScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
-  searchContainer: {
-    position: 'absolute',
-    top: 55,
-    right: 15,
-    left: 15,
-    zIndex: 11,
-    alignItems: 'flex-end',
-  },
-  searchButton: {
-    backgroundColor: '#3A8DFF',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-});
