@@ -24,8 +24,11 @@ const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
     <Marker
       key={event.id}
       coordinate={{ latitude: event.latitude, longitude: event.longitude }}
-      onPress={() => onPress(event.id)}
-    >
+      onPress={() => {
+        console.log('Event Marker Tapped:', event.id);
+        onPress(event.id);
+      }}
+      >
       <View style={styles.markerContainer}>
         <Ionicons name={icon as any} size={30} color={iconColor} />
       </View>

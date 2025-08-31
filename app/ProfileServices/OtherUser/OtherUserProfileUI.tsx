@@ -19,7 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import LikeableImage from '../../IndexServices/GalleryServices/LikeableImage';
+import LikeableImage from '../../ProfileServices/GalleryServices/LikeableImage';
 import { RootStackParamList } from '../../types';
 import { useTheme } from '../ThemeContext';
 import { useOtherUserProfile } from './useOtherUserProfile';

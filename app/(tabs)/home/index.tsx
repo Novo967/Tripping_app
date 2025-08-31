@@ -169,7 +169,6 @@ export default function HomeScreen() {
       if (eventData) {
         setSelectedEvent(eventData);
         console.log('Fetched single event data:', eventData);
-        closeAllModals();
       }
     },
     [fetchSingleEvent, setSelectedEvent, closeAllModals]
