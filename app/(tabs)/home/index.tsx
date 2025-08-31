@@ -20,6 +20,7 @@ import { calculateDistance } from '../../IndexServices/MapUtils';
 import DistanceFilterButton from '../../MapButtons/DistanceFilterButton';
 import EventFilterButton from '../../MapButtons/EventFilterButton';
 import MyLocationButton from '../../MapButtons/MyLocationButton';
+import SearchInAreaButton from '../../MapButtons/SearchInAreaButton';
 import EventMarker from '../../components/EventMarker';
 import FilterButton from '../../components/FilterButton';
 import LocationSelector from '../../components/LocationSelector';
@@ -98,7 +99,7 @@ export default function HomeScreen() {
   const { theme } = useTheme();
 
   const [searchbarResults, setSearchbarResults] = useState<SearchResult[]>([]);
-  
+
   const auth = getAuth();
   const user = auth.currentUser;
 
@@ -106,8 +107,12 @@ export default function HomeScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
-
+  
   const [isSearchbarVisible, setIsSearchbarVisible] = useState(false);
+  
+  const [mapCenter, setMapCenter] = useState<Region | null>(null);
+  const [isOutOfRange, setIsOutOfRange] = useState(false);
+  const [isCustomSearch, setIsCustomSearch] = useState(false);
 
   useNotificationListeners(user);
 
@@ -192,6 +197,20 @@ export default function HomeScreen() {
 
     loadInitialData();
   }, [fetchLocation, fetchCurrentUserUsername]);
+  
+  useEffect(() => {
+    if (currentLocation && mapCenter) {
+      const distance = calculateDistance(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        mapCenter.latitude,
+        mapCenter.longitude
+      );
+      setIsOutOfRange(distance > displayDistance);
+    } else {
+      setIsOutOfRange(false);
+    }
+  }, [mapCenter, currentLocation, displayDistance]);
 
   useEffect(() => {
     const usersCollection = collection(db, 'users');
@@ -258,36 +277,48 @@ export default function HomeScreen() {
     };
   }, []);
 
+  const currentSearchCenter = useMemo(() => {
+    if (isCustomSearch) {
+      return mapCenter;
+    }
+    return currentLocation;
+  }, [isCustomSearch, mapCenter, currentLocation]);
+
+  const currentSearchDistance = useMemo(() => {
+    if (isCustomSearch) {
+      return 100;
+    }
+    return displayDistance;
+  }, [isCustomSearch, displayDistance]);
+
   const visibleEvents = useMemo(() => {
-    const center = searchCenter || currentLocation;
-    if (!center) return events;
+    if (!currentSearchCenter) return events;
     return events.filter((ev) => {
       const withinDistance =
         calculateDistance(
-          center.latitude,
-          center.longitude,
+          currentSearchCenter.latitude,
+          currentSearchCenter.longitude,
           ev.latitude,
           ev.longitude
-        ) <= displayDistance;
+        ) <= currentSearchDistance;
       const eventTypeMatches = selectedEventTypes.includes(ev.event_type);
       return withinDistance && eventTypeMatches;
     });
-  }, [events, currentLocation, displayDistance, selectedEventTypes, searchCenter]);
+  }, [events, currentSearchCenter, currentSearchDistance, selectedEventTypes]);
 
   const visibleUsers = useMemo(() => {
-    const center = searchCenter || currentLocation;
-    if (!center) return users;
+    if (!currentSearchCenter) return users;
     return users.filter(
       (u) =>
         u.uid !== user?.uid &&
         calculateDistance(
-          center.latitude,
-          center.longitude,
+          currentSearchCenter.latitude,
+          currentSearchCenter.longitude,
           u.latitude,
           u.longitude
-        ) <= displayDistance
+        ) <= currentSearchDistance
     );
-  }, [users, currentLocation, displayDistance, searchCenter, user?.uid]);
+  }, [users, currentSearchCenter, currentSearchDistance, user?.uid]);
 
 
   const handleAddEventPress = useCallback(() => {
@@ -321,7 +352,7 @@ export default function HomeScreen() {
     (location: { latitude: number; longitude: number }) => {
       console.log('Updating location:', location);
       setCurrentLocation(location);
-      setSearchCenter(null);
+      setIsCustomSearch(false);
       
       const newRegion = {
         latitude: location.latitude,
@@ -402,13 +433,14 @@ export default function HomeScreen() {
       setEventFilterModalVisible(false);
       setIsFilterMenuVisible(false);
       setSelectedEvent(null);
-      setSearchCenter(null);
+      setIsCustomSearch(false);
     }
   }, [isChoosingLocation, user, handleCloseSearchbar]);
 
   const handleSelectSearchResult = useCallback(
     (latitude: number, longitude: number) => {
       setSearchCenter({ latitude, longitude });
+      setIsCustomSearch(true);
       setRegion({
         latitude,
         longitude,
@@ -426,10 +458,21 @@ export default function HomeScreen() {
           1000
         );
       }
-      handleCloseSearchbar(); // קריאה לפונקציית הסגירה במקום להגדיר מצב פה
+      handleCloseSearchbar();
     },
     [handleCloseSearchbar]
   );
+  
+  const handleRegionChangeComplete = useCallback((newRegion: Region) => {
+    setMapCenter(newRegion);
+  }, []);
+  
+  const handleSearchInArea = useCallback(() => {
+    if (mapCenter) {
+      setSearchCenter(mapCenter);
+      setIsCustomSearch(true);
+    }
+  }, [mapCenter]);
 
   const handleToggleFilterMenu = useCallback(() => {
     setIsFilterMenuVisible(prev => !prev);
@@ -453,7 +496,7 @@ export default function HomeScreen() {
             results={searchbarResults}
             setResults={setSearchbarResults}
             onFocus={() => {}}
-            onClose={handleCloseSearchbar} // העברת הפונקציה כפרופ
+            onClose={handleCloseSearchbar}
           />
         ) : (
           <TouchableOpacity
@@ -484,6 +527,7 @@ export default function HomeScreen() {
             setCurrentLocation({ latitude, longitude });
           }
         }}
+        onRegionChangeComplete={handleRegionChangeComplete}
       >
         {visibleEvents.map((event) => (
           <EventMarker
@@ -504,6 +548,8 @@ export default function HomeScreen() {
           />
         ))}
       </MapView>
+      
+      <SearchInAreaButton isVisible={isOutOfRange && !isCustomSearch} onPress={handleSearchInArea} />
 
       <FilterButton
         displayDistance={displayDistance}

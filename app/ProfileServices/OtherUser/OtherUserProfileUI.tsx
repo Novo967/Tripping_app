@@ -6,7 +6,6 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
-  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -20,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import LikeableImage from '../../IndexServices/GalleryServices/LikeableImage';
 import { RootStackParamList } from '../../types';
 import { useTheme } from '../ThemeContext';
 import { useOtherUserProfile } from './useOtherUserProfile';
@@ -46,12 +46,8 @@ const OtherUserProfileUI = () => {
     loading,
     modalVisible,
     selectedImageIndex,
-    imageLikes,
-    likeLoading,
-    likeScaleAnim,
     openImageModal,
     closeImageModal,
-    handleLike,
     formatJoinDate,
   } = useOtherUserProfile(uid);
 
@@ -67,58 +63,34 @@ const OtherUserProfileUI = () => {
   };
 
   const renderGalleryImage = ({ item, index }: { item: string; index: number }) => {
-    const key = `${uid}_${index}`;
-    const likesData = imageLikes[key] || { isLiked: false, count: 0 };
-    const { isLiked, count } = likesData;
-
-    if (!likeScaleAnim.current[key]) {
-      likeScaleAnim.current[key] = new Animated.Value(1);
-    }
-    const scaleAnim = likeScaleAnim.current[key];
-
+    const reversedIndex = userData.galleryImages.length - 1 - index;
+    
     return (
-      <TouchableOpacity
+      <View
         style={[
           styles.galleryItem,
           {
             marginLeft: (index % GALLERY_COLUMNS) === (GALLERY_COLUMNS - 1) ? 0 : GALLERY_SPACING,
             marginBottom: GALLERY_SPACING,
+            transform: [{ scaleX: -1 }],
           },
         ]}
-        onPress={() => openImageModal(index)}
       >
-        <Image
-          source={{ uri: item }}
-          style={styles.galleryImage}
+        <LikeableImage
+          imageUri={item}
+          imageIndex={reversedIndex}
+          profileOwnerId={uid}
+          style={styles.likeableImageStyle}
+          onPress={() => openImageModal(reversedIndex)}
+          showLikeButton={true}
+          onPressDisabled={false}
         />
-        <View style={styles.likeOverlay}>
-          <TouchableOpacity
-            style={styles.likeButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleLike(index, item);
-            }}
-            disabled={likeLoading[key]}
-          >
-            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-              <Ionicons
-                name={'heart'}
-                size={18}
-                color={isLiked ? '#FF3B30' : '#FFF'}
-                style={isLiked ? null : styles.iconShadow}
-              />
-            </Animated.View>
-            {count > 0 && (
-              <Text style={styles.likeCount}>{count}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
         {index === 8 && userData.galleryImages.length > 9 && (
           <View style={styles.moreImagesOverlay}>
             <Text style={styles.moreImagesText}>+{userData.galleryImages.length - 9}</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -261,7 +233,7 @@ const OtherUserProfileUI = () => {
                 showsVerticalScrollIndicator={false}
                 renderItem={({ item, index }) => renderGalleryImage({
                   item,
-                  index: userData.galleryImages.length - 1 - index,
+                  index,
                 })}
                 contentContainerStyle={styles.galleryContent}
                 style={styles.galleryList}
@@ -365,8 +337,8 @@ const styles = StyleSheet.create({
   galleryContainer: { paddingHorizontal: 4 },
   galleryContent: { paddingTop: 0 },
   galleryList: { transform: [{ scaleX: -1 }] },
-  galleryItem: { width: galleryItemSize, height: galleryItemSize, position: 'relative', transform: [{ scaleX: -1 }] },
-  galleryImage: { width: '100%', height: '100%', borderRadius: 8 },
+  galleryItem: { width: galleryItemSize, height: galleryItemSize, position: 'relative' },
+  likeableImageStyle: { width: '100%', height: '100%', borderRadius: 8 },
   moreImagesOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   moreImagesText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
   noImagesContainer: { alignItems: 'center', paddingVertical: 40 },
@@ -380,8 +352,4 @@ const styles = StyleSheet.create({
   imageCounter: { position: 'absolute', bottom: 80, alignSelf: 'center', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
   imageCounterText: { color: 'white', fontSize: 15, fontWeight: 'bold' },
   closeButton: { position: 'absolute', top: 50, left: 20, zIndex: 1 },
-  likeOverlay: { position: 'absolute', bottom: 8, right: 8 },
-  likeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center',  borderRadius: 15 },
-  likeCount: { color: '#FFF', fontSize: 11, fontWeight: '500', marginLeft: 4, textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
-  iconShadow: { textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
 });

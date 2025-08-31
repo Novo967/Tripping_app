@@ -1,23 +1,13 @@
 // app/IndexServices/GalleyrServices/useGallery.ts
 
 import * as ImagePicker from 'expo-image-picker';
-import { arrayRemove, arrayUnion, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, getStorage, listAll, ref, uploadBytes } from 'firebase/storage';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import { auth, db } from '../../../firebaseConfig';
+import { auth } from '../../../firebaseConfig';
 
 const GALLERY_STORAGE_PATH = 'gallery_images';
-const LIKES_COLLECTION = 'imageLikes';
 const storage = getStorage();
-
-interface LikesData {
-  [key: string]: number;
-}
-
-interface IsLikedData {
-  [key: string]: boolean;
-}
 
 export const useGallery = () => {
   const [user, setUser] = useState(auth.currentUser);
@@ -26,8 +16,6 @@ export const useGallery = () => {
   const [longPressActive, setLongPressActive] = useState(false);
   const [firebaseGalleryImages, setFirebaseGalleryImages] = useState<string[]>([]);
   const [loadingGallery, setLoadingGallery] = useState(true);
-  const [likesData, setLikesData] = useState<LikesData>({});
-  const [isLikedData, setIsLikedData] = useState<IsLikedData>({});
 
   // הוספת האזנה למצב ההתחברות של המשתמש
   useEffect(() => {
@@ -38,42 +26,10 @@ export const useGallery = () => {
       } else {
         setFirebaseGalleryImages([]);
         setLoadingGallery(false);
-        setLikesData({});
-        setIsLikedData({});
       }
     });
     return () => unsubscribe();
   }, []);
-
-  const fetchLikesData = useCallback(async (imageUrls: string[]) => {
-    const newLikesData: LikesData = {};
-    const newIsLikedData: IsLikedData = {};
-    if (!user) return;
-
-    const currentUserId = user.uid;
-    const itemsWithIndices = imageUrls.map((url, index) => ({ url, index }));
-
-    for (const { url, index } of itemsWithIndices) {
-      try {
-        const imageDocRef = doc(db, LIKES_COLLECTION, `${user.uid}_${index}`);
-        const imageDoc = await getDoc(imageDocRef);
-
-        if (imageDoc.exists()) {
-          const data = imageDoc.data();
-          const likes = data.likes || [];
-          newLikesData[url] = likes.length;
-          newIsLikedData[url] = likes.includes(currentUserId);
-        } else {
-          newLikesData[url] = 0;
-          newIsLikedData[url] = false;
-        }
-      } catch (error) {
-        console.error(`Error fetching likes for image ${index}:`, error);
-      }
-    }
-    setLikesData(newLikesData);
-    setIsLikedData(newIsLikedData);
-  }, [user]);
 
   const fetchFirebaseGalleryImages = useCallback(async () => {
     if (!user) {
@@ -91,19 +47,13 @@ export const useGallery = () => {
         res.items.map((itemRef) => getDownloadURL(itemRef))
       );
       setFirebaseGalleryImages(urls);
-      await fetchLikesData(urls);
     } catch (error) {
       console.error('Error fetching gallery images from Firebase Storage:', error);
       Alert.alert('שגיאה', 'אירעה שגיאה בטעינת התמונות מהגלריה.');
     } finally {
       setLoadingGallery(false);
     }
-  }, [user, fetchLikesData]);
-
-  // אין צורך ב-useEffect נפרד, כי הכל מטופל כבר ב-onAuthStateChanged
-  // useEffect(() => {
-  //   fetchFirebaseGalleryImages();
-  // }, [fetchFirebaseGalleryImages]);
+  }, [user]);
 
   const uploadImageToFirebaseStorage = async (uri: string) => {
     if (!user) {
@@ -162,7 +112,6 @@ export const useGallery = () => {
       if (newImageUrl) {
         const updatedImages = [...firebaseGalleryImages, newImageUrl];
         setFirebaseGalleryImages(updatedImages);
-        await fetchLikesData(updatedImages);
       }
     } catch (error: any) {
       console.error('Error picking or uploading image:', error);
@@ -210,7 +159,6 @@ export const useGallery = () => {
               setFirebaseGalleryImages(updatedImages);
               setSelectedImages(new Set());
               setLongPressActive(false);
-              await fetchLikesData(updatedImages);
             } catch (error) {
               console.error('שגיאה במחיקת תמונות:', error);
               Alert.alert('שגיאה', 'אירעה שגיאה במחיקת התמונות. אנא נסה שוב.');
@@ -236,54 +184,12 @@ export const useGallery = () => {
     handleToggleSelect(index);
   }, [handleToggleSelect]);
 
-  const handleLike = async (imageUri: string, imageIndex: number) => {
-    if (!user) {
-      Alert.alert('שגיאה', 'עליך להתחבר כדי לאהוב תמונות');
-      return;
-    }
-
-    const currentUserId = user.uid;
-    const isCurrentlyLiked = isLikedData[imageUri];
-    const imageDocRef = doc(db, LIKES_COLLECTION, `${user.uid}_${imageIndex}`);
-
-    try {
-      setLikesData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked ? prev[imageUri] - 1 : prev[imageUri] + 1 }));
-      setIsLikedData(prev => ({ ...prev, [imageUri]: !isCurrentlyLiked }));
-
-      if (!isCurrentlyLiked) {
-        const existingDoc = await getDoc(imageDocRef);
-        if (!existingDoc.exists()) {
-          await setDoc(imageDocRef, {
-            likes: [currentUserId],
-            imageUri,
-            profileOwnerId: user.uid,
-            imageIndex,
-            lastUpdated: new Date().toISOString(),
-          });
-        } else {
-          await updateDoc(imageDocRef, {
-            likes: arrayUnion(currentUserId),
-            lastUpdated: new Date().toISOString(),
-          });
-        }
-      } else {
-        await updateDoc(imageDocRef, {
-          likes: arrayRemove(currentUserId),
-          lastUpdated: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error('Error updating like:', error);
-      setLikesData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked ? prev[imageUri] + 1 : prev[imageUri] - 1 }));
-      setIsLikedData(prev => ({ ...prev, [imageUri]: isCurrentlyLiked }));
-      Alert.alert('שגיאה', 'לא הצלחנו לעדכן את הלייק');
-    }
-  };
-
   const clearSelection = useCallback(() => {
     setSelectedImages(new Set());
     setLongPressActive(false);
   }, []);
+
+  const profileOwnerId = user?.uid || '';
 
   return {
     uploading,
@@ -291,13 +197,11 @@ export const useGallery = () => {
     longPressActive,
     firebaseGalleryImages,
     loadingGallery,
-    likesData,
-    isLikedData,
     handlePickImage,
     handleDeleteSelected,
     handleToggleSelect,
     handleLongPressStart,
-    handleLike,
-    clearSelection
+    clearSelection,
+    profileOwnerId,
   };
 };

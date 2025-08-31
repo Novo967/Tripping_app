@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Image,
   ListRenderItemInfo,
   StyleSheet,
   Text,
@@ -16,7 +15,8 @@ import {
   View,
 } from 'react-native';
 import { useTheme } from '../../ProfileServices/ThemeContext';
-import { useGallery } from './useGallery'; // ייבוא ה-hook החדש
+import { LikeableImage } from './LikeableImage';
+import { useGallery } from './useGallery';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GALLERY_IMAGE_SIZE = (SCREEN_WIDTH - 32 - 4) / 3;
@@ -33,14 +33,12 @@ export default function Gallery({ onImagePress }: Props) {
     longPressActive,
     firebaseGalleryImages,
     loadingGallery,
-    likesData,
-    isLikedData,
     handlePickImage,
     handleDeleteSelected,
     handleToggleSelect,
     handleLongPressStart,
-    handleLike,
     clearSelection,
+    profileOwnerId,
   } = useGallery();
 
   const handleItemPress = (index: number, isAddButton: boolean) => {
@@ -69,7 +67,7 @@ export default function Gallery({ onImagePress }: Props) {
         {
           backgroundColor: theme.isDark ? '#1F2937' : '#F8FAFF',
           borderColor: theme.isDark ? '#374151' : '#E5E7EB',
-        }
+        },
       ]}
       onPress={() => handleItemPress(-1, true)}
       disabled={uploading}
@@ -92,32 +90,18 @@ export default function Gallery({ onImagePress }: Props) {
 
   const renderGalleryImage = ({ item, index }: ListRenderItemInfo<string>) => {
     const isSelected = selectedImages.has(index);
-    const likeCount = likesData[item] || 0;
-    const isLiked = isLikedData[item];
 
     return (
-      <TouchableOpacity
-        style={[
-          styles.galleryItem,
-          { backgroundColor: theme.colors.surface },
-          isSelected && { opacity: 0.7 },
-        ]}
-        onPress={() => handleItemPress(index, false)}
-        onLongPress={() => handleLongPress(index, false)}
-        activeOpacity={0.8}
-      >
-        <Image source={{ uri: item }} style={styles.image} />
-
-        {/* Displaying likes information */}
-        <View style={styles.likeOverlay}>
-          <TouchableOpacity onPress={() => handleLike(item, index)} disabled={longPressActive}>
-            <Ionicons name={'heart'} size={18} color={isLiked ? '#FF3B30' : '#FFF'} style={styles.iconShadow} />
-          </TouchableOpacity>
-          {likeCount > 0 && (
-            <Text style={styles.likeCount}>{likeCount}</Text>
-          )}
-        </View>
-
+      <View style={[styles.galleryItem, isSelected && { opacity: 0.7 }]}>
+        <LikeableImage
+          imageUri={item}
+          imageIndex={index}
+          profileOwnerId={profileOwnerId}
+          onPress={() => handleItemPress(index, false)}
+          showLikeButton={!longPressActive}
+          onPressDisabled={longPressActive}
+          style={styles.image}
+        />
         {isSelected && (
           <View style={styles.selectionOverlay}>
             <LinearGradient
@@ -134,7 +118,7 @@ export default function Gallery({ onImagePress }: Props) {
             </View>
           </View>
         )}
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -145,7 +129,6 @@ export default function Gallery({ onImagePress }: Props) {
           <Ionicons name="images" size={20} color="#3A8DFF" />
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>גלריה</Text>
         </View>
-
         {longPressActive && selectedImages.size > 0 && (
           <TouchableOpacity
             style={[styles.deleteButton, { backgroundColor: '#FF3B30' }]}
@@ -156,7 +139,6 @@ export default function Gallery({ onImagePress }: Props) {
           </TouchableOpacity>
         )}
       </View>
-
       <View style={[styles.separator, { backgroundColor: theme.isDark ? '#374151' : '#E5E7EB' }]} />
     </View>
   );
@@ -326,28 +308,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
-  },
-  likeOverlay: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  likeCount: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '500',
-    marginLeft: 4,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  iconShadow: {
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
   },
   selectionOverlay: {
     position: 'absolute',
