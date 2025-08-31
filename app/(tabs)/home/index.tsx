@@ -3,8 +3,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import { useTheme } from '../../../app/ProfileServices/ThemeContext';
-import FilterButton from '../../components/FilterButton';
-import LocationSelector from '../../components/LocationSelector';
 import { useNotificationListeners } from '../../hooks/useNotificationListeners';
 import { LoadingComponent } from '../../IndexServices/components/LoadingComponent';
 import { MapMarkersComponent } from '../../IndexServices/components/MapMarkersComponent';
@@ -15,8 +13,10 @@ import { useLocationService } from '../../IndexServices/hooks/useLocationSevice'
 import { useMapInteractions } from '../../IndexServices/hooks/useMapInteractions';
 import { useModalState } from '../../IndexServices/hooks/useModalState';
 import { useSearchState } from '../../IndexServices/hooks/useSearchState';
-import DistanceFilterButton from '../../IndexServices/MapButtons/DistanceFilterButton';
-import EventFilterButton from '../../IndexServices/MapButtons/EventFilterButton';
+import FilterButton from '../../IndexServices/MapButtons/FilterButton';
+import DistanceFilterButton from '../../IndexServices/MapButtons/FilterButtons/DistanceFilterButton';
+import EventFilterButton from '../../IndexServices/MapButtons/FilterButtons/EventFilterButton';
+import LocationSelector from '../../IndexServices/MapButtons/FilterButtons/LocationSelector';
 import MyLocationButton from '../../IndexServices/MapButtons/MyLocationButton';
 import SearchInAreaButton from '../../IndexServices/MapButtons/SearchInAreaButton';
 import { homeScreenStyles } from '../../IndexServices/styles/homeScreenStyles';
