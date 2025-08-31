@@ -18,7 +18,7 @@ export default function SearchInAreaButton({ isVisible, onPress }: Props) {
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: '#3A8DFF' }]} // צבע כחול
+        style={[styles.button, { backgroundColor: '#3A8DFF' }]} 
         onPress={onPress}
       >
         <Ionicons name="search" size={18} color="#fff" />
