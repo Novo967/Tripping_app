@@ -30,9 +30,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, auth } from '../../firebaseConfig';
 
-import Gallery from '../IndexServices/GalleryServices/Gallery';
 import Bio from '../ProfileServices/bio';
 import EventRequestsHandler from '../ProfileServices/EventRequestsHandler';
+import Gallery from '../ProfileServices/GalleryServices/Gallery';
 import ImageModal from '../ProfileServices/ImageModal';
 import NotificationBell from '../ProfileServices/NoficationBell';
 import ProfileImage from '../ProfileServices/ProfileImage';
@@ -407,7 +407,6 @@ export default function ProfileScreen() {
         />
 
         <Gallery
-          gallery={gallery}
           onImagePress={openImageModal}
         />
 

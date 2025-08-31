@@ -26,7 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../firebaseConfig';
 import { useTheme } from '../../ProfileServices/ThemeContext';
-import ImageViewerModal from '../../components/ImageViewerModal';
+import ImageViewerModal from '../components/ImageViewerModal';
 import ChatEmptyState from './ChatEmptyState';
 import ChatInput from './ChatInput';
 import ChatMessage from './ChatMessage';
