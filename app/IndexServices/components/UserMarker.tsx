@@ -3,7 +3,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { db } from '../../firebaseConfig';
+import { db } from '../../../firebaseConfig';
 
 interface UserMarkerProps {
   user: {

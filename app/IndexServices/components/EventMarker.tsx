@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { getEventColor, getEventIcon } from './markerUtils';
+import { getEventColor, getEventIcon } from '../styles/markerUtils';
 
 interface EventMarkerProps {
   event: {
@@ -25,7 +25,6 @@ const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
       key={event.id}
       coordinate={{ latitude: event.latitude, longitude: event.longitude }}
       onPress={() => onPress(event.id)}
-      // Removed anchor to let the icon itself be the anchor point, or adjust as needed
     >
       <View style={styles.markerContainer}>
         <Ionicons name={icon as any} size={30} color={iconColor} />

@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import React from 'react';
-import EventMarker from '../../components/EventMarker';
-import UserMarker from '../../components/UserMarker';
 import type { SelectedEventType, SelectedUserType } from '../hooks/useFirestoreService';
+import EventMarker from './EventMarker';
+import UserMarker from './UserMarker';
 
 interface MapMarkersComponentProps {
   visibleEvents: SelectedEventType[];

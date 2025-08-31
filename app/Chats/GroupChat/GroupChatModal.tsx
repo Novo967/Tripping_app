@@ -35,8 +35,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, db } from '../../../firebaseConfig';
-import ImageViewerModal from '../../components/ImageViewerModal'; // נניח שזה הנתיב לקומפוננטה
 import { useTheme } from '../../ProfileServices/ThemeContext';
+import ImageViewerModal from '../components/ImageViewerModal';
 import GroupChatEmptyState from './GroupChatEmptyState';
 import GroupChatErrorState from './GroupChatErrorState';
 import GroupChatHeader from './GroupChatHeader';
