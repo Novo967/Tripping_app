@@ -17,8 +17,8 @@ export default function TermsOfServiceScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>תנאי שימוש ופרטיות</Text>
-        <TouchableOpacity onPress={() => router.push('/Authentication/register')} style={styles.backButton}>
-            <Text style={styles.backButtonText}>→</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}> {/* שינוי כאן: router.back() */}
+            <Text style={styles.backButtonText}>חזור</Text>
         </TouchableOpacity>
       </View>
 
@@ -37,7 +37,7 @@ export default function TermsOfServiceScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>1. קבלת התנאים</Text>
             <Text style={styles.sectionText}>
-              על ידי הרשמה לאפליקציית Triping ושימוש בשירותיה, אתם מסכימים לתנאים אלה. 
+              על ידי הרשמה לאפליקציית Triping ושימוש בשירותיה, אתם מסכימים לתנאים אלה.
               אם אינכם מסכימים לתנאים, אנא אל תשתמשו באפליקציה.
             </Text>
           </View>
@@ -126,14 +126,14 @@ export default function TermsOfServiceScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>10. שינויים בתנאים</Text>
             <Text style={styles.sectionText}>
-              אנו עשויים לעדכן תנאים אלה מעת לעת. השימוש המתמשך באפליקציה 
+              אנו עשויים לעדכן תנאים אלה מעת לעת. השימוש המתמשך באפליקציה
               לאחר שינויים מהווה הסכמה לתנאים החדשים.
             </Text>
           </View>
 
           <View style={styles.acceptSection}>
             <Text style={styles.acceptText}>
-              בלחיצה על "אני מסכים/ה" במסך ההרשמה, אתם מאשרים שקראתם והבנתם 
+              בלחיצה על "אני מסכים/ה" במסך ההרשמה, אתם מאשרים שקראתם והבנתם
               את התנאים ומסכימים להם במלואם.
             </Text>
           </View>
@@ -143,6 +143,7 @@ export default function TermsOfServiceScreen() {
   );
 }
 
+// ... שאר הקוד של styles ...
 const PRIMARY_COLOR = '#3A8DFF';
 const BACKGROUND_COLOR = '#FAFBFC';
 const TEXT_COLOR = '#1A1A1A';
@@ -179,6 +180,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: PRIMARY_COLOR,
     fontWeight: '600',
+    writingDirection: 'rtl',
+    transform: [{ scaleX: -1 }],
   },
   headerTitle: {
     fontSize: 18,
@@ -186,7 +189,7 @@ const styles = StyleSheet.create({
     color: TEXT_COLOR,
     textAlign: 'center',
     flex: 1,
-    marginLeft: -60,
+    marginLeft: 40,
   },
   scrollContainer: {
     flex: 1,
