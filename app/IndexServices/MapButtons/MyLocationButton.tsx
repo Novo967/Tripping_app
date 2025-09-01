@@ -1,12 +1,12 @@
 // app/IndexServices/MyLocationButton.tsx
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 
 interface MyLocationButtonProps {
@@ -14,32 +14,72 @@ interface MyLocationButtonProps {
 }
 
 const MyLocationButton: React.FC<MyLocationButtonProps> = ({ onLocationUpdate }) => {
-  
+  const [lastLocation, setLastLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  /**
+   * הפעלת מעקב ברקע לשמירת מיקום עדכני
+   */
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+
+    const startWatching = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 2000,
+          distanceInterval: 5,
+        },
+        (location) => {
+          const coords = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+          setLastLocation(coords);
+        }
+      );
+    };
+
+    startWatching();
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, []);
+
   /**
    * מטפל בלחיצה על כפתור המיקום
    */
   const handleLocationPress = async () => {
     try {
-      // בדיקת הרשאות
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('הרשאה נדחתה', 'לא ניתנה הרשאה לגישה למיקום.');
+      // אם כבר יש מיקום מהמעקב – נקפוץ אליו מיד
+      if (lastLocation) {
+        onLocationUpdate(lastLocation);
         return;
       }
 
-      // קבלת המיקום הנוכחי
-      const location = await Location.getCurrentPositionAsync({ 
-        accuracy: Location.Accuracy.High,
-        timeInterval: 3000,
-        distanceInterval: 1
-      });
+      // אחרת ננסה מיקום אחרון שמור
+      let location = await Location.getLastKnownPositionAsync();
 
-      // העברת המיקום לקומפוננט האב
-      onLocationUpdate({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
-      });
+      if (!location) {
+        // ואם אין – נבקש מיקום חדש
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
 
+      if (location) {
+        const coords = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+        setLastLocation(coords);
+        onLocationUpdate(coords);
+      }
     } catch (error) {
       console.error("Error getting current location:", error);
       Alert.alert('שגיאה', 'לא ניתן לקבל את המיקום הנוכחי.');
@@ -53,7 +93,7 @@ const MyLocationButton: React.FC<MyLocationButtonProps> = ({ onLocationUpdate })
         onPress={handleLocationPress}
         activeOpacity={0.8}
       >
-        <Ionicons name="locate" size={24} color="#333" />
+        <Ionicons name="locate" size={24} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -68,7 +108,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#3A8DFF',
-    borderRadius: 26,
+    borderRadius: 25,
     width: 45,
     height: 45,
     justifyContent: 'center',
