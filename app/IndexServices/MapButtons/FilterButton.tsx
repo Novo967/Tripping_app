@@ -106,20 +106,6 @@ export default function FilterButton({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuItemContainer}
-            onPress={handleLocationVisibilityPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name={locationVisibility.getIconName() as any} 
-              size={18} 
-              color="#3A8DFF" 
-              style={styles.menuIcon} 
-            />
-            <Text style={styles.menuItemText}>{locationVisibility.getButtonText()}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[styles.menuItemContainer, styles.lastMenuItem]}
             onPress={handleAddEventPress}
             activeOpacity={0.7}
