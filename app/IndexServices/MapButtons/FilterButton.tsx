@@ -32,8 +32,8 @@ export default function FilterButton({
 }: FilterButtonProps) {
   const [filterAnimation] = useState(new Animated.Value(isFilterMenuVisible ? 1 : 0));
   
-  // שימוש בהוק החדש לניהול הסתרת המיקום
-  const locationVisibility = useLocationVisibility(onLocationVisibilityChange, true);
+  // השתמש ב-hook החדש כדי לנהל את מצב הנראות
+  const { isLocationVisible, toggleLocationVisibility } = useLocationVisibility(onLocationVisibilityChange, true);
 
   useEffect(() => {
     Animated.spring(filterAnimation, {
@@ -44,24 +44,19 @@ export default function FilterButton({
 
   const handleAddEventPress = () => {
     onAddEventPress();
-    // No need to call onToggleFilterMenu here, as the parent will handle it
-    // through the closeAllModals logic
   };
 
   const handleDistanceFilterPress = () => {
     onDistanceFilterPress();
-    // No need to call onToggleFilterMenu here, as the parent will handle it
-    // through the closeAllModals logic
   };
 
   const handleEventFilterPress = () => {
     onEventFilterPress();
-    // No need to call onToggleFilterMenu here, as the parent will handle it
-    // through the closeAllModals logic
   };
-
+  
+  // הוסף את פונקציית הטיפול בלחיצה על כפתור המיקום
   const handleLocationVisibilityPress = () => {
-    locationVisibility.toggleLocationVisibility();
+    toggleLocationVisibility();
   };
 
   if (isChoosingLocation) {
@@ -103,6 +98,22 @@ export default function FilterButton({
           >
             <Ionicons name="filter" size={18} color="#3A8DFF" style={styles.menuIcon} />
             <Text style={styles.menuItemText}>סנן אירועים</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItemContainer}
+            onPress={handleLocationVisibilityPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name={isLocationVisible ? "location-outline" : "eye-off-outline"} 
+              size={18} 
+              color="#3A8DFF" 
+              style={styles.menuIcon} 
+            />
+            <Text style={styles.menuItemText}>
+              {isLocationVisible ? "הסתר מיקום" : "הצג מיקום"}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -182,3 +193,4 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
+              
