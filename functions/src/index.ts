@@ -11,7 +11,9 @@ admin.initializeApp();
 
 const expo = new Expo();
 
-// פונקציית העזר לשליחת התראות
+/**
+ * פונקציית עזר לשליחת התראות
+ */
 const sendPushNotification = async (to: string, title: string, body: string, data: any) => {
     // בדיקה אם הטוקן תקין
     if (!Expo.isExpoPushToken(to)) {
@@ -34,6 +36,87 @@ const sendPushNotification = async (to: string, title: string, body: string, dat
         console.error('שגיאה בשליחת התראה:', error);
     }
 };
+
+/**
+ * פונקציה זו מופעלת כאשר מסמך ב-imageLikes מתעדכן.
+ * היא שולחת התראת פוש לבעל התמונה כאשר נוסף לייק.
+ */
+exports.sendNotificationOnImageLike = onDocumentUpdated('imageLikes/{likeableImageId}', async (event) => {
+    console.log('--- התחלת תהליך שליחת התראת לייק על תמונה ---');
+    
+    if (!event.data) {
+        console.log('אין נתונים בעדכון, הפונקציה חוזרת.');
+        return null;
+    }
+    
+    const beforeData = event.data.before.data();
+    const afterData = event.data.after.data();
+
+    // בדיקה ששדה הלייקים קיים בשני המצבים ושהוא מערך
+    if (!beforeData.likes || !Array.isArray(beforeData.likes) || !afterData.likes || !Array.isArray(afterData.likes)) {
+        console.log('נתוני לייקים חסרים או לא תקינים.');
+        return null;
+    }
+
+    // בדיקה האם נוסף לייק
+    if (afterData.likes.length <= beforeData.likes.length) {
+        console.log('לא נוסף לייק חדש. הפונקציה חוזרת.');
+        return null;
+    }
+
+    const likerId = afterData.likes[afterData.likes.length - 1];
+    const { profileOwnerId, imageIndex } = afterData;
+
+    // ודא שהליקר הוא לא בעל הפרופיל
+    if (likerId === profileOwnerId) {
+        console.log('הליקר הוא בעל הפרופיל. לא נשלחת התראה.');
+        return null;
+    }
+
+    try {
+        console.log(`לייק חדש התקבל מתמונה של המשתמש: ${profileOwnerId}`);
+        console.log(`המשתמש שעשה לייק: ${likerId}`);
+
+        // שליפת נתוני בעל הפרופיל (כולל טוקן הפוש שלו)
+        const ownerDoc = await admin.firestore().collection('users').doc(profileOwnerId).get();
+        const ownerData = ownerDoc.data();
+
+        if (ownerData && ownerData.expoPushTokens && ownerData.expoPushTokens.length > 0) {
+            console.log(`נמצאו טוקנים עבור בעל הפרופיל: ${profileOwnerId}`);
+            
+            // שליפת שם המשתמש של הליקר
+            const likerDoc = await admin.firestore().collection('users').doc(likerId).get();
+            const likerData = likerDoc.data();
+            const likerUsername = likerData?.username || 'משתמש לא ידוע';
+
+            // שליחת התראה לכל טוקן של בעל הפרופיל
+            for (const pushToken of ownerData.expoPushTokens) {
+                
+                
+                // שימוש בפונקציית העזר
+                await sendPushNotification(
+                    pushToken,
+                    'קיבלת לייק חדש!',
+                    `${likerUsername} אהב את התמונה שלך`,
+                    {
+                        type: 'image_like',
+                        profileOwnerId,
+                        imageIndex,
+                        likerId,
+                    }
+                );
+            }
+        } else {
+            console.log(`אין נתוני משתמש או טוקנים עבור בעל הפרופיל: ${profileOwnerId}`);
+        }
+
+        console.log('--- סיום תהליך שליחת התראת לייק ---');
+        return null;
+    } catch (error) {
+        console.error('שגיאה כללית בפונקציית לייק על תמונה:', error);
+        return null;
+    }
+});
 
 /**
  * פונקציה זו נשלחת כאשר נוצר מסמך חדש ב-event_requests.
