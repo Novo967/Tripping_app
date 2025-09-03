@@ -41,6 +41,7 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
   const currentUserId = auth.currentUser?.uid;
 
   useEffect(() => {
+    console.log('---');
     console.log('LikeableImage: הקומפוננטה נטענה. מתחיל לשלוף נתוני לייקים.');
     fetchLikeData();
   }, [imageIndex, profileOwnerId]);
@@ -50,13 +51,14 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
     try {
       const imageDocRef = doc(db, 'imageLikes', `${profileOwnerId}_${imageIndex}`);
       const imageDoc = await getDoc(imageDocRef);
-      
+
       if (imageDoc.exists()) {
         const data = imageDoc.data();
         const likes = data.likes || [];
         setLikeCount(likes.length);
-        setIsLiked(currentUserId ? likes.includes(currentUserId) : false);
-        console.log(`LikeableImage: מסמך הלייקים נמצא. כמות לייקים: ${likes.length}. האם המשתמש הנוכחי עשה לייק? ${isLiked}.`);
+        const userHasLiked = currentUserId ? likes.includes(currentUserId) : false;
+        setIsLiked(userHasLiked);
+        console.log(`LikeableImage: מסמך הלייקים נמצא. כמות לייקים: ${likes.length}. האם המשתמש הנוכחי עשה לייק? ${userHasLiked}.`);
       } else {
         console.log('LikeableImage: מסמך הלייקים לא נמצא. אין לייקים לתמונה זו.');
       }
@@ -66,6 +68,7 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
   };
 
   const handleLike = async () => {
+    console.log('---');
     console.log('LikeableImage: לחיצה על כפתור הלייק.');
     if (!currentUserId) {
       console.log('LikeableImage: אין משתמש מחובר. מציג התראה.');
@@ -111,10 +114,6 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
             imageIndex,
             lastUpdated: new Date().toISOString(),
           });
-          if (profileOwnerId !== currentUserId) {
-            console.log('LikeableImage: שולח התראת לייק לבעל הפרופיל.');
-            await sendLikeNotification(profileOwnerId, currentUserId);
-          }
         }
       } else {
         if (newIsLiked) {
@@ -123,10 +122,6 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
             likes: arrayUnion(currentUserId),
             lastUpdated: new Date().toISOString(),
           });
-          if (profileOwnerId !== currentUserId) {
-            console.log('LikeableImage: שולח התראת לייק לבעל הפרופיל.');
-            await sendLikeNotification(profileOwnerId, currentUserId);
-          }
         } else {
           console.log('LikeableImage: המסמך קיים, מסיר לייק (arrayRemove).');
           await updateDoc(imageDocRef, {
@@ -144,73 +139,6 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
     } finally {
       setLoading(false);
       console.log('LikeableImage: הסתיימה תהליך הטיפול בלייק.');
-    }
-  };
-
-  const sendLikeNotification = async (profileOwnerId: string, likerId: string) => {
-    console.log('LikeableImage: מתחיל תהליך שליחת התראה.');
-    try {
-      // Get the liker's username (person who liked the image)
-      const likerDocRef = doc(db, 'users', likerId);
-      const likerDoc = await getDoc(likerDocRef);
-      if (!likerDoc.exists()) {
-        console.warn("LikeableImage: מסמך המשתמש שעשה לייק לא נמצא.");
-        return;
-      }
-      const likerUsername = likerDoc.data().username;
-
-      // Get the profile owner's push token (person who will receive the notification)
-      const ownerDocRef = doc(db, 'users', profileOwnerId);
-      const ownerDoc = await getDoc(ownerDocRef);
-      if (!ownerDoc.exists()) {
-        console.warn("LikeableImage: מסמך בעל הפרופיל לא נמצא.");
-        return;
-      }
-      
-      const ownerPushToken = ownerDoc.data().expoPushToken || ownerDoc.data().pushToken;
-
-      if (ownerPushToken) {
-        console.log('LikeableImage: נמצא טוקן לשליחת התראה.');
-        
-        // Send notification using Expo's push notification service
-        const notificationPayload = {
-          to: ownerPushToken,
-          sound: 'default',
-          title: 'קיבלת לייק חדש!',
-          body: `${likerUsername} אהב את התמונה שלך`,
-          data: { 
-            type: 'image_like',
-            profileOwnerId, 
-            imageIndex, 
-            likerId 
-          },
-        };
-        
-        console.log('LikeableImage: שולח התראה לשרת Expo Push Notifications.');
-        
-        // Send to Expo's push notification service
-        const response = await fetch('https://exp.host/--/api/v2/push/send', {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Accept-encoding': 'gzip, deflate',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(notificationPayload),
-        });
-
-        const responseData = await response.json();
-        
-        if (response.ok) {
-          console.log('LikeableImage: ההתראה נשלחה בהצלחה.', responseData);
-        } else {
-          console.error('LikeableImage: שגיאה בשליחת התראה:', responseData);
-        }
-      } else {
-        console.log('LikeableImage: לא נמצא טוקן push לשליחת התראה.');
-      }
-    } catch (error) {
-      console.error('LikeableImage: שגיאה בשליחת ההתראה:', error);
     }
   };
 
@@ -232,7 +160,7 @@ export const LikeableImage: React.FC<LikeableImageProps> = ({
       disabled={onPressDisabled}
     >
       <Image source={{ uri: imageUri }} style={styles.image} />
-      
+
       {showLikeButton && (
         <View style={styles.likeOverlay}>
           <TouchableOpacity
