@@ -17,7 +17,6 @@ import FilterButton from '../../IndexServices/MapButtons/FilterButton';
 import DistanceFilterButton from '../../IndexServices/MapButtons/FilterButtons/DistanceFilterButton';
 import EventFilterButton from '../../IndexServices/MapButtons/FilterButtons/EventFilterButton';
 import LocationSelector from '../../IndexServices/MapButtons/FilterButtons/LocationSelector';
-import HideLocationButton from '../../IndexServices/MapButtons/HideMyLocationButton'; // ייבוא הקומפוננטה החדשה
 import MyLocationButton from '../../IndexServices/MapButtons/MyLocationButton';
 import SearchInAreaButton from '../../IndexServices/MapButtons/SearchInAreaButton';
 import { homeScreenStyles } from '../../IndexServices/styles/homeScreenStyles';
@@ -279,15 +278,7 @@ export default function HomeScreen() {
 
       <MyLocationButton onLocationUpdate={handleLocationUpdate} />
       
-      {/* הוספת כפתור הסתרת המיקום */}
-      <HideLocationButton
-        locationVisibility={{
-          isLocationVisible: isLocationVisible,
-          isLoading: isLoadingLocationToggle,
-          toggleLocationVisibility: toggleLocationVisibility,
-        }}
-        theme={theme}
-      />
+      
 
       <LocationSelector
         visible={isChoosingLocation}
