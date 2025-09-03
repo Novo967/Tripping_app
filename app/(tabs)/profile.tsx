@@ -5,6 +5,7 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getFirestore,
@@ -30,14 +31,15 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, auth } from '../../firebaseConfig';
 
+import { deleteUser } from 'firebase/auth';
 import Bio from '../ProfileServices/bio';
+import DeleteAccountModal from '../ProfileServices/DeleteAccountModal';
 import EventRequestsHandler from '../ProfileServices/EventRequestsHandler';
 import Gallery from '../ProfileServices/GalleryServices/Gallery';
 import ImageModal from '../ProfileServices/ImageModal';
 import NotificationBell from '../ProfileServices/NoficationBell';
 import ProfileImage from '../ProfileServices/ProfileImage';
 import { useTheme } from '../ProfileServices/ThemeContext';
-
 const { width, height } = Dimensions.get('window');
 
 const storage = getStorage(app);
@@ -84,8 +86,38 @@ export default function ProfileScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const settingsAnim = useRef(new Animated.Value(0)).current;
   const requestsPanelAnim = useRef(new Animated.Value(0)).current;
-
+   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
+  const handleConfirmDeleteAccount = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('שגיאה', 'אין משתמש מחובר.');
+      return;
+    }
+    try {
+      if (profilePic) {
+        await deleteFromFirebase(profilePic);
+      }
+      for (const imageUrl of gallery) {
+        await deleteFromFirebase(imageUrl);
+      }
+      const userDocRef = doc(db, 'users', user.uid);
+      await deleteDoc(userDocRef);
+      await deleteUser(user);
+      Alert.alert("הצלחה", "חשבונך נמחק בהצלחה.");
+      router.replace('/Authentication/login');
+    } catch (error: any) {
+      console.error('Error deleting account:', error);
+      if (error.code === 'auth/requires-recent-login') {
+        Alert.alert(
+          'נדרשת כניסה מחדש',
+          'אנא התנתק והתחבר שוב כדי לבצע פעולה זו.'
+        );
+      } else {
+        Alert.alert('שגיאה', `לא הצלחנו למחוק את החשבון: ${error.message}`);
+      }
+    }
+  };
 
   const uploadImageToFirebase = async (uri: string, isProfilePic = false) => {
     const user = auth.currentUser;
@@ -364,6 +396,13 @@ export default function ProfileScreen() {
             {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
           </Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => {
+            toggleSettings();
+            setDeleteModalVisible(true); // Open the modal instead of deleting directly
+          }}>
+            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+            <Text style={[styles.settingsText, { color: '#FF3B30' }]}>מחק חשבון</Text>
+          </TouchableOpacity>
           {/* Sign Out */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => {
             toggleSettings();
@@ -414,6 +453,11 @@ export default function ProfileScreen() {
           visible={modalVisible}
           selectedImage={selectedImage}
           onClose={closeImageModal}
+        />
+        <DeleteAccountModal
+          isVisible={isDeleteModalVisible}
+          onClose={() => setDeleteModalVisible(false)}
+          onConfirmDelete={handleConfirmDeleteAccount}
         />
       </Animated.View>
     </SafeAreaView>
