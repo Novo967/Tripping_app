@@ -17,6 +17,7 @@ import FilterButton from '../../IndexServices/MapButtons/FilterButton';
 import DistanceFilterButton from '../../IndexServices/MapButtons/FilterButtons/DistanceFilterButton';
 import EventFilterButton from '../../IndexServices/MapButtons/FilterButtons/EventFilterButton';
 import LocationSelector from '../../IndexServices/MapButtons/FilterButtons/LocationSelector';
+import HideLocationButton from '../../IndexServices/MapButtons/HideMyLocationButton'; // ייבוא הקומפוננטה החדשה
 import MyLocationButton from '../../IndexServices/MapButtons/MyLocationButton';
 import SearchInAreaButton from '../../IndexServices/MapButtons/SearchInAreaButton';
 import { homeScreenStyles } from '../../IndexServices/styles/homeScreenStyles';
@@ -94,6 +95,9 @@ export default function HomeScreen() {
     handleCloseSearchbar,
     resetCustomSearch
   } = useSearchState();
+  
+  const [isLocationVisible, setIsLocationVisible] = useState(true); // מצב חדש לנראות המיקום
+  const [isLoadingLocationToggle, setIsLoadingLocationToggle] = useState(false);
 
   const { isOutOfRange } = useDistanceCalculation();
 
@@ -197,6 +201,19 @@ export default function HomeScreen() {
   const handleSearchInAreaInternal = useCallback(() => {
     handleSearchInArea(mapCenter, setSearchCenter, setIsCustomSearch);
   }, [handleSearchInArea, mapCenter, setSearchCenter, setIsCustomSearch]);
+  
+  const toggleLocationVisibility = async () => {
+    setIsLoadingLocationToggle(true);
+    try {
+      // כאן היית מפעיל לוגיקה כלשהי כדי לעדכן את הנראות ב-backend
+      setIsLocationVisible(!isLocationVisible);
+      console.log('Location visibility toggled to:', !isLocationVisible);
+    } catch (error) {
+      console.error('Failed to toggle location visibility:', error);
+    } finally {
+      setIsLoadingLocationToggle(false);
+    }
+  };
 
   // Loading state
   if (!initialDataLoaded || !region) {
@@ -221,7 +238,7 @@ export default function HomeScreen() {
         provider={PROVIDER_GOOGLE}
         style={{ flex: 1 }}
         region={region}
-        showsUserLocation={true}
+        showsUserLocation={isLocationVisible} // שימוש במצב החדש
         showsMyLocationButton={false}
         followsUserLocation={false}
         userLocationPriority="high"
@@ -230,7 +247,7 @@ export default function HomeScreen() {
         onPress={handleMapPressInternal}
         onUserLocationChange={(event) => {
           const coordinate = event.nativeEvent.coordinate;
-          if (coordinate) {
+          if (coordinate && isLocationVisible) {
             const { latitude, longitude } = coordinate;
             updateLocation({ latitude, longitude });
           }
@@ -261,6 +278,16 @@ export default function HomeScreen() {
       />
 
       <MyLocationButton onLocationUpdate={handleLocationUpdate} />
+      
+      {/* הוספת כפתור הסתרת המיקום */}
+      <HideLocationButton
+        locationVisibility={{
+          isLocationVisible: isLocationVisible,
+          isLoading: isLoadingLocationToggle,
+          toggleLocationVisibility: toggleLocationVisibility,
+        }}
+        theme={theme}
+      />
 
       <LocationSelector
         visible={isChoosingLocation}
