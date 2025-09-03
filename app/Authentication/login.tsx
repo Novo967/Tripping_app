@@ -1,7 +1,7 @@
 // --- Imports ---
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { sendEmailVerification, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import {
@@ -61,13 +61,39 @@ export default function LoginScreen() {
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
 
+      // בדיקה אם המייל אומת
+      if (!user.emailVerified) {
+        Alert.alert(
+          'אימות נדרש',
+          'עליך לאמת את כתובת האימייל שלך לפני שתוכל להתחבר.',
+          [
+            {
+              text: 'שלח מייל אימות',
+              onPress: async () => {
+                try {
+                  await sendEmailVerification(user);
+                  Alert.alert('נשלח!', 'בדוק את תיבת הדואר שלך (כולל ספאם).');
+                } catch (err) {
+                  Alert.alert('שגיאה', 'נכשל בשליחת מייל האימות.');
+                  console.error("LoginScreen: שגיאה בשליחת מייל אימות:", err);
+                } finally {
+                  await signOut(auth);
+                }
+              }
+            },
+            { text: 'ביטול', style: 'cancel', onPress: async () => await signOut(auth) }
+          ]
+        );
+        return;
+      }
+
       console.log('LoginScreen: התחברות מוצלחת! UID של המשתמש:', user.uid);
       await saveLocationToFirestore(user);
-      
+
       router.push('/(tabs)/home');
     } catch (error) {
       console.error("LoginScreen: שגיאה בהתחברות:", error);
-      
+
       if (typeof error === 'object' && error !== null && 'code' in error) {
         const errorCode = error.code;
         console.error("LoginScreen: קוד שגיאה של Firebase:", errorCode);
@@ -99,9 +125,7 @@ export default function LoginScreen() {
         <View style={styles.headerContainer}>
           <View style={styles.logoContainer}>
             <Text style={styles.logo}>TREK</Text>
-            <Text style={styles.slogenContainer}>
-
-            </Text>
+            <Text style={styles.slogenContainer}></Text>
             <View style={styles.logoUnderline} />
           </View>
           <Text style={styles.welcomeText}>התחברו כדי להמשיך להרפתקה שלכם</Text>
@@ -148,7 +172,7 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-        
+
         {/* שכבת טעינה, נוספה לזמן ההתחברות */}
         {isLoading && (
           <View style={styles.loadingOverlay}>

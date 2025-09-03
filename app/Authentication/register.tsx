@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router'; // שינוי כאן
 import * as WebBrowser from 'expo-web-browser';
 import type { User } from 'firebase/auth';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React, { useRef, useState } from 'react'; // שינוי כאן
 import {
@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 import GoogleAuthButton from './googleAuth';
+
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -101,46 +102,54 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    if (!validateForm()) return;
-    setIsLoading(true);
+  if (!validateForm()) return;
+  setIsLoading(true);
 
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const user = userCredential.user;
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    const user = userCredential.user;
 
-      await updateProfile(user, {
-        displayName: username.trim(),
-      });
+    await updateProfile(user, {
+      displayName: username.trim(),
+    });
 
-      await setDoc(doc(db, 'users', user.uid), {
-        email: user.email,
-        uid: user.uid,
-        username: username.trim(),
-        createdAt: new Date(),
-      });
+    await setDoc(doc(db, 'users', user.uid), {
+      email: user.email,
+      uid: user.uid,
+      username: username.trim(),
+      createdAt: new Date(),
+    });
 
-      await saveLocationToFirestore(user);
+    await saveLocationToFirestore(user);
 
-      Alert.alert('ההרשמה בוצעה בהצלחה!');
-      router.push('/(tabs)/home');
-    } catch (error) {
-      console.error("שגיאה ברישום:", error);
-      if (typeof error === 'object' && error !== null && 'code' in error) {
-        const errorCode = (error as { code: string }).code;
-        if (errorCode === 'auth/email-already-in-use') {
-          Alert.alert('שגיאה', 'כתובת האימייל כבר קיימת במערכת. אנא נסה להתחבר או להשתמש בכתובת אימייל אחרת.');
-        } else if (errorCode === 'auth/invalid-email') {
-          Alert.alert('שגיאה', 'כתובת האימייל שהוזנה אינה תקינה.');
-        } else {
-          Alert.alert('שגיאה ברישום', 'אירעה שגיאה לא צפויה. אנא נסה שוב מאוחר יותר.');
-        }
+    // שליחת מייל אימות
+    await sendEmailVerification(user);
+
+    Alert.alert(
+      'נשלח מייל לאימות',
+      'אנא בדקו את תיבת הדואר שלכם ואשרו את כתובת האימייל לפני ההתחברות.'
+    );
+
+    // במקום להעביר ישר ל-Home, נעביר למסך אימות
+    router.push('/Authentication/verifyEmail');
+
+  } catch (error) {
+    console.error("שגיאה ברישום:", error);
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+      const errorCode = (error as { code: string }).code;
+      if (errorCode === 'auth/email-already-in-use') {
+        Alert.alert('שגיאה', 'כתובת האימייל כבר קיימת במערכת.');
+      } else if (errorCode === 'auth/invalid-email') {
+        Alert.alert('שגיאה', 'כתובת האימייל שהוזנה אינה תקינה.');
       } else {
-        Alert.alert('שגיאה ברישום', 'אירעה שגיאה לא צפויה. אנא נסה שוב מאוחר יותר.');
+        Alert.alert('שגיאה ברישום', 'אירעה שגיאה לא צפויה. נסה שוב.');
       }
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handlePressTerms = () => {
     // שמירת המצב הנוכחי לפני המעבר
