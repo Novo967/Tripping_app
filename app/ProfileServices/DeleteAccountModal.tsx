@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     buttonClose: {
-        backgroundColor: 'transparent',
+        backgroundColor: '#FFF',
         borderWidth: 1,
     },
     buttonDelete: {
