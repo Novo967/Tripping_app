@@ -1,11 +1,13 @@
+import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { I18nManager, Platform, View } from 'react-native';
-import { getExpoPushToken } from '../app/utils/pushNotifications';
-import { auth } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig'; // ודא ש-`db` מיובא מהקובץ
+import { getExpoPushToken } from './utils/pushNotifications';
 
 // מונע מהספלאש סקרין המובנה להיעלם אוטומטית
 SplashScreen.preventAutoHideAsync();
@@ -13,6 +15,36 @@ SplashScreen.preventAutoHideAsync();
 // מונע מהאפליקציה להפוך לכיוון RTL (מימין לשמאל)
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
+
+const updateUserLocation = async (user: User) => {
+  try {
+    // שלב 1: בקשת הרשאה למיקום מהמשתמש
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      console.warn('Location permission was denied. Cannot update location.');
+      return; // יציאה מהפונקציה אם ההרשאה נדחתה
+    }
+
+    // שלב 2: קבלת המיקום הנוכחי של המכשיר
+    const location = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = location.coords;
+
+    // שלב 3: עדכון המיקום במסד הנתונים של Firestore
+    const userDocRef = doc(db, 'users', user.uid);
+    await updateDoc(userDocRef, {
+      last_location: {
+        latitude,
+        longitude,
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    console.log('User location updated successfully!');
+  } catch (error) {
+    console.error('Failed to update user location:', error);
+    // אנחנו לא מציגים הודעת שגיאה למשתמש כדי לא לפגוע בחווית הכניסה
+  }
+};
 
 export default function AppEntry() {
   const router = useRouter();
@@ -71,9 +103,11 @@ export default function AppEntry() {
     if (appIsReady) {
       // אם האפליקציה מוכנה, נעלים את הספלאש סקרין
       await SplashScreen.hideAsync();
-      
+
       // שלב 5: ניווט
       if (user) {
+        // אם המשתמש מחובר, נעדכן את המיקום שלו
+        await updateUserLocation(user);
         router.replace('/(tabs)/home');
       } else {
         router.replace('/Authentication/login');
