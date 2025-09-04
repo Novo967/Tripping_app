@@ -179,9 +179,9 @@ const EventRequestsHandler: React.FC<EventRequestsHandlerProps> = ({ isVisible, 
 const styles = StyleSheet.create({
     requestsPanel: {
         position: 'absolute',
-        top: -20,
-        left: 20,
-        right: 20,
+        top: -40,
+        left: 10,
+        right: 10,
         zIndex: 15,
         borderRadius: 12,
         padding: 16,
