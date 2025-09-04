@@ -204,7 +204,7 @@ export default function ProfileScreen() {
     };
 
     const navigateToSettings = () => {
-        router.push({
+        router.replace({
             pathname: '/ProfileServices/settings/settings',
             params: {
                 onEditBio: 'handleEditBio',

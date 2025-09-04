@@ -71,6 +71,8 @@ export default function SettingsScreen({
 
     const handleToggleTheme = () => {
         toggleTheme();
+         router.replace({
+            pathname: '/(tabs)/profile'});
     };
 
     const handleBlockUser = () => {
