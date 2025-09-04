@@ -361,16 +361,18 @@ export default function CreateEventPage() {
                         </View>
                     )}
                 </View>
-    
-                <TextInput
-                    style={styles.input}
-                    placeholder="כותרת האירוע"
-                    value={eventTitle}
-                    onChangeText={setEventTitle}
-                    maxLength={23}
-                    placeholderTextColor="#999"
-                />
-    
+                    <TextInput
+                        style={[
+                            styles.input,
+                            eventTitle.length >= 23 && { borderColor: 'red' }
+                            ]}
+                        placeholder="כותרת האירוע"
+                        value={eventTitle}
+                        onChangeText={setEventTitle}
+                        maxLength={23}
+                        placeholderTextColor="#999"
+                    />
+
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
