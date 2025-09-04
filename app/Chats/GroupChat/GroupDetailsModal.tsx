@@ -6,7 +6,7 @@ import { getStorage } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
+    Alert, // Added Alert
     FlatList,
     Image,
     Linking,
@@ -19,7 +19,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import Modal from 'react-native-modal'; // Use react-native-modal instead of native Modal
+import Modal from 'react-native-modal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/ProfileServices/ThemeContext';
 import { app, db } from '../../../firebaseConfig';
@@ -60,18 +60,46 @@ const GroupDetailsModal = ({
     const currentUid = currentUser?.uid;
     const insets = useSafeAreaInsets();
     const { theme } = useTheme();
-   const handleMemberPress = (uid: string) => {
-        if (uid === currentUid) {
-            // נווט לפרופיל של המשתמש הנוכחי
-            router.push('/profile');
-        } else {
-            // נווט לפרופיל של משתמש אחר
-            router.push({
-                pathname: `/ProfileServices/OtherUserProfile`,
-                params: { uid: uid },
-            });
+
+    const handleMemberPress = async (otherUserUid: string) => {
+        if (!currentUid) {
+            Alert.alert('שגיאה', 'יש להתחבר כדי לבצע פעולה זו.');
+            return;
         }
+
+        // 1. If the user presses on their own profile, navigate to the local profile page
+        if (otherUserUid === currentUid) {
+            router.push('/profile');
+            return;
+        }
+
+        // 2. Check if the current user is blocked by the other user
+        try {
+            const otherUserDocRef = doc(db, 'users', otherUserUid);
+            const otherUserDocSnap = await getDoc(otherUserDocRef);
+
+            if (otherUserDocSnap.exists()) {
+                const otherUserData = otherUserDocSnap.data();
+                const otherUserBlockedList = otherUserData.blocked_users || [];
+                
+                if (otherUserBlockedList.includes(currentUid)) {
+                    Alert.alert('שגיאה', 'אינך יכול לצפות בפרופיל של משתמש שחסם אותך.');
+                    return; // Stop the function
+                }
+            }
+        } catch (error) {
+            console.error("שגיאה בבדיקת רשימת החסומים של המשתמש השני:", error);
+            Alert.alert('שגיאה', 'אירעה שגיאה בבדיקת הפרופיל.');
+            return; // Stop the function
+        }
+    
+        // 3. If the check passes, navigate to the other user's profile
+        router.push({
+            pathname: '/ProfileServices/OtherUser/OtherUserProfile',
+            params: { uid: otherUserUid },
+        });
     };
+
     const storage = getStorage(app);
 
     useEffect(() => {
