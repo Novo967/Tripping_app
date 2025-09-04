@@ -15,6 +15,7 @@ interface MyLocationButtonProps {
 
 const MyLocationButton: React.FC<MyLocationButtonProps> = ({ onLocationUpdate }) => {
   const [lastLocation, setLastLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
 
   /**
    * הפעלת מעקב ברקע לשמירת מיקום עדכני
@@ -52,17 +53,20 @@ const MyLocationButton: React.FC<MyLocationButtonProps> = ({ onLocationUpdate })
   }, []);
 
   /**
-   * מטפל בלחיצה על כפתור המיקום
+   * ניסיון להביא מיקום עם טיפול בשגיאות
    */
-  const handleLocationPress = async () => {
+  const fetchLocation = async (retry = true) => {
     try {
-      // אם כבר יש מיקום מהמעקב – נקפוץ אליו מיד
-      if (lastLocation) {
-        onLocationUpdate(lastLocation);
-        return;
+      setIsFetching(true);
+
+      // בדיקת הרשאות
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('הרשאה חסרה', 'כדי להשתמש במיקום יש לאפשר הרשאות בהגדרות המכשיר.');
+        return null;
       }
 
-      // אחרת ננסה מיקום אחרון שמור
+      // קודם ננסה מיקום אחרון שמור
       let location = await Location.getLastKnownPositionAsync();
 
       if (!location) {
@@ -72,26 +76,55 @@ const MyLocationButton: React.FC<MyLocationButtonProps> = ({ onLocationUpdate })
         });
       }
 
-      if (location) {
-        const coords = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
-        setLastLocation(coords);
-        onLocationUpdate(coords);
+      return location;
+    } catch (error: any) {
+      console.warn("Error fetching location:", error);
+
+      // טיפול מיוחד ב־kCLErrorDomain error 0
+      if (retry && String(error).includes("kCLErrorDomain error 0")) {
+        console.log("Retrying to fetch location...");
+        await new Promise((res) => setTimeout(res, 2000));
+        return await fetchLocation(false); // ניסיון נוסף אחד
       }
-    } catch (error) {
-      console.error("Error getting current location:", error);
-      Alert.alert('שגיאה', 'לא ניתן לקבל את המיקום הנוכחי.');
+
+      Alert.alert(
+        'שגיאה',
+        'לא ניתן לקבל את המיקום הנוכחי. ודא שמיקום מופעל ונסה שוב.'
+      );
+      return null;
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  /**
+   * לחיצה על כפתור המיקום
+   */
+  const handleLocationPress = async () => {
+    if (lastLocation) {
+      onLocationUpdate(lastLocation);
+      return;
+    }
+
+    const location = await fetchLocation(true);
+
+    if (location) {
+      const coords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+      setLastLocation(coords);
+      onLocationUpdate(coords);
     }
   };
 
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, isFetching && { opacity: 0.6 }]}
         onPress={handleLocationPress}
         activeOpacity={0.8}
+        disabled={isFetching}
       >
         <Ionicons name="locate" size={24} color="#fff" />
       </TouchableOpacity>
