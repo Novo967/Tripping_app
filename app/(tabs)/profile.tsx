@@ -1,30 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-    arrayRemove,
-    arrayUnion,
-    collection,
-    doc,
-    getFirestore,
-    onSnapshot,
-    query,
-    updateDoc,
-    where
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  getFirestore,
+  onSnapshot,
+  query,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Dimensions,
-    Platform,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, auth } from '../../firebaseConfig';
@@ -70,7 +70,6 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [username, setUsername] = useState('');
     const [isEditingBio, setIsEditingBio] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -83,8 +82,12 @@ export default function ProfileScreen() {
     const { theme, toggleTheme } = useTheme();
     const router = useRouter();
     const fadeAnim = useRef(new Animated.Value(1)).current;
-    const settingsAnim = useRef(new Animated.Value(0)).current;
     const requestsPanelAnim = useRef(new Animated.Value(0)).current;
+
+    // --- השינוי כאן ---
+    // שימוש ב-hook הנכון כדי לקבל את הפרמטרים
+    const params = useLocalSearchParams();
+    // -------------------
 
     const insets = useSafeAreaInsets();
     
@@ -188,9 +191,27 @@ export default function ProfileScreen() {
         }
     };
 
-    const handleEditBioFromSettings = () => {
-        setShowSettings(false);
+    const handleEditBio = () => {
         setIsEditingBio(true);
+    };
+
+    const handleDeleteAccount = () => {
+        setDeleteModalVisible(true);
+    };
+
+    const handleBlockUser = () => {
+        setBlockModalVisible(true);
+    };
+
+    const navigateToSettings = () => {
+        router.push({
+            pathname: '/ProfileServices/settings/settings',
+            params: {
+                onEditBio: 'handleEditBio',
+                onDeleteAccount: 'handleDeleteAccount', 
+                onBlockUser: 'handleBlockUser'
+            }
+        });
     };
 
     // Corrected logic using onSnapshot for real-time updates
@@ -226,6 +247,24 @@ export default function ProfileScreen() {
         // Unsubscribe from the listener when the component unmounts
         return () => unsubscribe();
     }, []);
+
+    // Listen for when the user returns from settings and handle callbacks
+    useFocusEffect(useCallback(() => {
+        // Check if we need to trigger any actions based on route params
+        if (params?.triggerAction) {
+            switch (params.triggerAction) {
+                case 'editBio':
+                    handleEditBio();
+                    break;
+                case 'deleteAccount':
+                    handleDeleteAccount();
+                    break;
+                case 'blockUser':
+                    handleBlockUser();
+                    break;
+            }
+        }
+    }, [params.triggerAction]));
 
     useFocusEffect(useCallback(() => {
         const user = auth.currentUser;
@@ -267,36 +306,6 @@ export default function ProfileScreen() {
         };
     }, [])); 
 
-    const fadeOutAndLogout = () => {
-        console.log('--- Calling fadeOutAndLogout function ---');
-        Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(async () => {
-            try {
-                await auth.signOut();
-                console.log('--- User successfully logged out and navigated to login screen ---');
-                router.replace('/Authentication/login');
-            } catch (error) {
-                console.error('--- Logout failed: ', error);
-                Alert.alert('שגיאה', 'לא הצלחנו להתנתק');
-                fadeAnim.setValue(1);
-            }
-        });
-    };
-
-    const toggleSettings = () => {
-        console.log(`--- Toggling settings. Current state: ${showSettings} ---`);
-        Animated.spring(settingsAnim, {
-            toValue: showSettings ? 0 : 1,
-            useNativeDriver: true,
-            tension: 100,
-            friction: 8,
-        }).start();
-        setShowSettings(prev => {
-            console.log(`--- showSettings state changed from ${prev} to ${!prev} ---`);
-            return !prev;
-        });
-        if (showRequests) toggleRequests();
-    };
-
     const toggleRequests = () => {
         console.log(`--- Toggling requests. Current state: ${showRequests} ---`);
         Animated.spring(requestsPanelAnim, {
@@ -309,7 +318,6 @@ export default function ProfileScreen() {
             console.log(`--- showRequests state changed from ${prev} to ${!prev} ---`);
             return !prev;
         });
-        if (showSettings) toggleSettings();
     };
 
     if (loading) {
@@ -330,74 +338,11 @@ export default function ProfileScreen() {
             
             <Animated.View style={[styles.contentWrapper, { opacity: fadeAnim }]}>
                 <View style={styles.topNav}>
-                    <TouchableOpacity onPress={toggleSettings} style={styles.navButton}>
+                    <TouchableOpacity onPress={navigateToSettings} style={styles.navButton}>
                         <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
                     </TouchableOpacity>
                     <NotificationBell hasNotifications={pendingRequests.length > 0} onPress={toggleRequests} />
                 </View>
-
-                <Animated.View
-                    style={[
-                        styles.settingsPanel, {
-                        backgroundColor: theme.colors.surface,
-                        transform: [{ translateY: settingsAnim.interpolate({ inputRange: [0, 1], outputRange: [-200, 0] }) }],
-                        opacity: settingsAnim,
-                        right: 20,
-                        left: 'auto',
-                        top: insets.top + (Platform.OS === 'ios' ? 50 : 60),
-                        },
-                    ]}
-                    // ✅ מונע קליקים בזמן האנימציה
-                    pointerEvents={showSettings ? 'auto' : 'none'}
-                >
-                {/* New line for editing bio */}
-                    <TouchableOpacity style={styles.settingsItem} onPress={() => {
-                        handleEditBioFromSettings();
-                        toggleSettings(); // Close settings panel
-                    }}>
-                    <Ionicons name="create-outline" size={20} color={theme.colors.text} />
-                    <Text style={[styles.settingsText, { color: theme.colors.text }]}>עריכת ביו</Text>
-                    </TouchableOpacity>
-                    {/* Link to the Terms of Service page */}
-                    <TouchableOpacity style={styles.settingsItem} onPress={() => {
-                        router.push('/ProfileServices/TermsOfServiceProfile');
-                        toggleSettings();
-                    }}>
-                    <Ionicons name="document-text-outline" size={20} color={theme.colors.text} />
-                    <Text style={[styles.settingsText, { color: theme.colors.text }]}>תנאי שימוש</Text>
-                    </TouchableOpacity>
-                    {/* Dark/Light mode toggle */}
-                    <TouchableOpacity style={styles.settingsItem} onPress={() => {
-                        toggleTheme();
-                        toggleSettings(); // Close settings panel
-                    }}>
-                    <Ionicons name={theme.isDark ? 'sunny' : 'moon'} size={20} color={theme.colors.text} />
-                    <Text style={[styles.settingsText, { color: theme.colors.text }]}>
-                        {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
-                    </Text>
-                    </TouchableOpacity>
-                    {/* Block user button */}
-                    <TouchableOpacity style={styles.settingsItem} onPress={() => {
-                        toggleSettings(); // Close settings panel
-                        setBlockModalVisible(true); // Open the block user modal
-                    }}>
-                        <Ionicons name="hand-right-outline" size={20} color={theme.colors.text} />
-                        <Text style={[styles.settingsText, { color: theme.colors.text }]}>חסום משתמש</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.settingsItem} onPress={fadeOutAndLogout}>
-                        <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-                        <Text style={[styles.settingsText, { color: '#FF3B30' }]}>התנתקות</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.settingsItem} onPress={() => {
-                        toggleSettings();
-                        setDeleteModalVisible(true); // Open the modal instead of deleting directly
-                    }}>
-                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                        <Text style={[styles.settingsText, { color: '#FF3B30' }]}>מחק חשבון</Text>
-                    </TouchableOpacity>
-                    {/* ✅ מונע קליקים בזמן האנימציה */}
-                    
-                </Animated.View>
 
                 <Animated.View style={[styles.requestsPanelAnimated, {
                     transform: [{ translateY: requestsPanelAnim.interpolate({ inputRange: [0, 1], outputRange: [-200, 0] }) }],
@@ -491,20 +436,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginHorizontal: 6,
     },
-    settingsPanel: {
-        position: 'absolute',
-        right: 20,
-        left: 20,
-        marginTop: -50,
-        zIndex: 15,
-        borderRadius: 12,
-        padding: 16,
-        elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-    },
     requestsPanelAnimated: {
         position: 'absolute',
         left: 20,
@@ -512,15 +443,4 @@ const styles = StyleSheet.create({
         zIndex: 15,
         maxHeight: height * 0.5,
     },
-    settingsItem: {
-        flexDirection: 'row-reverse',
-        alignItems: 'center',
-        paddingVertical: 8,
-    },
-    settingsText: {
-        fontSize: 16,
-        marginRight: 12,
-        textAlign: 'right',
-    },
-    
 });
