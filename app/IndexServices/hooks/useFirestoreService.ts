@@ -1,11 +1,12 @@
 import { getAuth } from 'firebase/auth';
 import {
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    getFirestore,
-    onSnapshot,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getFirestore,
+  onSnapshot,
+  updateDoc
 } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
@@ -31,6 +32,7 @@ export interface SelectedUserType {
   latitude: number;
   longitude: number;
   profile_image?: string;
+  isLocationVisible?: boolean; // הוספת שדה חדש
 }
 
 const db = getFirestore(app);
@@ -110,6 +112,22 @@ export const useFirestoreService = () => {
       return null;
     }
   }, []);
+  
+  const toggleUserLocationVisibility = useCallback(async (uid: string, isVisible: boolean) => {
+    if (!uid) {
+      console.error("User ID is not available.");
+      return;
+    }
+    const userDocRef = doc(db, 'users', uid);
+    try {
+      await updateDoc(userDocRef, {
+        isLocationVisible: isVisible,
+      });
+      console.log(`User location visibility updated to ${isVisible} for user ${uid}`);
+    } catch (error) {
+      console.error("Error updating user location visibility:", error);
+    }
+  }, []);
 
   useEffect(() => {
     const usersCollection = collection(db, 'users');
@@ -124,6 +142,7 @@ export const useFirestoreService = () => {
             latitude: data.latitude,
             longitude: data.longitude,
             profile_image: data.profile_image || null,
+            isLocationVisible: data.isLocationVisible ?? true, // קריאת שדה הנראות
           });
         }
       });
@@ -183,6 +202,7 @@ export const useFirestoreService = () => {
     deletePin,
     fetchCurrentUserUsername,
     fetchSingleEvent,
-    user
+    user,
+    toggleUserLocationVisibility // החזרת הפונקציה החדשה
   };
 };

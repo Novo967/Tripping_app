@@ -7,14 +7,15 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { useLocationVisibility } from './FilterButtons/HideMyLocation';
+// אין צורך לייבא את useLocationVisibility כאן יותר
 
 interface FilterButtonProps {
   displayDistance: number;
   onDistanceFilterPress: () => void;
   onEventFilterPress: () => void;
   onAddEventPress: () => void;
-  onLocationVisibilityChange?: (isVisible: boolean) => void;
+  onLocationVisibilityPress: () => void; // הוספת הפונקציה החדשה
+  isLocationVisible: boolean; // הוספת המצב החדש
   isChoosingLocation: boolean;
   isFilterMenuVisible: boolean;
   onToggleFilterMenu: () => void;
@@ -25,15 +26,16 @@ export default function FilterButton({
   onDistanceFilterPress,
   onEventFilterPress,
   onAddEventPress,
-  onLocationVisibilityChange = () => {},
+  onLocationVisibilityPress, // קבלה כ-prop
+  isLocationVisible, // קבלה כ-prop
   isChoosingLocation,
   isFilterMenuVisible,
   onToggleFilterMenu
 }: FilterButtonProps) {
   const [filterAnimation] = useState(new Animated.Value(isFilterMenuVisible ? 1 : 0));
   
-  // השתמש ב-hook החדש כדי לנהל את מצב הנראות
-  const { isLocationVisible, toggleLocationVisibility } = useLocationVisibility(onLocationVisibilityChange, true);
+  // הסרת הקוד המיותר
+  // const { isLocationVisible, toggleLocationVisibility } = useLocationVisibility(onLocationVisibilityChange, true);
 
   useEffect(() => {
     Animated.spring(filterAnimation, {
@@ -54,9 +56,9 @@ export default function FilterButton({
     onEventFilterPress();
   };
   
-  // הוסף את פונקציית הטיפול בלחיצה על כפתור המיקום
+  // הוספת פונקציית הטיפול בלחיצה על כפתור המיקום
   const handleLocationVisibilityPress = () => {
-    toggleLocationVisibility();
+    onLocationVisibilityPress();
   };
 
   if (isChoosingLocation) {
@@ -106,7 +108,7 @@ export default function FilterButton({
             activeOpacity={0.7}
           >
             <Ionicons 
-              name={isLocationVisible ? "location-outline" : "eye-off-outline"} 
+              name={isLocationVisible ? "eye-outline" : "eye-off-outline"} 
               size={18} 
               color="#3A8DFF" 
               style={styles.menuIcon} 
@@ -193,4 +195,3 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
-              

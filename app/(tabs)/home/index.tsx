@@ -16,6 +16,7 @@ import { useSearchState } from '../../IndexServices/hooks/useSearchState';
 import FilterButton from '../../IndexServices/MapButtons/FilterButton';
 import DistanceFilterButton from '../../IndexServices/MapButtons/FilterButtons/DistanceFilterButton';
 import EventFilterButton from '../../IndexServices/MapButtons/FilterButtons/EventFilterButton';
+import { useLocationVisibility } from '../../IndexServices/MapButtons/FilterButtons/HideMyLocation'; // ייבוא ה-hook החדש
 import LocationSelector from '../../IndexServices/MapButtons/FilterButtons/LocationSelector';
 import MyLocationButton from '../../IndexServices/MapButtons/MyLocationButton';
 import SearchInAreaButton from '../../IndexServices/MapButtons/SearchInAreaButton';
@@ -36,7 +37,8 @@ export default function HomeScreen() {
     currentUserUsername, 
     fetchCurrentUserUsername, 
     fetchSingleEvent,
-    user 
+    user,
+    toggleUserLocationVisibility // ייבוא הפונקציה החדשה
   } = useFirestoreService();
   
   const { 
@@ -96,11 +98,12 @@ export default function HomeScreen() {
   } = useSearchState();
   
   const [isLocationVisible, setIsLocationVisible] = useState(true); // מצב חדש לנראות המיקום
-  const [isLoadingLocationToggle, setIsLoadingLocationToggle] = useState(false);
 
   const { isOutOfRange } = useDistanceCalculation();
 
   useNotificationListeners(user);
+
+  useLocationVisibility(user?.uid, setIsLocationVisible); // שימוש ב-hook החדש
 
   // Computed values
   const currentSearchCenter = useMemo(() => 
@@ -119,10 +122,11 @@ export default function HomeScreen() {
   );
 
   const visibleUsers = useMemo(() => 
-    getVisibleUsers(users, currentSearchCenter, currentSearchDistance, user?.uid),
+    getVisibleUsers(users, currentSearchCenter, currentSearchDistance, user?.uid)
+      .filter(u => u.isLocationVisible), // סינון משתמשים שלא גלויים
     [getVisibleUsers, users, currentSearchCenter, currentSearchDistance, user?.uid]
   );
-
+  
   const isOutOfRangeResult = useMemo(() => 
     isOutOfRange(currentLocation, mapCenter, displayDistance),
     [isOutOfRange, currentLocation, mapCenter, displayDistance]
@@ -201,18 +205,15 @@ export default function HomeScreen() {
     handleSearchInArea(mapCenter, setSearchCenter, setIsCustomSearch);
   }, [handleSearchInArea, mapCenter, setSearchCenter, setIsCustomSearch]);
   
-  const toggleLocationVisibility = async () => {
-    setIsLoadingLocationToggle(true);
-    try {
-      // כאן היית מפעיל לוגיקה כלשהי כדי לעדכן את הנראות ב-backend
-      setIsLocationVisible(!isLocationVisible);
-      console.log('Location visibility toggled to:', !isLocationVisible);
-    } catch (error) {
-      console.error('Failed to toggle location visibility:', error);
-    } finally {
-      setIsLoadingLocationToggle(false);
+  const handleToggleLocationVisibility = useCallback(async () => {
+    if (!user?.uid) {
+      console.warn("User not authenticated, cannot toggle location visibility.");
+      return;
     }
-  };
+    const newVisibility = !isLocationVisible;
+    console.log(`Toggling location visibility to ${newVisibility} in Firestore.`);
+    await toggleUserLocationVisibility(user.uid, newVisibility);
+  }, [user?.uid, isLocationVisible, toggleUserLocationVisibility]);
 
   // Loading state
   if (!initialDataLoaded || !region) {
@@ -246,7 +247,7 @@ export default function HomeScreen() {
         onPress={handleMapPressInternal}
         onUserLocationChange={(event) => {
           const coordinate = event.nativeEvent.coordinate;
-          if (coordinate && isLocationVisible) {
+          if (coordinate && isLocationVisible) { // רק אם המיקום גלוי
             const { latitude, longitude } = coordinate;
             updateLocation({ latitude, longitude });
           }
@@ -271,6 +272,8 @@ export default function HomeScreen() {
         onDistanceFilterPress={handleDistanceFilterPress}
         onEventFilterPress={handleEventFilterPress}
         onAddEventPress={handleAddEventPress}
+        onLocationVisibilityPress={handleToggleLocationVisibility} // חיבור הפונקציה
+        isLocationVisible={isLocationVisible} // העברת המצב ל-FilterButton
         isChoosingLocation={isChoosingLocation}
         isFilterMenuVisible={isFilterMenuVisible}
         onToggleFilterMenu={handleToggleFilterMenu}
