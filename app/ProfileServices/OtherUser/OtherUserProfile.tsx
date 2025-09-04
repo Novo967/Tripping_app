@@ -35,7 +35,7 @@ const galleryItemSize = (width - GALLERY_MARGIN * 2 - GALLERY_SPACING * (GALLERY
 
 type OtherUserProfileRouteProp = RouteProp<RootStackParamList, 'OtherUserProfile'>;
 
-const OtherUserProfileUI = () => {
+const OtherUserProfile = () => {
   const route = useRoute<OtherUserProfileRouteProp>();
   const { uid } = route.params;
   const router = useRouter();
@@ -70,7 +70,6 @@ const OtherUserProfileUI = () => {
         style={[
           styles.galleryItem,
           {
-            marginLeft: (index % GALLERY_COLUMNS) === (GALLERY_COLUMNS - 1) ? 0 : GALLERY_SPACING,
             marginBottom: GALLERY_SPACING,
             transform: [{ scaleX: -1 }],
           },
@@ -231,11 +230,9 @@ const OtherUserProfileUI = () => {
                 numColumns={GALLERY_COLUMNS}
                 scrollEnabled={false}
                 showsVerticalScrollIndicator={false}
-                renderItem={({ item, index }) => renderGalleryImage({
-                  item,
-                  index,
-                })}
+                renderItem={renderGalleryImage}
                 contentContainerStyle={styles.galleryContent}
+                columnWrapperStyle={styles.galleryColumnWrapper}
                 style={styles.galleryList}
               />
             </View>
@@ -301,7 +298,7 @@ const OtherUserProfileUI = () => {
   );
 };
 
-export default OtherUserProfileUI;
+export default OtherUserProfile;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -334,9 +331,10 @@ const styles = StyleSheet.create({
   travelCard: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginBottom: 8, borderRightWidth: 3 },
   travelCardText: { fontSize: 14, marginLeft: 10, flex: 1 },
   gallerySection: { paddingHorizontal: 20, marginBottom: 32 },
-  galleryContainer: { paddingHorizontal: 4 },
+  galleryContainer: { },
   galleryContent: { paddingTop: 0 },
   galleryList: { transform: [{ scaleX: -1 }] },
+  galleryColumnWrapper: { justifyContent: 'space-between' },
   galleryItem: { width: galleryItemSize, height: galleryItemSize, position: 'relative' },
   likeableImageStyle: { width: '100%', height: '100%', borderRadius: 8 },
   moreImagesOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
