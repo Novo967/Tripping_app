@@ -32,13 +32,17 @@ export default function EventFilterButton({
   visible, 
   setVisible 
 }: Props) {
-  const [tempSelectedTypes, setTempSelectedTypes] = useState<string[]>(selectedEventTypes);
-  const [isPressable, setIsPressable] = useState(false); // **מצב חדש**
+const [tempSelectedTypes, setTempSelectedTypes] = useState<string[]>(
+    selectedEventTypes.length > 0 ? selectedEventTypes : EVENT_TYPES.map(type => type.id)
+  );  const [isPressable, setIsPressable] = useState(false); // **מצב חדש**
 
   // כשהמודל נפתח, נטען את הערכים הנוכחיים ל-state הזמני ונתזמן את הפעלת ה-onPress
   useEffect(() => {
-    if (visible) {
-      setTempSelectedTypes([...selectedEventTypes]);
+    if (visible) {if (selectedEventTypes.length === 0) {
+        setTempSelectedTypes(EVENT_TYPES.map(type => type.id));
+      } else {
+        setTempSelectedTypes([...selectedEventTypes]);
+      }
       // **הוספנו setTimeout כדי למנוע את הסגירה המיידית**
       const timer = setTimeout(() => {
         setIsPressable(true);

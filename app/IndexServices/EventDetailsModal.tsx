@@ -238,6 +238,12 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                                     <Text style={styles.modalAuthorLink}>{selectedEvent.username}</Text>
                                 </TouchableOpacity>
                             </View>
+                            {/* NEW: Event Type Row */}
+                            <View style={styles.detailRow}>
+                                <Ionicons name="flag-outline" size={18} color="#555" style={styles.detailIcon} />
+                                <Text style={styles.modalAuthorPrefix}>סוג אירוע: </Text>
+                                <Text style={styles.modalAuthorPrefix}>{selectedEvent.event_type}</Text>
+                            </View>
                             <View style={styles.detailRow}>
                                 <Ionicons name="calendar-outline" size={18} color="#555" style={styles.detailIcon} />
                                 <Text style={styles.modalAuthorPrefix}>תאריך: </Text>
