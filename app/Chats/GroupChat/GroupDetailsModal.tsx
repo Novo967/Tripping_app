@@ -67,7 +67,7 @@ const GroupDetailsModal = ({
         } else {
             // נווט לפרופיל של משתמש אחר
             router.push({
-                pathname: `/ProfileServices/OtherUserProfile`,
+                pathname: `/ProfileServices/OtherUser/OtherUserProfile`,
                 params: { uid: uid },
             });
         }

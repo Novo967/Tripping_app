@@ -28,7 +28,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { db } from '../../firebaseConfig';
-import ChatHeader from '../Chats/PersonalChat/ChatHeader';
+import ChatHeader from '../Chats/components/ChatHeader';
 import ChatItem from '../Chats/PersonalChat/ChatItem';
 
 moment.locale('he');
