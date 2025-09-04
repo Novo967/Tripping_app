@@ -117,6 +117,7 @@ export default function RegisterScreen() {
       email: user.email,
       uid: user.uid,
       username: username.trim(),
+      username_lowercase: username.trim().toLowerCase(),
       createdAt: new Date(),
     });
 

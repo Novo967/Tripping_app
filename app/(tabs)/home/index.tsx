@@ -8,6 +8,7 @@ import { LoadingComponent } from '../../IndexServices/components/LoadingComponen
 import { MapMarkersComponent } from '../../IndexServices/components/MapMarkersComponent';
 import { SearchBarComponent } from '../../IndexServices/components/SearchBarComponent';
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
+import { useBlockedUsers } from '../../IndexServices/hooks/useBlockedUsers';
 import { useFirestoreService } from '../../IndexServices/hooks/useFirestoreService';
 import { useLocationService } from '../../IndexServices/hooks/useLocationSevice';
 import { useMapInteractions } from '../../IndexServices/hooks/useMapInteractions';
@@ -23,7 +24,6 @@ import SearchInAreaButton from '../../IndexServices/MapButtons/SearchInAreaButto
 import { homeScreenStyles } from '../../IndexServices/styles/homeScreenStyles';
 import { darkMapStyle } from '../../IndexServices/styles/mapStyles';
 import { useDistanceCalculation } from '../../IndexServices/utils/distanceUtils';
-
 export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -40,7 +40,7 @@ export default function HomeScreen() {
     user,
     toggleUserLocationVisibility // ייבוא הפונקציה החדשה
   } = useFirestoreService();
-  
+  const blockedUsers = useBlockedUsers();
   const { 
     currentLocation, 
     fetchLocation, 
@@ -121,11 +121,25 @@ export default function HomeScreen() {
     [getVisibleEvents, events, currentSearchCenter, currentSearchDistance, selectedEventTypes]
   );
 
-  const visibleUsers = useMemo(() => 
-    getVisibleUsers(users, currentSearchCenter, currentSearchDistance, user?.uid)
-      .filter(u => u.isLocationVisible), // סינון משתמשים שלא גלויים
-    [getVisibleUsers, users, currentSearchCenter, currentSearchDistance, user?.uid]
-  );
+  const visibleUsers = useMemo(() => {
+    // Start with the basic filtering (location visibility and distance)
+    const filteredByLocation = getVisibleUsers(users, currentSearchCenter, currentSearchDistance, user?.uid)
+        .filter(u => u.isLocationVisible);
+
+    // Now, filter out users based on blocking rules
+    const finalVisibleUsers = filteredByLocation.filter(otherUser => {
+        // Rule 1: Don't show users that the current user has blocked.
+        const isBlockedByCurrentUser = blockedUsers.includes(otherUser.uid);
+        
+        // Rule 2: Don't show the current user to someone who has blocked them.
+        const isBlockingCurrentUser = (otherUser.blocked_users || []).includes(user?.uid);
+        
+        // Return true only if neither blocking rule is met.
+        return !isBlockedByCurrentUser && !isBlockingCurrentUser;
+    });
+    
+    return finalVisibleUsers;
+  }, [getVisibleUsers, users, currentSearchCenter, currentSearchDistance, user, blockedUsers]);
   
   const isOutOfRangeResult = useMemo(() => 
     isOutOfRange(currentLocation, mapCenter, displayDistance),

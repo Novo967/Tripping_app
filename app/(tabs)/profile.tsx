@@ -28,8 +28,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, auth } from '../../firebaseConfig';
-
 import Bio from '../ProfileServices/bio';
+import BlockUserModal from '../ProfileServices/BlockUserModal';
 import DeleteAccountModal from '../ProfileServices/DeleteAccountModal';
 import EventRequestsHandler from '../ProfileServices/EventRequestsHandler';
 import Gallery from '../ProfileServices/GalleryServices/Gallery';
@@ -78,7 +78,7 @@ export default function ProfileScreen() {
     const notificationTimeoutRef = useRef<number | null>(null);
     const [showRequests, setShowRequests] = useState(false);
     const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
-
+    const [isBlockModalVisible, setBlockModalVisible] = useState(false);
     const navigation = useNavigation();
     const { theme, toggleTheme } = useTheme();
     const router = useRouter();
@@ -376,6 +376,14 @@ export default function ProfileScreen() {
                         {theme.isDark ? 'מצב בהיר' : 'מצב כהה'}
                     </Text>
                     </TouchableOpacity>
+                    {/* Block user button */}
+                    <TouchableOpacity style={styles.settingsItem} onPress={() => {
+                        toggleSettings(); // Close settings panel
+                        setBlockModalVisible(true); // Open the block user modal
+                    }}>
+                        <Ionicons name="hand-right-outline" size={20} color={theme.colors.text} />
+                        <Text style={[styles.settingsText, { color: theme.colors.text }]}>חסום משתמש</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.settingsItem} onPress={() => {
                         toggleSettings();
                         setDeleteModalVisible(true); // Open the modal instead of deleting directly
@@ -435,6 +443,10 @@ export default function ProfileScreen() {
                     onClose={() => setDeleteModalVisible(false)}
                     profilePic={profilePic}
                     gallery={gallery}
+                />
+                <BlockUserModal
+                    isVisible={isBlockModalVisible}
+                    onClose={() => setBlockModalVisible(false)}
                 />
             </Animated.View>
         </SafeAreaView>

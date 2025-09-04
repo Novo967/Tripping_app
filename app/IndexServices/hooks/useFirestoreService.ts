@@ -33,6 +33,7 @@ export interface SelectedUserType {
   longitude: number;
   profile_image?: string;
   isLocationVisible?: boolean; // הוספת שדה חדש
+  blocked_users?: string[];
 }
 
 const db = getFirestore(app);
@@ -143,6 +144,7 @@ export const useFirestoreService = () => {
             longitude: data.longitude,
             profile_image: data.profile_image || null,
             isLocationVisible: data.isLocationVisible ?? true, // קריאת שדה הנראות
+            blocked_users: data.blocked_users || [],
           });
         }
       });
