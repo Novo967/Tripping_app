@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -149,14 +150,55 @@ const ChatModal = () => {
 
   const sendMessage = async (imageUrl?: string) => {
     if ((!input.trim() && !imageUrl) || !currentUid) return;
+
+    // בדיקת חסימה לפני שליחת הודעה
+    try {
+      const currentUserDocRef = doc(db, 'users', currentUid);
+      const otherUserDocRef = doc(db, 'users', otherUserId);
+
+      const currentUserSnap = await getDoc(currentUserDocRef);
+      const otherUserSnap = await getDoc(otherUserDocRef);
+
+      if (currentUserSnap.exists() && otherUserSnap.exists()) {
+        const currentUserData = currentUserSnap.data();
+        const otherUserData = otherUserSnap.data();
+
+        const currentUserBlocked = currentUserData.blocked_users || [];
+        const otherUserBlocked = otherUserData.blocked_users || [];
+
+        // בדיקה אם המשתמש האחר חסום על ידי המשתמש הנוכחי
+        if (currentUserBlocked.includes(otherUserId)) {
+          Alert.alert('שגיאה', 'אינך יכול לשלוח הודעה למשתמש שחסמת.');
+          return; // עוצר את שליחת ההודעה
+        }
+
+        // בדיקה אם המשתמש הנוכחי חסום על ידי המשתמש האחר
+        if (otherUserBlocked.includes(currentUid)) {
+          Alert.alert('שגיאה', 'אינך יכול לשלוח הודעה למשתמש שחסם אותך.');
+          return; // עוצר את שליחת ההודעה
+        }
+      } else {
+        console.error('אחד מהמשתמשים לא קיים במסד הנתונים.');
+        Alert.alert('שגיאה', 'אירעה שגיאה בבדיקת הרשאות. אנא נסה שוב.');
+        return;
+      }
+    } catch (error) {
+      console.error('שגיאה בבדיקת חסימה:', error);
+      Alert.alert('שגיאה', 'אירעה שגיאה. אנא נסה שוב.');
+      return;
+    }
+
+    // אם עבר את בדיקת החסימה, ממשיך בשליחת ההודעה
     const chatDocRef = doc(db, 'chats', chatId);
     const chatDocSnap = await getDoc(chatDocRef);
+
     if (!chatDocSnap.exists()) {
       await setDoc(chatDocRef, {
         participants: [currentUid, otherUserId],
         createdAt: serverTimestamp(),
       });
     }
+
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, {
       text: input.trim(),
@@ -165,6 +207,7 @@ const ChatModal = () => {
       createdAt: serverTimestamp(),
       ...(imageUrl && { imageUrl }),
     });
+
     setInput('');
   };
 
