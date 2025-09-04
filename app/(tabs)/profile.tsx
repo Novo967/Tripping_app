@@ -2,29 +2,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import {
-  arrayRemove,
-  arrayUnion,
-  collection,
-  doc,
-  getFirestore,
-  onSnapshot,
-  query,
-  updateDoc,
-  where
+    arrayRemove,
+    arrayUnion,
+    collection,
+    doc,
+    getFirestore,
+    onSnapshot,
+    query,
+    updateDoc,
+    where
 } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  Platform,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    Platform,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, auth } from '../../firebaseConfig';
@@ -384,6 +384,10 @@ export default function ProfileScreen() {
                         <Ionicons name="hand-right-outline" size={20} color={theme.colors.text} />
                         <Text style={[styles.settingsText, { color: theme.colors.text }]}>חסום משתמש</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity style={styles.settingsItem} onPress={fadeOutAndLogout}>
+                        <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+                        <Text style={[styles.settingsText, { color: '#FF3B30' }]}>התנתקות</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.settingsItem} onPress={() => {
                         toggleSettings();
                         setDeleteModalVisible(true); // Open the modal instead of deleting directly
@@ -392,10 +396,7 @@ export default function ProfileScreen() {
                         <Text style={[styles.settingsText, { color: '#FF3B30' }]}>מחק חשבון</Text>
                     </TouchableOpacity>
                     {/* ✅ מונע קליקים בזמן האנימציה */}
-                    <TouchableOpacity style={styles.settingsItem} onPress={fadeOutAndLogout}>
-                        <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-                        <Text style={[styles.settingsText, { color: '#FF3B30' }]}>התנתקות</Text>
-                    </TouchableOpacity>
+                    
                 </Animated.View>
 
                 <Animated.View style={[styles.requestsPanelAnimated, {
