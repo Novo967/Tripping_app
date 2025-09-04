@@ -240,6 +240,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                             </View>
                             <View style={styles.detailRow}>
                                 <Ionicons name="calendar-outline" size={18} color="#555" style={styles.detailIcon} />
+                                <Text style={styles.modalAuthorPrefix}>תאריך: </Text>
                                 <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Text>
                             </View>
                             {selectedEvent.location && (
