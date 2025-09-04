@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { getAuth } from 'firebase/auth'; // ייבוא getAuth
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // ייבוא Alert
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../firebaseConfig';
 import { useTheme } from '../../ProfileServices/ThemeContext';
@@ -15,6 +16,8 @@ interface ChatHeaderProps {
 const ChatHeader: React.FC<ChatHeaderProps> = ({ otherUserId, otherUsername }) => {
   const [otherUserProfileImage, setOtherUserProfileImage] = useState<string | null>(null);
   const { theme } = useTheme();
+  const auth = getAuth(); // קבלת אובייקט ה-Auth
+  const currentUserUid = auth.currentUser?.uid; // קבלת ה-UID של המשתמש הנוכחי
 
   // New function to get the profile image URL from Firestore
   const getProfileImageUrl = async (userId: string) => {
@@ -46,7 +49,30 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ otherUserId, otherUsername }) =
 
   const goBack = () => router.back();
 
-  const handleUserProfilePress = () => {
+  const handleUserProfilePress = async () => {
+    // 1. בדיקה אם המשתמש הנוכחי חסום על ידי המשתמש השני
+    if (currentUserUid && otherUserId) {
+      try {
+        const otherUserDocRef = doc(db, 'users', otherUserId);
+        const otherUserDocSnap = await getDoc(otherUserDocRef);
+
+        if (otherUserDocSnap.exists()) {
+          const otherUserData = otherUserDocSnap.data();
+          const otherUserBlockedList = otherUserData.blocked_users || [];
+          
+          if (otherUserBlockedList.includes(currentUserUid)) {
+            Alert.alert('שגיאה', 'אינך יכול לצפות בפרופיל של משתמש שחסם אותך.');
+            return; // עצירת הפונקציה
+          }
+        }
+      } catch (error) {
+        console.error("שגיאה בבדיקת רשימת החסומים של המשתמש השני:", error);
+        Alert.alert('שגיאה', 'אירעה שגיאה בבדיקת הפרופיל.');
+        return; // עצירת הפונקציה
+      }
+    }
+
+    // 2. אם הבדיקה עברה, נווט לעמוד הפרופיל
     router.push({
       pathname: '/ProfileServices/OtherUser/OtherUserProfile',
       params: { uid: otherUserId },
