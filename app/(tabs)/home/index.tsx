@@ -24,6 +24,7 @@ import SearchInAreaButton from '../../IndexServices/MapButtons/SearchInAreaButto
 import { homeScreenStyles } from '../../IndexServices/styles/homeScreenStyles';
 import { darkMapStyle } from '../../IndexServices/styles/mapStyles';
 import { useDistanceCalculation } from '../../IndexServices/utils/distanceUtils';
+
 export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -132,7 +133,7 @@ export default function HomeScreen() {
         const isBlockedByCurrentUser = blockedUsers.includes(otherUser.uid);
         
         // Rule 2: Don't show the current user to someone who has blocked them.
-        const isBlockingCurrentUser = (otherUser.blocked_users || []).includes(user?.uid);
+        const isBlockingCurrentUser = user?.uid ? (otherUser.blocked_users || []).includes(user.uid) : false;
         
         // Return true only if neither blocking rule is met.
         return !isBlockedByCurrentUser && !isBlockingCurrentUser;
