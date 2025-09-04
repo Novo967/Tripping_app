@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
 import React from 'react';
 import {
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -123,8 +123,8 @@ export default function TermsOfServiceProfile() {
             <Text style={styles.sectionHeader}>9. יצירת קשר</Text>
             <Text style={styles.sectionText}>
               לשאלות או בקשות בנוגע לתנאים אלה:
-              {'\n'}• אימייל: support@triping.app
-              {'\n'}• טלפון: 03-1234567
+              {'\n'}• אימייל: Trekappil@gmail.com
+              {'\n'}• טלפון: 052-4444444
             </Text>
           </View>
 
