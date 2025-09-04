@@ -69,7 +69,7 @@ const GroupDetailsModal = ({
 
         // 1. If the user presses on their own profile, navigate to the local profile page
         if (otherUserUid === currentUid) {
-            router.push('/profile');
+            router.replace('/profile');
             return;
         }
 
@@ -94,6 +94,7 @@ const GroupDetailsModal = ({
         }
     
         // 3. If the check passes, navigate to the other user's profile
+        onClose();
         router.push({
             pathname: '/ProfileServices/OtherUser/OtherUserProfile',
             params: { uid: otherUserUid },
