@@ -162,15 +162,16 @@ export default function DeleteAccountModal({
                             </Text>
 
                             <View style={styles.checkboxContainer}>
+                                <Text style={[styles.checkboxLabel, { color: theme.colors.text }]}>
+                                    אני מבין/ה כי מחיקת החשבון היא לצמיתות.
+                                </Text>
                                 <Checkbox
                                     style={styles.checkbox}
                                     value={isChecked}
                                     onValueChange={setChecked}
                                     color={isChecked ? theme.colors.primary : theme.colors.text}
                                 />
-                                <Text style={[styles.checkboxLabel, { color: theme.colors.text }]}>
-                                    אני מבין/ה כי מחיקת החשבון היא לצמיתות.
-                                </Text>
+                                
                             </View>
 
                             <View style={styles.buttonContainer}>
@@ -247,6 +248,7 @@ const styles = StyleSheet.create({
         marginRight: 8,
     },
     checkboxLabel: {
+        padding:6,
         fontSize: 14,
         textAlign: 'right',
     },
