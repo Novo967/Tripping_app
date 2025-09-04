@@ -109,7 +109,7 @@ export default ChatHeader;
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 10,
-    paddingVertical: 0,
+    paddingVertical: -10,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#3A8DFF',
