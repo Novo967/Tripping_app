@@ -266,11 +266,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     buttonClose: {
-<<<<<<< HEAD
         backgroundColor: '#FFFFFF',
-=======
-        backgroundColor: '#FFFFFF',
->>>>>>> 6286098c4b34f325a9625fdf5a57e0b3c78650a2
         borderWidth: 1,
     },
     buttonDelete: {
