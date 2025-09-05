@@ -70,7 +70,7 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [username, setUsername] = useState('');
     const [isEditingBio, setIsEditingBio] = useState(false);
-    const [isEditingProfile, setIsEditingProfile] = useState(false); // 👈 מצב חדש לניהול עריכת הפרופיל
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -239,16 +239,36 @@ export default function ProfileScreen() {
         return () => unsubscribe();
     }, []);
 
-    // 👈 הוספת הלוגיקה לעדכון מצב העריכה
+    // Handle trigger actions from navigation params
     useFocusEffect(useCallback(() => {
-        if (params?.triggerAction === 'editBio') {
-            setIsEditingProfile(true);
-            handleEditBio();
+        if (params?.triggerAction) {
+            console.log('Trigger action received:', params.triggerAction);
+            
+            switch (params.triggerAction) {
+                case 'editBio':
+                    setIsEditingProfile(true);
+                    handleEditBio();
+                    break;
+                case 'deleteAccount':
+                    setDeleteModalVisible(true);
+                    break;
+                case 'blockUser':
+                    setBlockModalVisible(true);
+                    break;
+                default:
+                    break;
+            }
+            
+            // Clear the trigger action to prevent re-triggering
+            // Note: This might cause a re-render, so we do it after handling the action
+            setTimeout(() => {
+                router.setParams({ triggerAction: undefined });
+            }, 100);
         } else {
             setIsEditingProfile(false);
         }
 
-        // ניקוי המצב כאשר עוזבים את המסך
+        // Cleanup when leaving the screen
         return () => {
             setIsEditingProfile(false);
         };
@@ -351,7 +371,7 @@ export default function ProfileScreen() {
                     gallery={gallery}
                     onAddImage={(uri: string) => uploadImageToFirebase(uri, false)}
                     onDeleteImages={handleDeleteImagesFromGallery}
-                    isEditing={isEditingProfile} // 👈 העברת ה-prop החדש
+                    isEditing={isEditingProfile}
                 />
 
                 <Bio
@@ -359,7 +379,11 @@ export default function ProfileScreen() {
                     isEditing={isEditingBio}
                     onChange={setBio}
                     onSave={saveBio}
-                    onEditToggle={() => setIsEditingBio(prev => !prev)}
+                    onEditToggle={() => {
+                        const newEditingState = !isEditingBio;
+                        setIsEditingBio(newEditingState);
+                        setIsEditingProfile(newEditingState); // Sync both editing states
+                    }}
                 />
 
                 <Gallery
@@ -371,12 +395,14 @@ export default function ProfileScreen() {
                     selectedImage={selectedImage}
                     onClose={closeImageModal}
                 />
+                
                 <DeleteAccountModal
                     isVisible={isDeleteModalVisible}
                     onClose={() => setDeleteModalVisible(false)}
                     profilePic={profilePic}
                     gallery={gallery}
                 />
+                
                 <BlockUserModal
                     isVisible={isBlockModalVisible}
                     onClose={() => setBlockModalVisible(false)}
