@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../ProfileServices/ThemeContext';
@@ -137,6 +137,7 @@ export default GroupChatHeader;
 const styles = StyleSheet.create({
   headerContent: {
     paddingHorizontal: 16,
+    marginBottom: -30,
     paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',

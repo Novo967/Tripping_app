@@ -110,6 +110,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 10,
     paddingVertical: -10,
+    marginBottom: -20,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     shadowColor: '#3A8DFF',
