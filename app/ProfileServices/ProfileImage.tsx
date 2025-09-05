@@ -24,6 +24,7 @@ interface Props {
   gallery: string[];
   onAddImage: (uri: string) => Promise<void>;
   onDeleteImages: (deletedImageUrls: string[]) => void
+  isEditing: boolean;
 };
 
 const ProfileImage: React.FC<Props> = ({
@@ -31,6 +32,7 @@ const ProfileImage: React.FC<Props> = ({
   username,
   galleryLength,
   onChangeImage,
+  isEditing,
 }) => {
   const { theme } = useTheme();
   const [imageLoading, setImageLoading] = useState(false);
@@ -121,7 +123,7 @@ const ProfileImage: React.FC<Props> = ({
     <View style={styles.container}>
       <View style={styles.profileImageWrapper}>
         {renderProfileImage()}
-        
+        {isEditing && (
         <TouchableOpacity 
           style={[styles.editIcon, { backgroundColor: theme.colors.primary }]} 
           onPress={pickImage}
@@ -133,6 +135,7 @@ const ProfileImage: React.FC<Props> = ({
             color="white" 
           />
         </TouchableOpacity>
+        )}
       </View>
       
       <Text style={[styles.username, { color: theme.colors.text }]}>
