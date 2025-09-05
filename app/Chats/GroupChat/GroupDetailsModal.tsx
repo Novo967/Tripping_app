@@ -6,7 +6,7 @@ import { getStorage } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert, // Added Alert
+    Alert,
     FlatList,
     Image,
     Linking,
@@ -159,32 +159,26 @@ const GroupDetailsModal = ({
                     const data = docSnap.data();
 
                     let formattedDate = 'לא צוין';
+                    let formattedTime = 'לא צוין';
+
                     if (data.event_date) {
                         try {
-                            let date;
-                            if (data.event_date.toDate) {
-                                date = new Date(data.event_date.toDate());
-                            } else if (typeof data.event_date === 'string') {
-                                date = new Date(data.event_date);
-                            } else if (data.event_date instanceof Date) {
-                                date = data.event_date;
-                            }
-
+                            const date = new Date(data.event_date);
                             if (date && !isNaN(date.getTime())) {
                                 formattedDate = date.toLocaleDateString('he-IL', {
                                     day: '2-digit',
                                     month: '2-digit',
                                     year: 'numeric',
                                 });
+                                // Extract time from the same Date object
+                                formattedTime = date.toLocaleTimeString('he-IL', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                });
                             }
                         } catch (dateError) {
                             console.log('Date formatting error:', dateError);
                         }
-                    }
-
-                    let formattedTime = 'לא צוין';
-                    if (data.time && data.time.trim() !== '') {
-                        formattedTime = data.time;
                     }
 
                     setEventDetails({
@@ -203,34 +197,28 @@ const GroupDetailsModal = ({
 
                     if (docSnap.exists()) {
                         const data = docSnap.data();
-
+                        
                         let formattedDate = 'לא צוין';
+                        let formattedTime = 'לא צוין';
+
                         if (data.event_date) {
                             try {
-                                let date;
-                                if (data.event_date.toDate) {
-                                    date = new Date(data.event_date.toDate());
-                                } else if (typeof data.event_date === 'string') {
-                                    date = new Date(data.event_date);
-                                } else if (data.event_date instanceof Date) {
-                                    date = data.event_date;
-                                }
-
+                                const date = new Date(data.event_date);
                                 if (date && !isNaN(date.getTime())) {
                                     formattedDate = date.toLocaleDateString('he-IL', {
                                         day: '2-digit',
                                         month: '2-digit',
                                         year: 'numeric',
                                     });
+                                    // Extract time from the same Date object
+                                    formattedTime = date.toLocaleTimeString('he-IL', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    });
                                 }
                             } catch (dateError) {
                                 console.log('Date formatting error:', dateError);
                             }
-                        }
-
-                        let formattedTime = 'לא צוין';
-                        if (data.time && data.time.trim() !== '') {
-                            formattedTime = data.time;
                         }
 
                         setEventDetails({
@@ -278,7 +266,7 @@ const GroupDetailsModal = ({
 
         try {
             const { latitude, longitude } = eventDetails;
-            const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+            const googleMapsUrl = `http://maps.google.com/maps?q=${latitude},${longitude}`;
             const supported = await Linking.canOpenURL(googleMapsUrl);
 
             if (supported) {
@@ -451,21 +439,21 @@ const GroupDetailsModal = ({
                                     <Ionicons name="person-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                                     <View style={styles.detailTextContainer}>
                                         <Text style={styles.detailLabel}>מאת:</Text>
-                                        <Text style={styles.detailText}>{eventDetails.organizer}</Text>
+                                        <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{eventDetails.organizer}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.detailRow}>
                                     <Ionicons name="calendar-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                                     <View style={styles.detailTextContainer}>
                                         <Text style={styles.detailLabel}>תאריך:</Text>
-                                        <Text style={styles.detailText}>{eventDetails.date}</Text>
+                                        <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{eventDetails.date}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.detailRow}>
                                     <Ionicons name="time-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                                     <View style={styles.detailTextContainer}>
                                         <Text style={styles.detailLabel}>שעה:</Text>
-                                        <Text style={styles.detailText}>{eventDetails.time}</Text>
+                                        <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{eventDetails.time}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.detailRow}>
@@ -477,7 +465,7 @@ const GroupDetailsModal = ({
                                                 <Text style={[styles.detailText, styles.detailLocationLink, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>{eventDetails.location}</Text>
                                             </TouchableOpacity>
                                         ) : (
-                                            <Text style={styles.detailText}>{eventDetails.location}</Text>
+                                            <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{eventDetails.location}</Text>
                                         )}
                                     </View>
                                 </View>
@@ -486,7 +474,7 @@ const GroupDetailsModal = ({
                                     <Ionicons name="document-text-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
                                     <View style={styles.detailTextContainer}>
                                         <Text style={styles.detailLabel}>תיאור:</Text>
-                                        <Text style={styles.detailText}>{eventDetails.description}</Text>
+                                        <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{eventDetails.description}</Text>
                                     </View>
                                 </View>
                             </View>
@@ -503,12 +491,14 @@ const GroupDetailsModal = ({
                         />
                     </View>
 
-                    <TouchableOpacity style={styles.shareButton} onPress={handleShareEvent}>
-                        <Text style={styles.shareText}>שתף אירוע</Text>
+                    <TouchableOpacity style={[styles.actionButton, styles.shareButton]} onPress={handleShareEvent}>
+                        <Ionicons name="share-social-outline" size={20} color="#FFFFFF" style={styles.actionIcon} />
+                        <Text style={styles.actionText}>שתף אירוע</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.leaveGroupButton} onPress={handleLeaveGroup}>
-                        <Text style={styles.leaveGroupText}>יציאה מהקבוצה</Text>
+                    <TouchableOpacity style={[styles.actionButton, styles.leaveGroupButton]} onPress={handleLeaveGroup}>
+                        <Ionicons name="exit-outline" size={20} color="#FFFFFF" style={styles.actionIcon} />
+                        <Text style={styles.actionText}>יציאה מהקבוצה</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </View>
@@ -534,47 +524,52 @@ const styles = StyleSheet.create({
     groupName: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginHorizontal: 20 },
     memberCount: { fontSize: 16, textAlign: 'center', marginTop: 5 },
     detailsSection: { padding: 15, borderRadius: 15, marginBottom: 20 },
-    detailCard: { padding: 15, borderWidth: 1, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
-    detailRow: { flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 10 },
-    detailIcon: { marginLeft: 10 },
+    detailCard: { padding: 20, borderWidth: 1, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+    detailRow: { flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 15 },
+    detailIcon: { marginLeft: 5 },
     detailTextContainer: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'flex-start' },
-    detailLabel: { fontSize: 14, fontWeight: 'bold', marginLeft: 6, textAlign: 'right' },
-    detailText: { fontSize: 16, textAlign: 'right', flexShrink: 1 },
-    detailLocationLink: { fontSize: 14, fontWeight: 'bold', textDecorationLine: 'underline', textAlign: 'right' },
+    detailLabel: { fontSize: 15, fontWeight: 'bold', marginLeft: 4, textAlign: 'right', color: '#95A5A6' },
+    detailText: { fontSize: 16, textAlign: 'right', flexShrink: 1, fontWeight: 'bold' },
+    detailLocationLink: { fontSize: 16, fontWeight: 'bold', textDecorationLine: 'underline', textAlign: 'right' },
     membersSection: { padding: 15, borderRadius: 15, marginBottom: 20 },
-    sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'right' },
+    sectionTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, textAlign: 'right' },
     memberItem: { flexDirection: 'row-reverse', alignItems: 'center', padding: 12, borderWidth: 1, borderRadius: 12, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
     memberAvatar: { width: 48, height: 48, borderRadius: 24, marginLeft: 15 },
     memberInfo: { flex: 1 },
     memberName: { fontSize: 16, fontWeight: 'bold', textAlign: 'right' },
+    
+    actionButton: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        borderRadius: 12,
+        alignSelf: 'center',
+        width: '90%',
+        marginVertical: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 4,
+    },
+    actionText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+        textAlign: 'center',
+        marginLeft: 10,
+    },
+    actionIcon: {
+        marginRight: 10,
+    },
     shareButton: {
         backgroundColor: '#3A8DFF',
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        alignSelf: 'center',
-        marginBottom: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-        elevation: 4,
     },
-    shareText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
     leaveGroupButton: {
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        alignSelf: 'center',
-        marginBottom: 20,
-        backgroundColor: '#d80d0dff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-        elevation: 4,
+        backgroundColor: '#fc3e3eff',
     },
-    leaveGroupText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
 });
 
 export default GroupDetailsModal;

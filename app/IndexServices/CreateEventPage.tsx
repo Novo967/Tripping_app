@@ -46,6 +46,7 @@ export default function CreateEventPage() {
     const [eventLocation, setEventLocation] = useState('טוען מיקום...');
     const [cityCountry, setCityCountry] = useState('');
     const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false); // New state for time picker
     const [isLoading, setIsLoading] = useState(false);
     const [eventImageUri, setEventImageUri] = useState<string | null>(null);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -221,10 +222,15 @@ export default function CreateEventPage() {
         }
     };
 
-    // Simple date picker handlers
+    // Date and Time picker handlers
     const openDatePicker = () => {
         setTempDate(eventDate);
         setShowDatePicker(true);
+    };
+
+    const openTimePicker = () => {
+        setTempDate(eventDate);
+        setShowTimePicker(true);
     };
 
     const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -238,14 +244,42 @@ export default function CreateEventPage() {
         }
     };
 
+    const handleTimeChange = (event: any, selectedTime?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowTimePicker(false);
+            if (event.type === 'set' && selectedTime) {
+                setEventDate(selectedTime);
+            }
+        } else if (selectedTime) {
+            setTempDate(selectedTime);
+        }
+    };
+
     const confirmIOSDate = () => {
         setEventDate(tempDate);
         setShowDatePicker(false);
+    };
+    
+    const confirmIOSTime = () => {
+        setEventDate(tempDate);
+        setShowTimePicker(false);
     };
 
     const cancelIOSDate = () => {
         setTempDate(eventDate);
         setShowDatePicker(false);
+    };
+    
+    const cancelIOSTime = () => {
+        setTempDate(eventDate);
+        setShowTimePicker(false);
+    };
+    
+    // Formatting helper
+    const formatTime = (date: Date) => {
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
     };
 
     const typeLabels: Record<EventType, string> = {
@@ -402,17 +436,31 @@ export default function CreateEventPage() {
                     ))}
                 </ScrollView>
     
-                <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={openDatePicker}
-                >
-                    <View style={styles.dateButtonContent}>
-                        <Ionicons name="calendar" size={20} color="#3A8DFF" />
-                        <Text style={styles.dateText}>
-                            {eventDate.toLocaleDateString('he-IL')}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
+                <View style={styles.dateAndTimeContainer}>
+                    <TouchableOpacity
+                        style={styles.dateTimeButton}
+                        onPress={openDatePicker}
+                    >
+                        <View style={styles.dateButtonContent}>
+                            <Ionicons name="calendar" size={20} color="#3A8DFF" />
+                            <Text style={styles.dateText}>
+                                {eventDate.toLocaleDateString('he-IL')}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.dateTimeButton, styles.timeButton]}
+                        onPress={openTimePicker}
+                    >
+                        <View style={styles.dateButtonContent}>
+                            <Ionicons name="time-outline" size={20} color="#3A8DFF" />
+                            <Text style={styles.dateText}>
+                                {formatTime(eventDate)}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+                </View>
 
                 <TextInput
                     style={[styles.input, styles.descriptionInput]}
@@ -434,47 +482,81 @@ export default function CreateEventPage() {
                 </TouchableOpacity>
             </ScrollView>
     
-           {/* Fixed Modal for Date Picker */}
+            {/* Modal for Date Picker */}
             {showDatePicker && (
-            <Modal visible={true} transparent animationType="slide">
-                <View style={styles.modalBackground}>
-                <View style={styles.modalContainer}>
-                <View style={styles.modalHeader}>
-                <TouchableOpacity 
-                    onPress={cancelIOSDate}
-                    style={styles.modalButton}
-                >
-                <Text style={styles.modalButtonTextCancel}>ביטול</Text>
-                </TouchableOpacity>
-                    <Text style={styles.modalTitle}>בחר תאריך</Text>
-                <TouchableOpacity 
-                    onPress={Platform.OS === 'ios' ? confirmIOSDate : () => {}}
-                    style={[styles.modalButton, Platform.OS === 'android' && { opacity: 0 }]}
-                >
-                <Text style={styles.modalButtonTextConfirm}>אישור</Text>
-                </TouchableOpacity>
-            </View>
-        
-            <View style={styles.datePickerContainer}>
-            <DateTimePicker
-                value={Platform.OS === 'ios' ? tempDate : eventDate}
-                mode="date"
-                onChange={handleDateChange}
-                minimumDate={new Date()}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                style={styles.datePicker}
-                {...(Platform.OS === 'ios' ? { textColor: "#3A8DFF" } : {})} 
-                themeVariant="light" // לאנדרואיד, מונע מצב כהה
-                />
-            </View>
-        </View>
-        </View>
-        </Modal>
-    )}
+                <Modal visible={true} transparent animationType="slide">
+                    <View style={styles.modalBackground}>
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalHeader}>
+                                <TouchableOpacity 
+                                    onPress={cancelIOSDate}
+                                    style={styles.modalButton}
+                                >
+                                    <Text style={styles.modalButtonTextCancel}>ביטול</Text>
+                                </TouchableOpacity>
+                                <Text style={styles.modalTitle}>בחר תאריך</Text>
+                                <TouchableOpacity 
+                                    onPress={Platform.OS === 'ios' ? confirmIOSDate : () => {}}
+                                    style={[styles.modalButton, Platform.OS === 'android' && { opacity: 0 }]}
+                                >
+                                    <Text style={styles.modalButtonTextConfirm}>אישור</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.datePickerContainer}>
+                                <DateTimePicker
+                                    value={Platform.OS === 'ios' ? tempDate : eventDate}
+                                    mode="date"
+                                    onChange={handleDateChange}
+                                    minimumDate={new Date()}
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    style={styles.datePicker}
+                                    {...(Platform.OS === 'ios' ? { textColor: "#3A8DFF" } : {})} 
+                                    themeVariant="light"
+                                />
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            )}
 
+            {/* Modal for Time Picker */}
+            {showTimePicker && (
+                <Modal visible={true} transparent animationType="slide">
+                    <View style={styles.modalBackground}>
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalHeader}>
+                                <TouchableOpacity 
+                                    onPress={cancelIOSTime}
+                                    style={styles.modalButton}
+                                >
+                                    <Text style={styles.modalButtonTextCancel}>ביטול</Text>
+                                </TouchableOpacity>
+                                <Text style={styles.modalTitle}>בחר שעה</Text>
+                                <TouchableOpacity 
+                                    onPress={Platform.OS === 'ios' ? confirmIOSTime : () => {}}
+                                    style={[styles.modalButton, Platform.OS === 'android' && { opacity: 0 }]}
+                                >
+                                    <Text style={styles.modalButtonTextConfirm}>אישור</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.datePickerContainer}>
+                                <DateTimePicker
+                                    value={Platform.OS === 'ios' ? tempDate : eventDate}
+                                    mode="time"
+                                    onChange={handleTimeChange}
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    style={styles.datePicker}
+                                    {...(Platform.OS === 'ios' ? { textColor: "#3A8DFF" } : {})} 
+                                    themeVariant="light"
+                                />
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            )}
         </KeyboardAvoidingView>
     );
-    }
+}
 
 const styles = StyleSheet.create({
     container: { 
@@ -648,13 +730,21 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         textAlign: 'right',
     },
-    dateButton: {
+    dateAndTimeContainer: {
+        flexDirection: 'row-reverse',
+        justifyContent: 'space-between',
+        marginVertical: 15,
+    },
+    dateTimeButton: {
+        flex: 1,
         backgroundColor: 'white',
         borderRadius: 10,
         padding: 12,
-        marginVertical: 15,
         borderWidth: 1,
         borderColor: '#eee',
+    },
+    timeButton: {
+        marginRight: 10,
     },
     dateButtonContent: {
         flexDirection: 'row-reverse',
