@@ -20,13 +20,15 @@ interface SettingsScreenProps {
     onDeleteAccount: () => void;
     onBlockUser: () => void;
     fadeAnim: Animated.Value;
+    onReportUser: () => void; // Add this prop
 }
 
 export default function SettingsScreen({
     onEditBio,
     onDeleteAccount,
     onBlockUser,
-    fadeAnim
+    fadeAnim,
+    onReportUser // Add this prop
 }: SettingsScreenProps) {
     const { theme, toggleTheme } = useTheme();
     const router = useRouter();
@@ -69,6 +71,7 @@ export default function SettingsScreen({
     };
 
     const handleBlockUser = () => {
+        // Navigate back to profile with blockUser trigger
         router.push({
             pathname: '/(tabs)/profile',
             params: { triggerAction: 'blockUser' }
@@ -76,6 +79,7 @@ export default function SettingsScreen({
     };
 
     const handleDeleteAccount = () => {
+        // Navigate back to profile with deleteAccount trigger
         router.push({
             pathname: '/(tabs)/profile',
             params: { triggerAction: 'deleteAccount' }
@@ -83,6 +87,12 @@ export default function SettingsScreen({
     };
 
     const handleBack = () => {
+        router.push('/(tabs)/profile');
+    };
+    
+    // New function to handle report user
+    const handleReportUser = () => {
+        // We will create and navigate to a new modal or screen for reporting
         router.push('/(tabs)/profile');
     };
 
@@ -126,6 +136,14 @@ export default function SettingsScreen({
                     onPress: handleBlockUser,
                     color: theme.colors.text,
                     isSwitch: false,
+                },
+                {
+                    id: 'reportUser', // New option for reporting
+                    title: 'דווח על משתמש',
+                    icon: 'flag-outline', // You can choose any icon you like
+                    onPress: handleReportUser,
+                    color: '#FF3B30', // A strong color to highlight the action
+                    isSwitch: false,
                 }
             ]
         },
@@ -158,8 +176,6 @@ export default function SettingsScreen({
                 barStyle={theme.isDark ? 'light-content' : 'dark-content'}
                 backgroundColor={theme.colors.background}
             />
-
-            {/* Header */}
             <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
                 <TouchableOpacity
                     style={styles.backButton}
@@ -172,8 +188,6 @@ export default function SettingsScreen({
                 </Text>
                 <View style={styles.placeholder} />
             </View>
-
-            {/* Settings List */}
             <View style={styles.settingsContainer}>
                 <View style={[styles.sectionContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                     {settingsSections.map((section, sectionIndex) => (
@@ -186,7 +200,7 @@ export default function SettingsScreen({
                                     key={option.id}
                                     style={styles.settingItem}
                                     onPress={option.onPress}
-                                    activeOpacity={option.isSwitch ? 1 : 0.7} // Disable opacity for switch
+                                    activeOpacity={option.isSwitch ? 1 : 0.7}
                                 >
                                     <View style={styles.settingContent}>
                                         <View style={styles.settingInfo}>
@@ -206,7 +220,7 @@ export default function SettingsScreen({
                                                 ios_backgroundColor={theme.colors.border}
                                                 onValueChange={toggleTheme}
                                                 value={theme.isDark}
-                                                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],marginLeft: -10 }}
+                                                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }], marginLeft: -10 }}
                                             />
                                         ) : (
                                             <Ionicons
@@ -218,7 +232,6 @@ export default function SettingsScreen({
                                     </View>
                                 </TouchableOpacity>
                             ))}
-                            {/* Add a separator between sections if it's not the last section */}
                             {sectionIndex < settingsSections.length - 1 && (
                                 <View style={[styles.separator, { backgroundColor: theme.colors.border }]} />
                             )}
@@ -268,7 +281,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
         borderRadius: 10,
         overflow: 'hidden',
-        paddingVertical: 12, // Increased vertical padding
+        paddingVertical: 12,
     },
     settingItem: {
         paddingHorizontal: 14,
