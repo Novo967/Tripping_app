@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions'; // שינוי כאן
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -13,13 +14,13 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { auth, db } from '../../firebaseConfig';
+import { app, auth, db } from '../../firebaseConfig'; // שינוי כאן
 import { useTheme } from './ThemeContext';
 
 interface User {
     id: string;
     username: string;
-    profileImage: string; // Add this field if available
+    profileImage: string;
 }
 
 const REPORT_REASONS = [
@@ -42,15 +43,13 @@ export default function ReportUserModal() {
     const [isSearching, setIsSearching] = useState(false);
     const currentUser = auth.currentUser;
 
-    // Fetch users from Firestore based on search query, making it case-insensitive
+    const functions = getFunctions(app, 'me-west1'); // אתחול Functions כאן
+
     useEffect(() => {
         if (searchQuery.length > 2) {
             const fetchUsers = async () => {
                 setIsSearching(true);
                 try {
-                    // Use a query that is case-insensitive.
-                    // This requires storing a lowercase version of the username in Firestore.
-                    // For example, a field named 'usernameLowercase'.
                     const q = query(
                         collection(db, 'users'),
                         where('username_lowercase', '>=', searchQuery.toLowerCase()),
@@ -61,8 +60,7 @@ export default function ReportUserModal() {
                         id: doc.id,
                         ...doc.data()
                     })) as User[];
-                    
-                    // Filter out the current user from the list
+
                     const filteredUsers = usersList.filter(user => user.id !== currentUser?.uid);
                     setFoundUsers(filteredUsers);
                 } catch (error) {
@@ -79,20 +77,18 @@ export default function ReportUserModal() {
 
     const handleSelectReason = (reason: string) => {
         if (reason === 'אחר') {
-            // Toggle 'other' reason
             if (selectedReasons.includes('אחר')) {
                 setSelectedReasons(selectedReasons.filter(r => r !== 'אחר'));
             } else {
                 setSelectedReasons([...selectedReasons, 'אחר']);
             }
         } else {
-            // Toggle other reasons, make sure 'other' is not selected
             const isSelected = selectedReasons.includes(reason);
             const newReasons = isSelected
                 ? selectedReasons.filter(r => r !== reason)
                 : [...selectedReasons.filter(r => r !== 'אחר'), reason];
             setSelectedReasons(newReasons);
-            setOtherReason(''); // Clear other reason text if another is selected
+            setOtherReason('');
         }
     };
 
@@ -107,33 +103,31 @@ export default function ReportUserModal() {
             return;
         }
 
+        const sendReport = httpsCallable(functions, 'sendReportEmail');
+
         try {
-            await addDoc(collection(db, 'reports'), {
+            await sendReport({
                 reportedUserId: selectedUser.id,
                 reportedUserUsername: selectedUser.username,
-                reporterUserId: currentUser?.uid,
-                reporterUsername: auth.currentUser?.displayName || 'Unknown',
-                reasons: selectedReasons.includes('אחר') ? [otherReason.trim()] : selectedReasons,
+                reasons: selectedReasons,
                 otherReason: selectedReasons.includes('אחר') ? otherReason.trim() : null,
-                timestamp: new Date().toISOString()
             });
 
             Alert.alert('תודה!', 'הדיווח נשלח בהצלחה. נטפל בו בהקדם.');
             router.back();
         } catch (error) {
-            console.error('Error sending report: ', error);
+            console.error('Error calling Cloud Function:', error);
             Alert.alert('שגיאה', 'אירעה שגיאה בשליחת הדיווח. אנא נסה שוב מאוחר יותר.');
         }
     };
-    
-    // UI elements
+
     const renderUserItem = ({ item }: { item: User }) => (
-        <TouchableOpacity 
+        <TouchableOpacity
             style={[styles.userItem, { borderColor: theme.colors.border, backgroundColor: selectedUser?.id === item.id ? theme.colors.primaryLight : 'transparent' }]}
             onPress={() => setSelectedUser(item)}
         >
             <View style={styles.userInfo}>
-                {item.profileImage && <Image source={{ uri: item.profileImage }} style={styles.profileImage} />}
+                {/* {item.profileImage && <Image source={{ uri: item.profileImage }} style={styles.profileImage} />} */}
                 <Text style={[styles.userText, { color: theme.colors.text }]}>{item.username}</Text>
             </View>
         </TouchableOpacity>
@@ -143,7 +137,7 @@ export default function ReportUserModal() {
         <Modal
             animationType="slide"
             transparent={true}
-            visible={true} // Assumes this is a screen component, so it's always visible when navigated to
+            visible={true}
             onRequestClose={() => router.back()}
         >
             <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -175,7 +169,7 @@ export default function ReportUserModal() {
                             }
                         }}
                     />
-                    
+
                     {isSearching ? (
                         <ActivityIndicator style={styles.loadingIndicator} size="small" color={theme.colors.primary} />
                     ) : selectedUser ? (
@@ -203,7 +197,7 @@ export default function ReportUserModal() {
                                 key={reason}
                                 style={[
                                     styles.reasonButton,
-                                    { 
+                                    {
                                         backgroundColor: selectedReasons.includes(reason) ? theme.colors.primary : theme.colors.surface,
                                         borderColor: theme.colors.border
                                     }
@@ -238,7 +232,6 @@ export default function ReportUserModal() {
                 >
                     <Text style={styles.sendButtonText}>שלח דיווח</Text>
                 </TouchableOpacity>
-
             </View>
         </Modal>
     );
