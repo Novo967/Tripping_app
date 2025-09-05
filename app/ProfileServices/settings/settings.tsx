@@ -93,7 +93,7 @@ export default function SettingsScreen({
     // New function to handle report user
     const handleReportUser = () => {
         // We will create and navigate to a new modal or screen for reporting
-        router.push('/(tabs)/profile');
+        router.push('../ReportUserModal');
     };
 
     const settingsSections = [
