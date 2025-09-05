@@ -92,7 +92,7 @@ export default function SettingsScreen({
             options: [
                 {
                     id: 'editBio',
-                    title: 'עריכת ביו',
+                    title: 'עריכת פרופיל',
                     icon: 'create-outline',
                     onPress: handleEditBio,
                     color: theme.colors.text,
