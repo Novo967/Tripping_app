@@ -3,7 +3,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -21,7 +21,9 @@ import {
 } from 'react-native';
 import LikeableImage from '../../ProfileServices/GalleryServices/LikeableImage';
 import { RootStackParamList } from '../../types';
+import BlockUserModal from '../BlockUserModal';
 import { useTheme } from '../ThemeContext';
+import OtherUserProfileOptions from './OtherUserProfileOptions';
 import { useOtherUserProfile } from './useOtherUserProfile';
 
 const { width } = Dimensions.get('window');
@@ -40,6 +42,7 @@ const OtherUserProfile = () => {
   const { uid } = route.params;
   const router = useRouter();
   const { theme } = useTheme();
+  const [blockModalVisible, setBlockModalVisible] = useState(false);
 
   const {
     userData,
@@ -60,6 +63,10 @@ const OtherUserProfile = () => {
         otherUserImage: userData.profileImage,
       },
     });
+  };
+
+  const handleBlockUser = () => {
+    setBlockModalVisible(true);
   };
 
   const renderGalleryImage = ({ item, index }: { item: string; index: number }) => {
@@ -133,9 +140,18 @@ const OtherUserProfile = () => {
             <Text style={[styles.onlineText, { color: '#3A8DFF' }]}>פעיל עכשיו</Text>
           </View>
         )}
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.isDark ? theme.colors.background : '#f8f9fa' }]} onPress={() => router.push('/(tabs)/home')}>
-          <Feather name="arrow-right" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <OtherUserProfileOptions 
+            username={userData.username}
+            onBlockUser={handleBlockUser}
+          />
+          <TouchableOpacity 
+            style={[styles.backButton, { backgroundColor: theme.isDark ? theme.colors.background : '#f8f9fa' }]} 
+            onPress={() => router.push('/(tabs)/home')}
+          >
+            <Feather name="arrow-right" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -294,6 +310,11 @@ const OtherUserProfile = () => {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      <BlockUserModal
+        isVisible={blockModalVisible}
+        onClose={() => setBlockModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -305,7 +326,8 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 16, marginTop: 10 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 4 },
-  backButton: { padding: 8, borderRadius: 20, marginLeft: 310 },
+  headerButtons: { flexDirection: 'row', alignItems: 'center' },
+  backButton: { padding: 8, borderRadius: 20 },
   onlineIndicator: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3A8DFF', marginRight: 6 },
   onlineText: { fontSize: 12, fontWeight: '600' },

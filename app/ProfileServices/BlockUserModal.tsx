@@ -1,27 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-    arrayRemove,
-    arrayUnion,
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    getFirestore,
-    query,
-    updateDoc,
-    where
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  query,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { app, auth } from '../../firebaseConfig';
 import { useTheme } from '../ProfileServices/ThemeContext';
@@ -157,14 +157,14 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
           </TouchableOpacity>
           <Text style={[styles.modalTitle, { color: theme.colors.text }]}>חסום משתמש</Text>
 
-          <Text style={[styles.explanationText, { color: theme.colors.onSurface }]}>
+          <Text style={[styles.explanationText, { color: theme.colors.shadow }]}>
             חסימת משתמש תמנע ממנו לראות אותך על המפה, לצפות בפרופיל שלך ולשלוח לך הודעות.
           </Text>
 
           <TextInput
             style={[styles.searchInput, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.background }]}
             placeholder="חפש משתמש..."
-            placeholderTextColor={theme.colors.onSurface}
+            placeholderTextColor={theme.colors.shadow}
             value={searchText}
             onChangeText={handleSearch}
           />
@@ -185,7 +185,7 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
                   </TouchableOpacity>
                 ))
               ) : (
-                searchText.length >= 3 && <Text style={[styles.noResultsText, { color: theme.colors.onSurface }]}>לא נמצאו משתמשים.</Text>
+                searchText.length >= 3 && <Text style={[styles.noResultsText, { color: theme.colors.shadow }]}>לא נמצאו משתמשים.</Text>
               )}
             </ScrollView>
           )}
@@ -197,7 +197,7 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
                 <Text style={styles.blockedListButtonText}>הצג משתמשים חסומים ({blockedUsers.length})</Text>
                 </TouchableOpacity>
             ) : (
-                <Text style={[styles.noBlockedUsersText, { color: theme.colors.onSurface }]}>
+                <Text style={[styles.noBlockedUsersText, { color: theme.colors.shadow }]}>
                 אין משתמשים חסומים.
                 </Text>
             )}
