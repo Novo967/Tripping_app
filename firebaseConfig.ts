@@ -4,7 +4,6 @@ import { initializeApp } from 'firebase/app';
 import { getReactNativePersistence, initializeAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAVuS1ZbOSWIpYY4rnXIfTToDBHoa42KW0",
