@@ -232,7 +232,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
 
                         <View style={styles.detailsContainer}>
                             <View style={styles.detailRow}>
-                                <Ionicons name="person-outline" size={18} color="#555" style={styles.detailIcon} />
+                                <Ionicons name="person-outline" size={18} color="#3A8DFF" style={styles.detailIcon} />
                                 <Text style={styles.modalAuthorPrefix}>מאת: </Text>
                                 <TouchableOpacity onPress={handleAuthorPress}>
                                     <Text style={styles.modalAuthorLink}>{selectedEvent.username}</Text>
@@ -249,9 +249,15 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                                 <Text style={styles.modalAuthorPrefix}>תאריך: </Text>
                                 <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Text>
                             </View>
+                            {/* NEW: Event Time Row */}
+                            <View style={styles.detailRow}>
+                                <Ionicons name="time-outline" size={18} color="#555" style={styles.detailIcon} />
+                                <Text style={styles.modalAuthorPrefix}>שעה: </Text>
+                                <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</Text>
+                            </View>
                             {selectedEvent.location && (
                                 <View style={styles.detailRow}>
-                                    <Ionicons name="location-outline" size={18} color="#555" style={styles.detailIcon} />
+                                    <Ionicons name="location-outline" size={18} color="#3A8DFF" style={styles.detailIcon} />
                                     <Text style={styles.modalLocationPrefix}>מיקום: </Text>
                                     <TouchableOpacity onPress={handleOpenInMaps} style={styles.locationLinkContainer}>
                                         <Text style={styles.modalLocationLink}>{selectedEvent.location}</Text>
@@ -260,7 +266,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                             )}
                             {eventDistance && (
                                 <View style={styles.detailRow}>
-                                    <Ionicons name="navigate-outline" size={18} color="#3A8DFF" style={styles.detailIcon} />
+                                    <Ionicons name="navigate-outline" size={18} color="#555" style={styles.detailIcon} />
                                     <Text style={styles.modalDistance}>מרחק ממיקומך:</Text>
                                     <Text style={styles.modalDistance}><Text style={styles.distanceValue}>{eventDistance} קמ</Text></Text>
                                 </View>
@@ -351,19 +357,19 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     modalAuthorLink: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#3A8DFF',
         textAlign: 'right',
         fontWeight: 'bold',
         textDecorationLine: 'underline',
     },
     modalAuthorPrefix: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#555',
         textAlign: 'right',
     },
     modalLocationPrefix: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#555',
         textAlign: 'right',
     },
@@ -371,33 +377,32 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     modalLocationLink: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#3A8DFF',
         textAlign: 'right',
         fontWeight: 'bold',
         textDecorationLine: 'underline',
     },
     modalDate: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#555',
         textAlign: 'right',
         flex: 1,
     },
     modalLocation: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#555',
         textAlign: 'right',
         flex: 1,
     },
     modalDistance: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#555',
         textAlign: 'right',
         flex: 1,
     },
     distanceValue: {
-        color: '#3A8DFF',
-        fontWeight: 'bold',
+        color: '#555',
     },
     descriptionContainer: {
         marginTop: 15,
@@ -428,6 +433,7 @@ const styles = StyleSheet.create({
         color: '#666',
         lineHeight: 22,
         textAlign: 'right',
+        marginRight: 15,
         marginTop: 5,
     },
     actionButton: {
