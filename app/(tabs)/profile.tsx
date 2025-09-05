@@ -2,29 +2,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  arrayRemove,
-  arrayUnion,
-  collection,
-  doc,
-  getFirestore,
-  onSnapshot,
-  query,
-  updateDoc,
-  where
+    arrayRemove,
+    arrayUnion,
+    collection,
+    doc,
+    getFirestore,
+    onSnapshot,
+    query,
+    updateDoc,
+    where
 } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  Platform,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    Platform,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, auth } from '../../firebaseConfig';
@@ -70,6 +70,7 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [username, setUsername] = useState('');
     const [isEditingBio, setIsEditingBio] = useState(false);
+    const [isEditingProfile, setIsEditingProfile] = useState(false); // 👈 מצב חדש לניהול עריכת הפרופיל
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -84,11 +85,7 @@ export default function ProfileScreen() {
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const requestsPanelAnim = useRef(new Animated.Value(0)).current;
 
-    // --- השינוי כאן ---
-    // שימוש ב-hook הנכון כדי לקבל את הפרמטרים
     const params = useLocalSearchParams();
-    // -------------------
-
     const insets = useSafeAreaInsets();
     
     const uploadImageToFirebase = async (uri: string, isProfilePic = false) => {
@@ -108,7 +105,6 @@ export default function ProfileScreen() {
             const userDocRef = doc(db, 'users', user.uid);
 
             if (isProfilePic) {
-                // Deleting the previous profile picture if it exists
                 if (profilePic) {
                     try {
                         await deleteFromFirebase(profilePic);
@@ -122,7 +118,6 @@ export default function ProfileScreen() {
                 setProfilePic(firebaseImageUrl);
                 Alert.alert('הצלחה', 'תמונת הפרופיל עודכנה בהצלחה!');
             } else {
-                // Adding the new image to the gallery in Firestore
                 await updateDoc(userDocRef, {
                     gallery: arrayUnion(firebaseImageUrl),
                 });
@@ -214,7 +209,6 @@ export default function ProfileScreen() {
         });
     };
 
-    // Corrected logic using onSnapshot for real-time updates
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
@@ -233,8 +227,6 @@ export default function ProfileScreen() {
                     setGallery(profileDataFromFirestore.gallery || []);
                 } else {
                     console.warn("User document not found in Firestore for UID:", user.uid);
-                    // Handle the case where the document doesn't exist
-                    // Optionally, you could create it here with default values
                 }
                 setLoading(false);
             },
@@ -244,26 +236,22 @@ export default function ProfileScreen() {
             }
         );
 
-        // Unsubscribe from the listener when the component unmounts
         return () => unsubscribe();
     }, []);
 
-    // Listen for when the user returns from settings and handle callbacks
+    // 👈 הוספת הלוגיקה לעדכון מצב העריכה
     useFocusEffect(useCallback(() => {
-        // Check if we need to trigger any actions based on route params
-        if (params?.triggerAction) {
-            switch (params.triggerAction) {
-                case 'editBio':
-                    handleEditBio();
-                    break;
-                case 'deleteAccount':
-                    handleDeleteAccount();
-                    break;
-                case 'blockUser':
-                    handleBlockUser();
-                    break;
-            }
+        if (params?.triggerAction === 'editBio') {
+            setIsEditingProfile(true);
+            handleEditBio();
+        } else {
+            setIsEditingProfile(false);
         }
+
+        // ניקוי המצב כאשר עוזבים את המסך
+        return () => {
+            setIsEditingProfile(false);
+        };
     }, [params.triggerAction]));
 
     useFocusEffect(useCallback(() => {
@@ -282,12 +270,10 @@ export default function ProfileScreen() {
         const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
             const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            // Clear any existing timeout
             if (notificationTimeoutRef.current) {
                 clearTimeout(notificationTimeoutRef.current);
             }
             
-            // Add a small delay to prevent flickering
             notificationTimeoutRef.current = setTimeout(() => {
                 setPendingRequests(requests);
                 notificationTimeoutRef.current = null;
@@ -365,6 +351,7 @@ export default function ProfileScreen() {
                     gallery={gallery}
                     onAddImage={(uri: string) => uploadImageToFirebase(uri, false)}
                     onDeleteImages={handleDeleteImagesFromGallery}
+                    isEditing={isEditingProfile} // 👈 העברת ה-prop החדש
                 />
 
                 <Bio
