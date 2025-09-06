@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../ProfileServices/ThemeContext';
 
 interface ChatInputProps {
@@ -13,17 +13,28 @@ interface ChatInputProps {
 
 const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage, onHandleImagePicker }) => {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView>
-    <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
+    <View style={[
+      styles.inputWrapper, 
+      { 
+        backgroundColor: theme.colors.background, 
+        borderTopColor: theme.colors.border,
+        paddingBottom: Platform.OS === 'ios' ? insets.bottom : 0,
+      }
+    ]}>
       <View style={[styles.inputContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}>
-        <TouchableOpacity style={[styles.cameraButton, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }]} onPress={onHandleImagePicker} activeOpacity={0.7}>
+        <TouchableOpacity 
+          style={[styles.cameraButton, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }]} 
+          onPress={onHandleImagePicker} 
+          activeOpacity={0.7}
+        >
           <Ionicons name="camera" size={24} color="#3A8DFF" />
         </TouchableOpacity>
         <TextInput
           style={[styles.input, { color: theme.colors.text, backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}
-          placeholder="הקלד הודעה..."
+          placeholder="כתוב הודעה..."
           placeholderTextColor={theme.isDark ? '#999' : '#999'}
           value={input}
           onChangeText={onSetInput}
@@ -39,11 +50,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage,
           activeOpacity={0.8}
           disabled={!input.trim()}
         >
-          <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
+          <Ionicons 
+            name="send" 
+            size={20} 
+            color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} 
+            style={{ transform: [{ scaleX: -1 }] }} 
+          />
         </TouchableOpacity>
       </View>
     </View>
-    </SafeAreaView>
   );
 };
 
@@ -52,7 +67,7 @@ export default ChatInput;
 const styles = StyleSheet.create({
   inputWrapper: {
     paddingHorizontal: 16,
-    marginBottom: 45,
+    paddingTop: 8,
     borderTopWidth: 1,
   },
   inputContainer: {
@@ -60,7 +75,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     borderRadius: 25,
     paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingVertical: 0,
     minHeight: 50,
   },
   cameraButton: {
