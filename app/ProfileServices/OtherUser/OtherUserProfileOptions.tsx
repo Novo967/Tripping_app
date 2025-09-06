@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     marginRight: 8,
-    marginTop: 12,
+    marginTop: 4,
   },
   modalOverlay: {
     flex: 1,

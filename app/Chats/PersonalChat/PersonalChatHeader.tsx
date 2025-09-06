@@ -113,12 +113,6 @@ const styles = StyleSheet.create({
     marginBottom: -20,
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    shadowColor: '#3A8DFF',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
