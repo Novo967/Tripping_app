@@ -94,16 +94,16 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }
 
 const styles = StyleSheet.create({
   profileMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 25,
+    width: 30,
+    height: 30,
+    borderRadius: 22,
     borderWidth: 2,
     borderColor: '#fff',
   },
   defaultMarkerIcon: {
-    width: 35,
-    height: 35,
-    borderRadius: 25,
+    width: 30,
+    height: 30,
+    borderRadius: 22,
     backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
@@ -111,9 +111,9 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   imageContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 25,
+    width: 30,
+    height: 30,
+    borderRadius: 22,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
