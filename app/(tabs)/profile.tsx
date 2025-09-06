@@ -178,6 +178,7 @@ export default function ProfileScreen() {
 
             setBio(newBio);
             setIsEditingBio(false);
+            setIsEditingProfile(false); // גם כאן נוסיף את זה
             Alert.alert('הצלחה', 'הביוגרפיה נשמרה בהצלחה!');
         } catch (error: any) {
             Alert.alert('שגיאה', `לא הצלחנו לשמור את הביוגרפיה: ${error.message}`);
@@ -188,6 +189,7 @@ export default function ProfileScreen() {
 
     const handleEditBio = () => {
         setIsEditingBio(true);
+        setIsEditingProfile(true); // גם כאן נוסיף את זה
     };
 
     const handleDeleteAccount = () => {
@@ -260,17 +262,16 @@ export default function ProfileScreen() {
             }
             
             // Clear the trigger action to prevent re-triggering
-            // Note: This might cause a re-render, so we do it after handling the action
+            // אבל לא נאפס את isEditingProfile כאן!
             setTimeout(() => {
                 router.setParams({ triggerAction: undefined });
             }, 100);
-        } else {
-            setIsEditingProfile(false);
         }
 
+        // נסיר את האיפוס האוטומטי של isEditingProfile
         // Cleanup when leaving the screen
         return () => {
-            setIsEditingProfile(false);
+            // רק כשיוצאים מהמסך באמת נאפס
         };
     }, [params.triggerAction]));
 
@@ -300,7 +301,7 @@ export default function ProfileScreen() {
             }, 100);
         }, (error) => {
             console.error('Error fetching pending requests from Firestore:', error);
-            Alert.alert('שגיאה', 'שגיאה בקבלת בקשות לאירועים.');
+            Alert.alert('שגיאה', 'שגיאה בקבלת בקשות לאירועי.');
         });
 
         return () => {
@@ -326,6 +327,16 @@ export default function ProfileScreen() {
         });
     };
 
+    // Function to handle saving profile changes (bio and profile image)
+    const handleSaveProfile = async () => {
+        try {
+            await saveBio(bio);
+            setIsEditingProfile(false);
+        } catch (error) {
+            // Error handling is already done in saveBio
+        }
+    };
+
     if (loading) {
         return (
             <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -347,6 +358,7 @@ export default function ProfileScreen() {
                     <TouchableOpacity onPress={navigateToSettings} style={styles.navButton}>
                         <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
                     </TouchableOpacity>
+                    {/* כפתור שמירה במצב עריכה */}
                     <NotificationBell hasNotifications={pendingRequests.length > 0} onPress={toggleRequests} />
                 </View>
 
