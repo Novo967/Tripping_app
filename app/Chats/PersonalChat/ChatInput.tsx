@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../ProfileServices/ThemeContext';
 
 interface ChatInputProps {
@@ -14,6 +15,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage,
   const { theme } = useTheme();
 
   return (
+    <SafeAreaView>
     <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
       <View style={[styles.inputContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}>
         <TouchableOpacity style={[styles.cameraButton, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }]} onPress={onHandleImagePicker} activeOpacity={0.7}>
@@ -41,6 +43,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage,
         </TouchableOpacity>
       </View>
     </View>
+    </SafeAreaView>
   );
 };
 
@@ -49,7 +52,7 @@ export default ChatInput;
 const styles = StyleSheet.create({
   inputWrapper: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginBottom: 45,
     borderTopWidth: 1,
   },
   inputContainer: {
