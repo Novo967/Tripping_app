@@ -143,6 +143,7 @@ const OtherUserProfile = () => {
         <View style={styles.headerButtons}>
           <OtherUserProfileOptions 
             username={userData.username}
+            userId={uid}
             onBlockUser={handleBlockUser}
           />
           <TouchableOpacity 
