@@ -1,7 +1,7 @@
+import { ResizeMode, Video } from 'expo-av';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { Dimensions, StatusBar, StyleSheet, View } from 'react-native';
-import Video from 'react-native-video';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,21 +28,18 @@ export default function SplashScreenComponent() {
       <Video
         source={require('../assets/videos/trekload_converted.mp4')}
         style={styles.backgroundVideo}
-        resizeMode="cover" // Changed back to cover for better display
-        repeat
-        muted
-        paused={false}
+        resizeMode={ResizeMode.COVER}
+        shouldPlay
+        isLooping
+        isMuted
         onError={(error) => {
           console.log('Video error:', error);
         }}
-        onLoad={(data) => {
-          console.log('Video loaded successfully', data);
+        onLoad={() => {
+          console.log('Video loaded successfully');
         }}
         onLoadStart={() => {
           console.log('Video load started');
-        }}
-        onBuffer={(buffer) => {
-          console.log('Video buffering:', buffer);
         }}
       />
     </View>
