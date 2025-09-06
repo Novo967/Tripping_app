@@ -1,11 +1,11 @@
 // --- Imports ---
 import * as Location from 'expo-location';
-import { router, useFocusEffect } from 'expo-router'; // שינוי כאן
+import { router, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import type { User } from 'firebase/auth';
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import React, { useRef, useState } from 'react'; // שינוי כאן
+import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'; // שינוי כאן: הוספת imports חדשים
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,14 @@ import GoogleAuthButton from './googleAuth';
 WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get('window');
+
+const PRIMARY_COLOR = '#3A8DFF';
+const SECONDARY_COLOR = '#FF8533';
+const BACKGROUND_COLOR = '#FAFBFC';
+const TEXT_COLOR = '#1A1A1A';
+const GRAY_COLOR = '#6B7280';
+const LIGHT_GRAY = '#F3F4F6';
+const ERROR_COLOR = '#EF4444';
 
 export const saveLocationToFirestore = async (user: User) => {
   try {
@@ -61,11 +69,9 @@ export default function RegisterScreen() {
 
   const isFirstLoad = useRef(true);
 
-  // שימוש ב-useFocusEffect כדי לשמור את המצב בעת חזרה
   useFocusEffect(
     React.useCallback(() => {
       if (isFirstLoad.current) {
-        // זהו הטעינה הראשונה של המסך, אז נאפס את המצב
         isFirstLoad.current = false;
         setEmail('');
         setUsername('');
@@ -73,7 +79,6 @@ export default function RegisterScreen() {
         setConfirmPassword('');
         setAgreedToTerms(false);
       }
-      // הפעם הבאה שהמסך יקבל פוקוס, הנתונים יישארו
     }, [])
   );
 
@@ -101,63 +106,79 @@ export default function RegisterScreen() {
     return true;
   };
 
-  const handleRegister = async () => {
-  if (!validateForm()) return;
-  setIsLoading(true);
-
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-    const user = userCredential.user;
-
-    await updateProfile(user, {
-      displayName: username.trim(),
-    });
-
-    await setDoc(doc(db, 'users', user.uid), {
-      email: user.email,
-      uid: user.uid,
-      username: username.trim(),
-      username_lowercase: username.trim().toLowerCase(),
-      createdAt: new Date(),
-    });
-
-    await saveLocationToFirestore(user);
-
-    // שליחת מייל אימות
-    await sendEmailVerification(user);
-
-    Alert.alert(
-      'נשלח מייל לאימות',
-      'אנא בדקו את תיבת הדואר שלכם ואשרו את כתובת האימייל לפני ההתחברות.'
-    );
-
-    // במקום להעביר ישר ל-Home, נעביר למסך אימות
-    router.push('/Authentication/verifyEmail');
-
-  } catch (error) {
-    console.error("שגיאה ברישום:", error);
-    if (typeof error === 'object' && error !== null && 'code' in error) {
-      const errorCode = (error as { code: string }).code;
-      if (errorCode === 'auth/email-already-in-use') {
-        Alert.alert('שגיאה', 'כתובת האימייל כבר קיימת במערכת.');
-      } else if (errorCode === 'auth/invalid-email') {
-        Alert.alert('שגיאה', 'כתובת האימייל שהוזנה אינה תקינה.');
-      } else {
-        Alert.alert('שגיאה ברישום', 'אירעה שגיאה לא צפויה. נסה שוב.');
-      }
+  const checkUsernameAvailability = async (username: string): Promise<boolean> => {
+    try {
+      const username_lowercase = username.toLowerCase();
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('username_lowercase', '==', username_lowercase));
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error("Error checking username availability:", error);
+      return true;
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
+  const handleRegister = async () => {
+    if (!validateForm()) return;
+    setIsLoading(true);
+
+    try {
+      // שלב חדש: בדיקת זמינות שם המשתמש לפני יצירת חשבון
+      const isUsernameTaken = await checkUsernameAvailability(username.trim());
+      if (isUsernameTaken) {
+        Alert.alert('שגיאה', 'שם המשתמש שבחרת כבר תפוס. אנא בחר שם משתמש אחר.');
+        setIsLoading(false);
+        return;
+      }
+
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const user = userCredential.user;
+
+      await updateProfile(user, {
+        displayName: username.trim(),
+      });
+
+      await setDoc(doc(db, 'users', user.uid), {
+        email: user.email,
+        uid: user.uid,
+        username: username.trim(),
+        username_lowercase: username.trim().toLowerCase(),
+        createdAt: new Date(),
+      });
+
+      await saveLocationToFirestore(user);
+
+      await sendEmailVerification(user);
+
+      Alert.alert(
+        'נשלח מייל לאימות',
+        'אנא בדקו את תיבת הדואר שלכם ואשרו את כתובת האימייל לפני ההתחברות.'
+      );
+
+      router.push('/Authentication/verifyEmail');
+
+    } catch (error) {
+      console.error("שגיאה ברישום:", error);
+      if (typeof error === 'object' && error !== null && 'code' in error) {
+        const errorCode = (error as { code: string }).code;
+        if (errorCode === 'auth/email-already-in-use') {
+          Alert.alert('שגיאה', 'כתובת האימייל כבר קיימת במערכת.');
+        } else if (errorCode === 'auth/invalid-email') {
+          Alert.alert('שגיאה', 'כתובת האימייל שהוזנה אינה תקינה.');
+        } else {
+          Alert.alert('שגיאה ברישום', 'אירעה שגיאה לא צפויה. נסה שוב.');
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handlePressTerms = () => {
-    // שמירת המצב הנוכחי לפני המעבר
     router.push({
       pathname: '/Authentication/TermsOfServiceScreen',
       params: {
-        // לא נשמור כאן נתונים רגישים כמו סיסמה, אבל אפשר לשמור שדות אחרים אם צריך
         email: email,
         username: username,
         agreedToTerms: agreedToTerms.toString(),
@@ -266,13 +287,13 @@ export default function RegisterScreen() {
               <View style={styles.termsTextContainer}>
                 <Text style={styles.termsText}>
                   אני מסכים/ה ל
-                    <Text style={styles.termsText}>תנאי השימוש ומדיניות הפרטיות</Text>
-                    <TouchableOpacity
-                    onPress={handlePressTerms} // שינוי כאן
+                  <Text style={styles.termsText}>תנאי השימוש ומדיניות הפרטיות</Text>
+                  <TouchableOpacity
+                    onPress={handlePressTerms}
                     disabled={isLoading}
-                    >
+                  >
                     <Text style={styles.termsLink}>קראו כאן</Text>
-                    </TouchableOpacity>
+                  </TouchableOpacity>
                 </Text>
               </View>
               <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
@@ -319,15 +340,6 @@ export default function RegisterScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-// ... שאר הקוד של styles ...
-const PRIMARY_COLOR = '#3A8DFF';
-const SECONDARY_COLOR = '#FF8533';
-const BACKGROUND_COLOR = '#FAFBFC';
-const TEXT_COLOR = '#1A1A1A';
-const GRAY_COLOR = '#6B7280';
-const LIGHT_GRAY = '#F3F4F6';
-const ERROR_COLOR = '#EF4444';
 
 const styles = StyleSheet.create({
   container: {
