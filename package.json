@@ -53,6 +53,7 @@
     "expo-system-ui": "~5.0.11",
     "expo-updates": "~0.28.17",
     "expo-web-browser": "~14.2.0",
+    "ffmpeg-static": "^5.2.0",
     "firebase": "^12.2.1",
     "lottie-react-native": "^7.3.4",
     "moment": "^2.30.1",

@@ -6,30 +6,28 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { I18nManager, Platform, View } from 'react-native';
-import { auth, db } from '../firebaseConfig'; // ודא ש-`db` מיובא מהקובץ
+import { auth, db } from '../firebaseConfig';
+import SplashScreenComponent from './SplashScreen'; // ודא שהנתיב נכון
 import { getExpoPushToken } from './utils/pushNotifications';
 
 // מונע מהספלאש סקרין המובנה להיעלם אוטומטית
 SplashScreen.preventAutoHideAsync();
 
-// מונע מהאפליקציה להפוך לכיוון RTL (מימין לשמאל)
+// מונע מהאפליקציה להפוך לכיוון RTL
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
 const updateUserLocation = async (user: User) => {
   try {
-    // שלב 1: בקשת הרשאה למיקום מהמשתמש
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       console.warn('Location permission was denied. Cannot update location.');
-      return; // יציאה מהפונקציה אם ההרשאה נדחתה
+      return;
     }
 
-    // שלב 2: קבלת המיקום הנוכחי של המכשיר
     const location = await Location.getCurrentPositionAsync({});
     const { latitude, longitude } = location.coords;
 
-    // שלב 3: עדכון המיקום במסד הנתונים של Firestore
     const userDocRef = doc(db, 'users', user.uid);
     await updateDoc(userDocRef, {
       last_location: {
@@ -42,7 +40,6 @@ const updateUserLocation = async (user: User) => {
     console.log('User location updated successfully!');
   } catch (error) {
     console.error('Failed to update user location:', error);
-    // אנחנו לא מציגים הודעת שגיאה למשתמש כדי לא לפגוע בחווית הכניסה
   }
 };
 
@@ -55,7 +52,7 @@ export default function AppEntry() {
   useEffect(() => {
     async function prepare() {
       try {
-        // שלב 1: יצירת ערוץ התראות באנדרואיד
+        // יצירת ערוץ התראות באנדרואיד
         if (Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('chat-messages', {
             name: 'הודעות צ\'אט',
@@ -65,13 +62,13 @@ export default function AppEntry() {
           });
         }
 
-        // שלב 2: קבלת טוקן התראות
+        // קבלת טוקן פוש
         const token = await getExpoPushToken();
         if (token) {
           setExpoPushToken(token);
         }
 
-        // שלב 3: בדיקת אימות משתמש
+        // בדיקת סטטוס התחברות
         const authPromise = new Promise<void>((resolve) => {
           const unsubscribe = onAuthStateChanged(auth, (authUser) => {
             setUser(authUser);
@@ -80,18 +77,15 @@ export default function AppEntry() {
           });
         });
 
-        // שלב 4: טיימר מינימלי למסך הפתיחה
+        // זמן מינימום לספלאש
         const splashTimerPromise = new Promise((resolve) => {
-          setTimeout(resolve, 3300);
+          setTimeout(resolve, 7700);
         });
 
-        // ממתין לכל הפעולות להסתיים במקביל
         await Promise.all([authPromise, splashTimerPromise]);
-
       } catch (e) {
         console.warn('AppEntry: שגיאה בתהליך ההכנה', e);
       } finally {
-        // לאחר שכל הפעולות הסתיימו, האפליקציה מוכנה
         setAppIsReady(true);
       }
     }
@@ -101,12 +95,9 @@ export default function AppEntry() {
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
-      // אם האפליקציה מוכנה, נעלים את הספלאש סקרין
       await SplashScreen.hideAsync();
 
-      // שלב 5: ניווט
       if (user) {
-        // אם המשתמש מחובר, נעדכן את המיקום שלו
         await updateUserLocation(user);
         router.replace('/(tabs)/home');
       } else {
@@ -115,13 +106,15 @@ export default function AppEntry() {
     }
   }, [appIsReady, user, router]);
 
+  // בזמן טעינה – מציג את מסך הספלש עם הווידאו
   if (!appIsReady) {
-    return null; // הגישה הנכונה: לא להציג כלום בזמן הטעינה כדי למנוע מסך שחור
+    return <SplashScreenComponent />;
   }
 
+  // אחרי טעינה – מציג את האפליקציה
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      {/* כאן יתר התוכן של האפליקציה יטען לאחר שהספלאש סקרין הוסר */}
+      {/* כאן ייטען שאר התוכן */}
     </View>
   );
 }
