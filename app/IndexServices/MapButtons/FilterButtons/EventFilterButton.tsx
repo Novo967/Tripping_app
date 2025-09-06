@@ -25,32 +25,31 @@ const EVENT_TYPES = [
   { id: 'sport', name: 'ספורט', emoji: '⚽' },
   { id: 'other', name: 'אחר', emoji: '📍' },
 ];
-
 export default function EventFilterButton({ 
   selectedEventTypes, 
   setSelectedEventTypes, 
   visible, 
   setVisible 
 }: Props) {
-const [tempSelectedTypes, setTempSelectedTypes] = useState<string[]>(
-    selectedEventTypes.length > 0 ? selectedEventTypes : EVENT_TYPES.map(type => type.id)
-  );  const [isPressable, setIsPressable] = useState(false); // **מצב חדש**
+  const [tempSelectedTypes, setTempSelectedTypes] = useState<string[]>(
+    EVENT_TYPES.map(type => type.id)
+  ); 
+  const [isPressable, setIsPressable] = useState(false);
 
-  // כשהמודל נפתח, נטען את הערכים הנוכחיים ל-state הזמני ונתזמן את הפעלת ה-onPress
   useEffect(() => {
-    if (visible) {if (selectedEventTypes.length === 0) {
+    if (visible) {
+      if (selectedEventTypes.length === 0) {
         setTempSelectedTypes(EVENT_TYPES.map(type => type.id));
       } else {
         setTempSelectedTypes([...selectedEventTypes]);
       }
-      // **הוספנו setTimeout כדי למנוע את הסגירה המיידית**
       const timer = setTimeout(() => {
         setIsPressable(true);
-      }, 200); // 200 מילישניות הן מספיקות למנוע את הבעיה
+      }, 200);
 
-      return () => clearTimeout(timer); // ניקוי הטיימר כדי למנוע דליפות זיכרון
+      return () => clearTimeout(timer);
     } else {
-      setIsPressable(false); // כשהמודל נסגר, נאפס את המצב
+      setIsPressable(false);
     }
   }, [visible, selectedEventTypes]);
 

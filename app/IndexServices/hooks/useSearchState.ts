@@ -14,8 +14,7 @@ export const useSearchState = () => {
   const [isCustomSearch, setIsCustomSearch] = useState(false);
   const [displayDistance, setDisplayDistance] = useState(250);
   const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([
-    'hiking', 'trip', 'camping', 'beach', 'party', 'food', 'sport',
-    'culture', 'nature', 'nightlife',
+    'trip', 'party', 'attraction', 'food', 'nightlife', 'beach', 'sport', 'other'
   ]);
 
   const getCurrentSearchCenter = useCallback((currentLocation: { latitude: number; longitude: number } | null, mapCenter: any) => {
