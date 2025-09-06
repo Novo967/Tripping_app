@@ -1,7 +1,10 @@
 import { Expo } from 'expo-server-sdk';
 import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onCall } from 'firebase-functions/v2/https';
+import * as nodemailer from 'nodemailer';
 
 // הגדרת האזור הגלובלי לכל הפונקציות
 setGlobalOptions({ region: 'me-west1' });
@@ -10,6 +13,70 @@ setGlobalOptions({ region: 'me-west1' });
 admin.initializeApp();
 
 const expo = new Expo();
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'trekappil@gmail.com', // החלף בכתובת המייל שלך
+        pass: 'rbvf xsmw xoaj dluv' // החלף בסיסמה/סיסמת אפליקציה שלך
+    }
+});
+
+/**
+ * פונקציית Cloud Function הנקראת מהאפליקציה ושולחת אימייל על דיווח משתמש.
+ */
+exports.sendReportEmail = onCall(async (request) => {
+    console.log('--- התחלת תהליך שליחת דיווח על משתמש ---');
+    
+    // בדיקת אימות המשתמש ששלח את הדיווח
+    const reporterUid = request.auth?.uid;
+    if (!reporterUid) {
+        console.error('משתמש לא מאומת.');
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+
+    // קבלת נתונים מהבקשה
+    const { reportedUserId, reportedUserUsername, reasons, otherReason } = request.data;
+    
+    // ודא שהנתונים הנדרשים קיימים
+    if (!reportedUserId || !reportedUserUsername || (!reasons && !otherReason)) {
+        console.error('חסרים נתוני דיווח חיוניים.');
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required report data.');
+    }
+
+    try {
+        // שליפת שם המשתמש של המדווח מה-Firestore
+        const reporterDoc = await admin.firestore().collection('users').doc(reporterUid).get();
+        const reporterUsername = reporterDoc.data()?.username || 'משתמש לא ידוע';
+
+        // בניית גוף המייל
+        const reasonText = Array.isArray(reasons) ? reasons.join(', ') : '';
+        const emailBody = `
+            <b>דיווח חדש על משתמש</b><br><br>
+            <b>פרטי הדיווח:</b><br>
+            <b>מדווח:</b> ${reporterUsername} (${reporterUid})<br>
+            <b>משתמש מדווח:</b> ${reportedUserUsername} (${reportedUserId})<br>
+            <b>סיבות:</b> ${reasonText}<br>
+            <b>פירוט נוסף:</b> ${otherReason || 'אין פירוט נוסף'}<br><br>
+            ---
+        `;
+
+        const mailOptions = {
+            from: 'noreply@yourdomain.com', // מומלץ להשתמש במייל של דומיין כדי להימנע מספאם
+            to: 'trekappil@gmail.com', // החלף במייל שלך לקבלת הדיווחים
+            subject: `דיווח על משתמש: ${reportedUserUsername}`,
+            html: emailBody
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`מייל דיווח נשלח בהצלחה על המשתמש: ${reportedUserUsername}`);
+
+        return { success: true };
+    } catch (error) {
+        console.error('שגיאה בשליחת המייל:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to send report email.', error);
+    }
+});
 
 /**
  * פונקציית עזר לשליחת התראות
