@@ -38,16 +38,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // גודל בסיסי לקונטיינר של האייקון
-    width: 40,
-    height: 40,
+    width: 28,
+    height: 28,
   },
   markerImage: {
-    // גודל התמונה בתוך הקונטיינר
-    width: '60%',
-    height: '60%',
-    // הופך את התמונה לעיגול
+    width: '100%',
+    height: '100%',
     borderRadius: 15, 
-    // מוסיף גבול מסביב לתמונה
     borderWidth: 2,
     borderColor: '#3A8DFF',
   },
