@@ -19,10 +19,9 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
   StyleSheet,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../firebaseConfig';
@@ -239,7 +238,6 @@ const ChatModal = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar barStyle={statusBarStyle} backgroundColor="#1F2937" />
       <ChatHeader otherUserId={otherUserId} otherUsername={otherUsername} />
       <KeyboardAvoidingView
         style={styles.flexContainer}
