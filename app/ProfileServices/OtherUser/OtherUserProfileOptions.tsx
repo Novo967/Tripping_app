@@ -1,34 +1,38 @@
 // app/ProfileServices/OtherUser/OtherUserProfileOptions.tsx
 
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Modal,
-    Share,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  Animated,
+  Dimensions,
+  Modal,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import { useTheme } from '../ThemeContext';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface OtherUserProfileOptionsProps {
   username: string;
+  userId: string; // ✅ הוספתי UID
   onBlockUser: () => void;
 }
 
 const OtherUserProfileOptions: React.FC<OtherUserProfileOptionsProps> = ({ 
   username, 
+  userId,
   onBlockUser 
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [scaleValue] = useState(new Animated.Value(0));
   const { theme } = useTheme();
+  const router = useRouter();
 
   const openModal = () => {
     setIsModalVisible(true);
@@ -40,13 +44,13 @@ const OtherUserProfileOptions: React.FC<OtherUserProfileOptionsProps> = ({
     }).start();
   };
 
-const closeModal = () => {
+  const closeModal = () => {
     setIsModalVisible(false);
-};
+  };
 
   const handleShareUser = async () => {
     try {
-      const profileUrl = `myapp://profile/${username}`; // You can customize this URL format
+      const profileUrl = `myapp://profile/${username}`;
       const shareOptions = {
         message: `בדוק את הפרופיל של ${username} באפליקציה!`,
         url: profileUrl,
@@ -60,9 +64,18 @@ const closeModal = () => {
     }
   };
 
-  const handleBlockUser = () => {
-    
+  const handleReportUser = () => {
     closeModal();
+    router.push({
+      
+      pathname: "../ReportUserModal",
+      params: { uid: userId, username }
+    });
+  };
+
+  const handleBlockUser = () => {
+    closeModal();
+    onBlockUser();
   };
 
   return (
@@ -96,13 +109,12 @@ const closeModal = () => {
                 ]}
               >
                 <View style={styles.modalHeader}>
-                    <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                  <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
                     <Ionicons name="close" size={24} color={theme.colors.text} />
                   </TouchableOpacity>
                   <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
                     אפשרויות
                   </Text>
-                  
                 </View>
 
                 <View style={styles.optionsContainer}>
@@ -122,6 +134,22 @@ const closeModal = () => {
                   </TouchableOpacity>
 
                   <TouchableOpacity
+                    style={[
+                      styles.optionButton,
+                      { borderBottomColor: theme.isDark ? '#374151' : '#E5E7EB' }
+                    ]}
+                    onPress={handleReportUser}
+                  >
+                    <View style={styles.optionContent}>
+                      <Feather name="flag" size={20} color="#FF3B30" />
+                      
+                      <Text style={[styles.optionText, { color: '#FF3B30' }]}>
+                        דווח משתמש
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
                     style={styles.optionButton}
                     onPress={handleBlockUser}
                   >
@@ -133,7 +161,7 @@ const closeModal = () => {
                     </View>
                   </TouchableOpacity>
                 </View>
-                </Animated.View>
+              </Animated.View>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
@@ -149,6 +177,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     marginRight: 8,
+    marginTop: 12,
   },
   modalOverlay: {
     flex: 1,
@@ -161,13 +190,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 20,
     paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
     elevation: 8,
   },
   modalHeader: {
