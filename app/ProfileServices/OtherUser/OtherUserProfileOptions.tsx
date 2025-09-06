@@ -141,9 +141,9 @@ const OtherUserProfileOptions: React.FC<OtherUserProfileOptionsProps> = ({
                     onPress={handleReportUser}
                   >
                     <View style={styles.optionContent}>
-                      <Feather name="flag" size={20} color="#FFA500" />
+                      <Feather name="flag" size={20} color="#FF3B30" />
                       
-                      <Text style={[styles.optionText, { color: '#FFA500' }]}>
+                      <Text style={[styles.optionText, { color: '#FF3B30' }]}>
                         דווח משתמש
                       </Text>
                     </View>
