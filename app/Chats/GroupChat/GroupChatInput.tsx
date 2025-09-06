@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
+  Platform,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../ProfileServices/ThemeContext';
 
 interface GroupChatInputProps {
@@ -24,6 +26,7 @@ const GroupChatInput: React.FC<GroupChatInputProps> = ({
   isUploading,
 }) => {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <View
@@ -32,6 +35,7 @@ const GroupChatInput: React.FC<GroupChatInputProps> = ({
         {
           backgroundColor: theme.isDark ? '#1F2937' : '#FFFFFF',
           borderTopColor: theme.isDark ? '#2C3E50' : '#E8E8E8',
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 0,
         },
       ]}
     >
@@ -112,6 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    marginBottom: -20,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
   },

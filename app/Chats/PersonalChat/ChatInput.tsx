@@ -67,6 +67,7 @@ export default ChatInput;
 const styles = StyleSheet.create({
   inputWrapper: {
     paddingHorizontal: 16,
+    marginBottom: -20,
     paddingTop: 8,
     borderTopWidth: 1,
   },
