@@ -5,17 +5,17 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  useColorScheme,
 } from 'react-native';
-// אין צורך לייבא את useLocationVisibility כאן יותר
 
 interface FilterButtonProps {
   displayDistance: number;
   onDistanceFilterPress: () => void;
   onEventFilterPress: () => void;
   onAddEventPress: () => void;
-  onLocationVisibilityPress: () => void; // הוספת הפונקציה החדשה
-  isLocationVisible: boolean; // הוספת המצב החדש
+  onLocationVisibilityPress: () => void;
+  isLocationVisible: boolean;
   isChoosingLocation: boolean;
   isFilterMenuVisible: boolean;
   onToggleFilterMenu: () => void;
@@ -26,16 +26,16 @@ export default function FilterButton({
   onDistanceFilterPress,
   onEventFilterPress,
   onAddEventPress,
-  onLocationVisibilityPress, // קבלה כ-prop
-  isLocationVisible, // קבלה כ-prop
+  onLocationVisibilityPress,
+  isLocationVisible,
   isChoosingLocation,
   isFilterMenuVisible,
-  onToggleFilterMenu
+  onToggleFilterMenu,
 }: FilterButtonProps) {
   const [filterAnimation] = useState(new Animated.Value(isFilterMenuVisible ? 1 : 0));
-  
-  // הסרת הקוד המיותר
-  // const { isLocationVisible, toggleLocationVisibility } = useLocationVisibility(onLocationVisibilityChange, true);
+  const scheme = useColorScheme(); // light | dark
+
+  const isDark = scheme === 'dark';
 
   useEffect(() => {
     Animated.spring(filterAnimation, {
@@ -43,23 +43,6 @@ export default function FilterButton({
       useNativeDriver: true,
     }).start();
   }, [isFilterMenuVisible]);
-
-  const handleAddEventPress = () => {
-    onAddEventPress();
-  };
-
-  const handleDistanceFilterPress = () => {
-    onDistanceFilterPress();
-  };
-
-  const handleEventFilterPress = () => {
-    onEventFilterPress();
-  };
-  
-  // הוספת פונקציית הטיפול בלחיצה על כפתור המיקום
-  const handleLocationVisibilityPress = () => {
-    onLocationVisibilityPress();
-  };
 
   if (isChoosingLocation) {
     return null;
@@ -69,62 +52,58 @@ export default function FilterButton({
     transform: [{
       translateY: filterAnimation.interpolate({ inputRange: [0, 1], outputRange: [-100, 0] })
     }],
-    opacity: filterAnimation
+    opacity: filterAnimation,
+  };
+
+  const colors = {
+    background: isDark ? '#1C1C1E' : 'white',
+    text: isDark ? '#EAEAEA' : '#222',
+    border: isDark ? '#333' : '#f2f2f2',
+    iconBg: isDark ? '#2C2C2E' : '#FFF3E0',
+    shadow: isDark ? '#000' : '#3A8DFF',
   };
 
   return (
     <View style={styles.filterContainer}>
       <TouchableOpacity
-        style={styles.filterButton}
+        style={[styles.filterButton, { backgroundColor: '#3A8DFF', shadowColor: colors.shadow }]}
         onPress={onToggleFilterMenu}
         activeOpacity={0.7}
       >
-        <Ionicons name={isFilterMenuVisible ? "close" : "options"} size={24} color="white" />
+        <Ionicons
+          name={isFilterMenuVisible ? "close" : "options"}
+          size={24}
+          color="white"
+        />
       </TouchableOpacity>
 
       {isFilterMenuVisible && (
-        <Animated.View style={[styles.filterMenu, filterMenuStyle]}>
-          <TouchableOpacity
-            style={styles.menuItemContainer}
-            onPress={handleDistanceFilterPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="resize" size={18} color="#3A8DFF" style={styles.menuIcon} />
-            <Text style={styles.menuItemText}>סנן מרחק({displayDistance} קמ)</Text>
+        <Animated.View style={[styles.filterMenu, filterMenuStyle, { backgroundColor: colors.background, shadowColor: colors.shadow }]}>
+          <TouchableOpacity style={[styles.menuItemContainer, { borderBottomColor: colors.border }]} onPress={onDistanceFilterPress}>
+            <Ionicons name="resize" size={18} color="#3A8DFF" style={[styles.menuIcon, { backgroundColor: colors.iconBg }]} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>סנן מרחק ({displayDistance} קמ)</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItemContainer}
-            onPress={handleEventFilterPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="filter" size={18} color="#3A8DFF" style={styles.menuIcon} />
-            <Text style={styles.menuItemText}>סנן אירועים</Text>
+          <TouchableOpacity style={[styles.menuItemContainer, { borderBottomColor: colors.border }]} onPress={onEventFilterPress}>
+            <Ionicons name="filter" size={18} color="#3A8DFF" style={[styles.menuIcon, { backgroundColor: colors.iconBg }]} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>סנן אירועים</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItemContainer}
-            onPress={handleLocationVisibilityPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name={isLocationVisible ? "eye-outline" : "eye-off-outline"} 
-              size={18} 
-              color="#3A8DFF" 
-              style={styles.menuIcon} 
+          <TouchableOpacity style={[styles.menuItemContainer, { borderBottomColor: colors.border }]} onPress={onLocationVisibilityPress}>
+            <Ionicons
+              name={isLocationVisible ? "eye-outline" : "eye-off-outline"}
+              size={18}
+              color="#3A8DFF"
+              style={[styles.menuIcon, { backgroundColor: colors.iconBg }]}
             />
-            <Text style={styles.menuItemText}>
+            <Text style={[styles.menuItemText, { color: colors.text }]}>
               {isLocationVisible ? "הסתר מיקום" : "הצג מיקום"}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.menuItemContainer, styles.lastMenuItem]}
-            onPress={handleAddEventPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add-circle-outline" size={18} color="#3A8DFF" style={styles.menuIcon} />
-            <Text style={styles.menuItemText}>הוספת אירוע</Text>
+          <TouchableOpacity style={[styles.menuItemContainer, styles.lastMenuItem]} onPress={onAddEventPress}>
+            <Ionicons name="add-circle-outline" size={18} color="#3A8DFF" style={[styles.menuIcon, { backgroundColor: colors.iconBg }]} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>הוספת אירוע</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -140,14 +119,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   filterButton: {
-    backgroundColor: '#3A8DFF',
     width: 52,
     height: 52,
     borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
-    shadowColor: '#3A8DFF',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -156,12 +133,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     right: 0,
-    backgroundColor: 'white',
     borderRadius: 16,
     paddingVertical: 10,
     paddingHorizontal: 0,
     elevation: 10,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 6,
@@ -173,14 +148,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f2',
   },
   lastMenuItem: {
     borderBottomWidth: 0,
   },
   menuItemText: {
     fontSize: 17,
-    color: '#222',
     flex: 1,
     textAlign: 'right',
     marginRight: 10,
@@ -189,7 +162,6 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     marginLeft: 12,
-    backgroundColor: '#FFF3E0',
     borderRadius: 20,
     padding: 6,
     overflow: 'hidden',

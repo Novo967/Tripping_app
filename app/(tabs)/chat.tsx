@@ -323,59 +323,78 @@ const Chat = () => {
       </SafeAreaView>
     );
   }
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' }]}>
-      <StatusBar
-        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.isDark ? '#1F2937' : '#3A8DFF'}
-        translucent={Platform.OS === 'android'}
+return (
+  <View
+    style={[
+      styles.container,
+      { backgroundColor: theme.isDark ? '#121212' : '#F8F9FA' },
+    ]}
+  >
+    <StatusBar
+      barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+      backgroundColor={theme.isDark ? '#1C1C1E' : '#3A8DFF'}
+      translucent={Platform.OS === 'android'}
+    />
+    <ChatHeader searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+    <View
+      style={[
+        styles.contentContainer,
+        { backgroundColor: theme.isDark ? '#1C1C1E' : '#FFFFFF' },
+      ]}
+    >
+      <FlatList
+        data={filteredChats}
+        renderItem={({ item }) => (
+          <ChatItem
+            item={item}
+            onPress={() => openChat(item)}
+            // כאן תוכל להוסיף גם התאמות צבע פנימיות ב־ChatItem
+          />
+        )}
+        keyExtractor={(item) => item.chatId}
+        style={styles.chatList}
+        contentContainerStyle={styles.chatListContent}
+        ListEmptyComponent={
+          !loading && (
+            <View style={styles.emptyContainer}>
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: theme.isDark ? '#AAAAAA' : '#666' },
+                ]}
+              >
+                אין לך עדיין צ'אטים.
+              </Text>
+            </View>
+          )
+        }
       />
-      <ChatHeader searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-      <View style={styles.contentContainer}>
-        <FlatList
-          data={filteredChats}
-          renderItem={({ item }) => <ChatItem item={item} onPress={() => openChat(item)} />}
-          keyExtractor={(item) => item.chatId}
-          style={styles.chatList}
-          contentContainerStyle={styles.chatListContent}
-          ListEmptyComponent={
-            !loading && (
-              <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: theme.isDark ? '#BDC3C7' : '#666' }]}>
-                  אין לך עדיין צ'אטים.
-                </Text>
-              </View>
-            )
-          }
-        />
-      </View>
     </View>
-  );
-};
+  </View>
+);
 
+};
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
   },
   loadingContent: {
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   contentContainer: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    overflow: 'hidden',
   },
   chatList: {
     flex: 1,
@@ -383,6 +402,7 @@ const styles = StyleSheet.create({
   },
   chatListContent: {
     paddingTop: 10,
+    paddingBottom: 30,
   },
   emptyContainer: {
     flex: 1,
@@ -393,7 +413,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     textAlign: 'center',
-    color: '#666',
+    fontWeight: '500',
   },
 });
 
