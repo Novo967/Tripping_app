@@ -9,16 +9,7 @@
     "scheme": "trippingapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-      "splash": {
-      "image": "./assets/images/TREKimage.png", 
-      "resizeMode": "contain",
-      "backgroundColor": "#000000",
-      "video": {
-        "resizeMode": "contain",
-        "uri": "./assets/videos/trekload.mp4",
-        "poster": "./assets/images/TREKimage.png" 
-      }
-    },
+   
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.novandnoam.trek",
