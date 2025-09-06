@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { app, auth } from '../../firebaseConfig';
 import { useTheme } from '../ProfileServices/ThemeContext';
-import BlockedUsersListModal from './BlockedUsersListModal';
+
 interface BlockUserModalProps {
   isVisible: boolean;
   onClose: () => void;
@@ -36,43 +36,54 @@ const db = getFirestore(app);
 export default function BlockUserModal({ isVisible, onClose }: BlockUserModalProps) {
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isBlocking, setIsBlocking] = useState(false); // New state for blocking process
-  const [blockedUsers, setBlockedUsers] = useState<string[]>([]); // To store current user's blocked list
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [loadingBlockedList, setLoadingBlockedList] = useState(true);
+  const [blockedUsersData, setBlockedUsersData] = useState<any[]>([]);
   const { theme } = useTheme();
   const currentUser = auth.currentUser;
-  const [isBlockedListVisible, setBlockedListVisible] = useState(false);
 
-  const handleUnblockUser = async (userToUnblockId: string) => {
-    if (!currentUser) return;
-
-    try {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userDocRef, {
-        blocked_users: arrayRemove(userToUnblockId),
-      });
-      setBlockedUsers(prev => prev.filter(uid => uid !== userToUnblockId));
-      Alert.alert('הצלחה', 'החסימה בוטלה בהצלחה!');
-    } catch (error) {
-      console.error('Error unblocking user:', error);
-      Alert.alert('שגיאה', 'ביטול החסימה נכשל. נסה שוב מאוחר יותר.');
-    }
-  };
-  // Fetch the current user's blocked list when the modal opens
+  // Fetch the data of the blocked users from Firestore
   useEffect(() => {
-    if (isVisible && currentUser) {
-        const fetchBlockedUsers = async () => {
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            // Use a direct getDoc call for simplicity and efficiency
-            const docSnap = await getDoc(userDocRef);
-            if (docSnap.exists()) {
-                const userData = docSnap.data();
-                setBlockedUsers(userData.blocked_users || []);
-            }
-        };
-        fetchBlockedUsers();
+    const fetchBlockedUsers = async () => {
+      if (!currentUser || !isVisible) {
+        setBlockedUsersData([]);
+        setLoadingBlockedList(false);
+        return;
+      }
+
+      setLoadingBlockedList(true);
+      try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          const blockedUserIds = userData.blocked_users || [];
+          
+          if (blockedUserIds.length > 0) {
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('__name__', 'in', blockedUserIds));
+            const querySnapshot = await getDocs(q);
+            const users = querySnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            setBlockedUsersData(users);
+          } else {
+            setBlockedUsersData([]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching blocked users:', error);
+        Alert.alert('שגיאה', 'אירעה שגיאה בטעינת המשתמשים החסומים.');
+      } finally {
+        setLoadingBlockedList(false);
+      }
+    };
+
+    if (isVisible) {
+      fetchBlockedUsers();
     }
-}, [isVisible, currentUser]);
+  }, [isVisible, currentUser]);
 
   const handleSearch = async (text: string) => {
     setSearchText(text);
@@ -81,12 +92,9 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
       return;
     }
 
-    setLoading(true);
+    setLoadingSearch(true);
     try {
       const usersRef = collection(db, 'users');
-      // Case-insensitive query is not natively supported in Firestore.
-      // A common workaround is to store a lowercase version of the username.
-      // Here, we'll do a simple prefix search and filter on the client side.
       const q = query(
         usersRef,
         where('username_lowercase', '>=', text.toLowerCase()),
@@ -98,20 +106,47 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
           id: doc.id,
           ...doc.data(),
         }))
-        .filter(user => user.id !== currentUser?.uid); // Filter out the current user
+        .filter(user => user.id !== currentUser?.uid);
       setSearchResults(users);
     } catch (error) {
       console.error('Error searching users:', error);
       Alert.alert('שגיאה', 'אירעה שגיאה בחיפוש משתמשים.');
     } finally {
-      setLoading(false);
+      setLoadingSearch(false);
     }
+  };
+
+  const handleUnblockUser = async (userToUnblockId: string, username: string) => {
+    if (!currentUser) return;
+    Alert.alert(
+      'בטל חסימה',
+      `האם אתה בטוח שברצונך לבטל את החסימה של ${username}?`,
+      [
+        { text: 'ביטול', style: 'cancel' },
+        {
+          text: 'בטל חסימה',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const userDocRef = doc(db, 'users', currentUser.uid);
+              await updateDoc(userDocRef, {
+                blocked_users: arrayRemove(userToUnblockId),
+              });
+              setBlockedUsersData(prev => prev.filter(user => user.id !== userToUnblockId));
+              Alert.alert('הצלחה', 'החסימה בוטלה בהצלחה!');
+            } catch (error) {
+              console.error('Error unblocking user:', error);
+              Alert.alert('שגיאה', 'ביטול החסימה נכשל. נסה שוב מאוחר יותר.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleBlockUser = async (userToBlockId: string, userToBlockUsername: string) => {
     if (!currentUser) return;
 
-    // Show a confirmation dialog
     Alert.alert(
       'אשר חסימה',
       `האם אתה בטוח שברצונך לחסום את ${userToBlockUsername}?`,
@@ -121,21 +156,19 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
           text: 'חסום',
           style: 'destructive',
           onPress: async () => {
-            setIsBlocking(true);
             try {
               const userDocRef = doc(db, 'users', currentUser.uid);
               await updateDoc(userDocRef, {
                 blocked_users: arrayUnion(userToBlockId),
               });
-              setBlockedUsers(prev => [...prev, userToBlockId]);
+              const newUserBlockedData = { id: userToBlockId, username: userToBlockUsername };
+              setBlockedUsersData(prev => [...prev, newUserBlockedData]);
               Alert.alert('הצלחה', `${userToBlockUsername} נחסם בהצלחה.`);
-              setSearchResults([]); // Clear search results after blocking
+              setSearchResults([]);
               setSearchText('');
             } catch (error) {
               console.error('Error blocking user:', error);
               Alert.alert('שגיאה', 'חסימת המשתמש נכשלה. נסה שוב מאוחר יותר.');
-            } finally {
-              setIsBlocking(false);
             }
           },
         },
@@ -155,12 +188,13 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Ionicons name="close-circle" size={30} color={theme.colors.text} />
           </TouchableOpacity>
+          
           <Text style={[styles.modalTitle, { color: theme.colors.text }]}>חסום משתמש</Text>
-
           <Text style={[styles.explanationText, { color: theme.colors.shadow }]}>
             חסימת משתמש תמנע ממנו לראות אותך על המפה, לצפות בפרופיל שלך ולשלוח לך הודעות.
           </Text>
 
+          {/* Search Section */}
           <TextInput
             style={[styles.searchInput, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.background }]}
             placeholder="חפש משתמש..."
@@ -169,7 +203,7 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
             onChangeText={handleSearch}
           />
           
-          {loading ? (
+          {loadingSearch ? (
             <ActivityIndicator size="small" color={theme.colors.primary} style={styles.loader} />
           ) : (
             <ScrollView style={styles.resultsContainer}>
@@ -190,24 +224,33 @@ export default function BlockUserModal({ isVisible, onClose }: BlockUserModalPro
             </ScrollView>
           )}
 
-          {/* Section for blocked users */}
+          {/* Blocked Users List Section */}
           <View style={styles.blockedUsersSection}>
-            {blockedUsers.length > 0 ? (
-                <TouchableOpacity style={styles.blockedListButton} onPress={() => setBlockedListVisible(true)}>
-                <Text style={styles.blockedListButtonText}>הצג משתמשים חסומים ({blockedUsers.length})</Text>
-                </TouchableOpacity>
+            <Text style={[styles.blockedListTitle, { color: theme.colors.text }]}>
+              משתמשים חסומים ({blockedUsersData.length})
+            </Text>
+            {loadingBlockedList ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} style={styles.loader} />
+            ) : blockedUsersData.length > 0 ? (
+              <ScrollView style={styles.blockedUsersContainer}>
+                {blockedUsersData.map(user => (
+                  <TouchableOpacity
+                    key={user.id}
+                    style={[styles.userItem, { borderBottomColor: theme.colors.border }]}
+                    onPress={() => handleUnblockUser(user.id, user.username)}
+                  >
+                    <Ionicons name="person-circle" size={30} color={theme.colors.text} style={styles.icon} />
+                    <Text style={[styles.usernameText, { color: theme.colors.text }]}>{user.username}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             ) : (
-                <Text style={[styles.noBlockedUsersText, { color: theme.colors.shadow }]}>
-                אין משתמשים חסומים.
-                </Text>
+              <Text style={[styles.noUsersText, { color: theme.colors.surface }]}>
+                אין לך משתמשים חסומים.
+              </Text>
             )}
-            </View>
-            <BlockedUsersListModal
-            isVisible={isBlockedListVisible}
-            onClose={() => setBlockedListVisible(false)}
-            blockedUserIds={blockedUsers}
-            onUnblock={handleUnblockUser}
-            />
+          </View>
+
         </View>
       </View>
     </Modal>
@@ -223,7 +266,7 @@ const styles = StyleSheet.create({
   },
   modalView: {
     width: '90%',
-    maxHeight: '70%',
+    maxHeight: '80%',
     borderRadius: 20,
     padding: 20,
     alignItems: 'center',
@@ -259,6 +302,7 @@ const styles = StyleSheet.create({
   },
   resultsContainer: {
     width: '100%',
+    maxHeight: 150,
   },
   resultItem: {
     flexDirection: 'row-reverse',
@@ -281,23 +325,36 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 20,
   },
+  // Blocked Users List Styles
   blockedUsersSection: {
     marginTop: 20,
     width: '100%',
-    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#ccc',
+    paddingTop: 10,
   },
-  blockedListButton: {
-    backgroundColor: '#007AFF', // You can change the color
-    padding: 10,
-    borderRadius: 10,
-  },
-  blockedListButtonText: {
-    color: '#fff',
+  blockedListTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
-    fontSize: 16,
-  },
-  noBlockedUsersText: {
     textAlign: 'center',
+    marginBottom: 10,
+  },
+  blockedUsersContainer: {
+    width: '100%',
+  },
+  userItem: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  usernameText: {
+    fontSize: 18,
+    textAlign: 'right',
+  },
+  noUsersText: {
+    textAlign: 'center',
+    marginTop: 20,
     fontSize: 16,
   },
 });
