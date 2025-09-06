@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../ProfileServices/ThemeContext';
 
@@ -16,49 +16,55 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage,
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[
-      styles.inputWrapper, 
-      { 
-        backgroundColor: theme.colors.background, 
-        borderTopColor: theme.colors.border,
-        paddingBottom: Platform.OS === 'ios' ? insets.bottom : 0,
-      }
-    ]}>
-      <View style={[styles.inputContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}>
-        <TouchableOpacity 
-          style={[styles.cameraButton, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }]} 
-          onPress={onHandleImagePicker} 
-          activeOpacity={0.7}
-        >
-          <Ionicons name="camera" size={24} color="#3A8DFF" />
-        </TouchableOpacity>
-        <TextInput
-          style={[styles.input, { color: theme.colors.text, backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}
-          placeholder="כתוב הודעה..."
-          placeholderTextColor={theme.isDark ? '#999' : '#999'}
-          value={input}
-          onChangeText={onSetInput}
-          onSubmitEditing={() => onSendMessage()}
-          returnKeyType="send"
-          textAlign="right"
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity
-          onPress={() => onSendMessage()}
-          style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
-          activeOpacity={0.8}
-          disabled={!input.trim()}
-        >
-          <Ionicons 
-            name="send" 
-            size={20} 
-            color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} 
-            style={{ transform: [{ scaleX: -1 }] }} 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
+      style={{ flexDirection: 'column' }}
+    >
+      <View style={[
+        styles.inputWrapper,
+        {
+          backgroundColor: theme.colors.background,
+          borderTopColor: theme.colors.border,
+          paddingBottom: insets.bottom,
+        }
+      ]}>
+        <View style={[styles.inputContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}>
+          <TouchableOpacity
+            style={[styles.cameraButton, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }]}
+            onPress={onHandleImagePicker}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="camera" size={24} color="#3A8DFF" />
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.input, { color: theme.colors.text, backgroundColor: theme.isDark ? '#1C242E' : '#F5F5F5' }]}
+            placeholder="כתוב הודעה..."
+            placeholderTextColor={theme.isDark ? '#999' : '#999'}
+            value={input}
+            onChangeText={onSetInput}
+            onSubmitEditing={() => onSendMessage()}
+            returnKeyType="send"
+            textAlign="right"
+            multiline
+            maxLength={500}
           />
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => onSendMessage()}
+            style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
+            activeOpacity={0.8}
+            disabled={!input.trim()}
+          >
+            <Ionicons
+              name="send"
+              size={20}
+              color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'}
+              style={{ transform: [{ scaleX: -1 }] }}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
