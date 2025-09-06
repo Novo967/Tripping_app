@@ -1,9 +1,7 @@
 // components/map/EventMarker.tsx
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { getEventColor, getEventIcon } from '../styles/markerUtils';
 
 interface EventMarkerProps {
   event: {
@@ -15,11 +13,10 @@ interface EventMarkerProps {
   onPress: (eventId: string) => void;
 }
 
-const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
-  const color = getEventColor(event.type || ''); // Still use the color from markerUtils if needed for other elements
-  const icon = getEventIcon(event.type || '');
-  const iconColor = '#3A8DFF'; // The desired color for the icon
+// ייבוא התמונה ישירות מהנתיב המקומי
+const TREKimage = require('../../../assets/images/TREKimage.png');
 
+const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
   return (
     <Marker
       key={event.id}
@@ -28,9 +25,9 @@ const EventMarker: React.FC<EventMarkerProps> = ({ event, onPress }) => {
         console.log('Event Marker Tapped:', event.id);
         onPress(event.id);
       }}
-      >
+    >
       <View style={styles.markerContainer}>
-        <Ionicons name={icon as any} size={30} color={iconColor} />
+        <Image source={TREKimage} style={styles.markerImage} />
       </View>
     </Marker>
   );
@@ -40,12 +37,20 @@ const styles = StyleSheet.create({
   markerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    // We can remove fixed width/height if we want the icon to dictate size
-    // For now, let's keep it flexible or adjust to icon size
-    width: 30, // Adjust based on icon size for touchability
-    height: 30, // Adjust based on icon size for touchability
+    // גודל בסיסי לקונטיינר של האייקון
+    width: 40,
+    height: 40,
   },
-  // Removed markerBody and markerTip styles as they are no longer needed for the desired design
+  markerImage: {
+    // גודל התמונה בתוך הקונטיינר
+    width: '60%',
+    height: '60%',
+    // הופך את התמונה לעיגול
+    borderRadius: 15, 
+    // מוסיף גבול מסביב לתמונה
+    borderWidth: 2,
+    borderColor: '#3A8DFF',
+  },
 });
 
 export default React.memo(EventMarker);
