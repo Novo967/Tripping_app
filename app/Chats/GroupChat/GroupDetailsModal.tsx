@@ -36,6 +36,7 @@ interface EventDetails {
     time: string;
     date: string;
     organizer: string;
+    eventType?: string; // הוספנו את זה לסוג האירוע
     latitude?: number;
     longitude?: number;
     id?: string;
@@ -60,6 +61,21 @@ const GroupDetailsModal = ({
     const currentUid = currentUser?.uid;
     const insets = useSafeAreaInsets();
     const { theme } = useTheme();
+
+    // פונקציה לתרגום סוג האירוע לעברית
+    const getEventTypeInHebrew = (eventType: string): string => {
+        const typeLabels: Record<string, string> = {
+            'trip': 'טיול',
+            'party': 'מסיבה',
+            'attraction': 'אטרקציה',
+            'food': 'אוכל',
+            'nightlife': 'חיי לילה',
+            'beach': 'ים/בריכה',
+            'sport': 'ספורט',
+            'other': 'אחר',
+        };
+        return typeLabels[eventType] || eventType;
+    };
 
     const handleMemberPress = async (otherUserUid: string) => {
         if (!currentUid) {
@@ -188,6 +204,7 @@ const GroupDetailsModal = ({
                         time: formattedTime,
                         date: formattedDate,
                         organizer: data.username || data.organizer || 'לא צוין',
+                        eventType: data.event_type || 'אחר', // הוספנו את סוג האירוע
                         latitude: data.latitude,
                         longitude: data.longitude,
                     });
@@ -228,6 +245,7 @@ const GroupDetailsModal = ({
                             time: formattedTime,
                             date: formattedDate,
                             organizer: data.username || data.organizer || 'לא צוין',
+                            eventType: data.event_type || 'אחר', // הוספנו את סוג האירוע
                             latitude: data.latitude,
                             longitude: data.longitude,
                         });
@@ -238,6 +256,7 @@ const GroupDetailsModal = ({
                             time: 'לא צוין',
                             date: 'לא צוין',
                             organizer: 'לא צוין',
+                            eventType: 'אחר',
                         });
                     }
                 }
@@ -249,6 +268,7 @@ const GroupDetailsModal = ({
                     time: 'שגיאה בטעינת נתונים',
                     date: 'שגיאה בטעינת נתונים',
                     organizer: 'שגיאה בטעינת נתונים',
+                    eventType: 'אחר',
                 });
             }
         };
@@ -288,7 +308,7 @@ const GroupDetailsModal = ({
 
         try {
             const shareUrl = `yourappname://event?id=${eventDetails.id}&lat=${eventDetails.latitude}&lon=${eventDetails.longitude}`;
-            const message = `הצטרף אליי לאירוע: ${eventTitle}!\n${eventDetails.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
+            const message = `הצטרף אלי לאירוע: ${eventTitle}!\n${eventDetails.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
 
             await Share.share({
                 message: message,
@@ -440,6 +460,14 @@ const GroupDetailsModal = ({
                                     <View style={styles.detailTextContainer}>
                                         <Text style={styles.detailLabel}>מאת:</Text>
                                         <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{eventDetails.organizer}</Text>
+                                    </View>
+                                </View>
+                                {/* הוספת שורת סוג האירוע */}
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="flag-outline" size={20} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                                    <View style={styles.detailTextContainer}>
+                                        <Text style={styles.detailLabel}>סוג אירוע:</Text>
+                                        <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{eventDetails.eventType ? getEventTypeInHebrew(eventDetails.eventType) : 'אחר'}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.detailRow}>

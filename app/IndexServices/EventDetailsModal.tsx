@@ -40,6 +40,21 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
 }) => {
     const db = getFirestore(app);
 
+    // פונקציה לתרגום סוג האירוע לעברית
+    const getEventTypeInHebrew = (eventType: string): string => {
+        const typeLabels: Record<string, string> = {
+            'trip': 'טיול',
+            'party': 'מסיבה',
+            'attraction': 'אטרקציה',
+            'food': 'אוכל',
+            'nightlife': 'חיי לילה',
+            'beach': 'ים/בריכה',
+            'sport': 'ספורט',
+            'other': 'אחר',
+        };
+        return typeLabels[eventType] || eventType;
+    };
+
     const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
         const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -170,7 +185,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
 
         try {
             const shareUrl = `yourappname://event?id=${selectedEvent.id}&lat=${selectedEvent.latitude}&lon=${selectedEvent.longitude}`;
-            const message = `הצטרף אליי לאירוע: ${selectedEvent.event_title}!\n${selectedEvent.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
+            const message = `הצטרף אלי לאירוע: ${selectedEvent.event_title}!\n${selectedEvent.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
             
             await Share.share({
                 message: message,
@@ -196,7 +211,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                     onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
                 >
                     <Ionicons name="chatbubbles-outline" size={22} color="#FFFFFF" />
-                    <Text style={styles.actionButtonText}>עבור לצ'ט הקבוצתי</Text>
+                    <Text style={styles.actionButtonText}>עבור לצ'אט הקבוצתי</Text>
                 </TouchableOpacity>
             );
         } else {
@@ -238,18 +253,18 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                                     <Text style={styles.modalAuthorLink}>{selectedEvent.username}</Text>
                                 </TouchableOpacity>
                             </View>
-                            {/* NEW: Event Type Row */}
+                            {/* Event Type Row - מתורגם לעברית */}
                             <View style={styles.detailRow}>
                                 <Ionicons name="flag-outline" size={18} color="#555" style={styles.detailIcon} />
                                 <Text style={styles.modalAuthorPrefix}>סוג אירוע: </Text>
-                                <Text style={styles.modalAuthorPrefix}>{selectedEvent.event_type}</Text>
+                                <Text style={styles.modalAuthorPrefix}>{getEventTypeInHebrew(selectedEvent.event_type)}</Text>
                             </View>
                             <View style={styles.detailRow}>
                                 <Ionicons name="calendar-outline" size={18} color="#555" style={styles.detailIcon} />
                                 <Text style={styles.modalAuthorPrefix}>תאריך: </Text>
                                 <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Text>
                             </View>
-                            {/* NEW: Event Time Row */}
+                            {/* Event Time Row */}
                             <View style={styles.detailRow}>
                                 <Ionicons name="time-outline" size={18} color="#555" style={styles.detailIcon} />
                                 <Text style={styles.modalAuthorPrefix}>שעה: </Text>
