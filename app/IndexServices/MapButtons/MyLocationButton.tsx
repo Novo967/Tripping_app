@@ -155,7 +155,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
 });
 

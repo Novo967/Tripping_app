@@ -3,11 +3,13 @@ import React, { useEffect } from 'react';
 import { Dimensions, StatusBar, StyleSheet, View } from 'react-native';
 import Video from 'react-native-video';
 
+
 const { width, height } = Dimensions.get('window');
+
 
 export default function SplashScreenComponent() {
   console.log('SplashScreenComponent is rendering!');
-  
+ 
   useEffect(() => {
     // Hide Expo's splash screen immediately when this component mounts
     const hideSplashScreen = async () => {
@@ -18,9 +20,10 @@ export default function SplashScreenComponent() {
         console.warn('Error hiding splash screen:', error);
       }
     };
-    
+   
     hideSplashScreen();
   }, []);
+
 
   return (
     <View style={styles.container}>
@@ -49,6 +52,7 @@ export default function SplashScreenComponent() {
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -58,3 +62,4 @@ const styles = StyleSheet.create({
     flex: 1,
   }
 });
+

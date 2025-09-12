@@ -129,7 +129,7 @@ export default function Searchbar({ onSelectResult, results, setResults, onFocus
 
     const handleResultPress = (result: SearchResult) => {
         if (result.location) {
-            const zoomLevel = result.type === 'user' ? 200 : 200;
+            const zoomLevel = result.type === 'user' ? 1000 : 1000;
             onSelectResult(result.location.latitude, result.location.longitude, zoomLevel);
             onClose();
         }
