@@ -59,7 +59,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage,
               name="send"
               size={20}
               color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'}
-              style={{ transform: [{ scaleX: -1 }] }}
+              style={{ alignItems: 'center' }}
             />
           </TouchableOpacity>
         </View>
@@ -88,6 +88,7 @@ const styles = StyleSheet.create({
   cameraButton: {
     width: 40,
     height: 40,
+    marginBottom: 5,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
@@ -112,11 +113,12 @@ const styles = StyleSheet.create({
   sendButton: {
     width: 40,
     height: 40,
+    marginBottom: 5,
     borderRadius: 20,
     backgroundColor: '#3A8DFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 4,
+    marginLeft: 2,
     shadowColor: '#3A8DFF',
     shadowOffset: {
       width: 0,

@@ -102,7 +102,7 @@ const GroupChatInput: React.FC<GroupChatInputProps> = ({
           activeOpacity={0.8}
           disabled={!input.trim()}
         >
-          <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ transform: [{ scaleX: -1 }] }} />
+          <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ }} />
         </TouchableOpacity>
       </View>
     </View>
@@ -132,6 +132,7 @@ const styles = StyleSheet.create({
   cameraButton: {
     width: 40,
     height: 40,
+    marginBottom: 3,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
@@ -158,6 +159,7 @@ const styles = StyleSheet.create({
   sendButton: {
     width: 40,
     height: 40,
+    marginBottom: 3,
     borderRadius: 20,
     backgroundColor: '#3A8DFF',
     justifyContent: 'center',

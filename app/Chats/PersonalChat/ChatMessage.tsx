@@ -19,8 +19,8 @@ type DateSeparator = {
 
 interface ChatMessageProps {
   item: Message | DateSeparator;
-  currentUid: string | undefined;
-  onImagePress?: (url: string) => void; // 👈 נוסיף callback ללחיצה על תמונה
+  currentUid?: string;
+  onImagePress?: (url: string) => void;
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ item, currentUid, onImagePress }) => {
@@ -51,7 +51,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ item, currentUid, onImagePres
     const isYesterday =
       date.getDate() === yesterday.getDate() &&
       date.getMonth() === yesterday.getMonth() &&
-      yesterday.getFullYear() === date.getFullYear();
+      date.getFullYear() === yesterday.getFullYear();
 
     if (isToday) return 'היום';
     if (isYesterday) return 'אתמול';
@@ -75,7 +75,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ item, currentUid, onImagePres
   }
 
   const messageItem = item as Message;
-  const isMe = messageItem.senderId === currentUid;
+  const isMe = !!currentUid && messageItem.senderId === currentUid;
+
+  // Narrow image url into a local variable
+  const rawImageUrl = messageItem.imageUrl;
+  const validImageUrl =
+    typeof rawImageUrl === 'string' && rawImageUrl.startsWith('http') ? rawImageUrl : undefined;
+
+  const handleImagePress = (url?: string) => {
+    if (!url) return;
+    onImagePress?.(url);
+  };
 
   return (
     <View
@@ -92,16 +102,15 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ item, currentUid, onImagePres
             : [styles.theirMessage, { backgroundColor: theme.isDark ? '#3D4D5C' : '#FFFFFF' }],
         ]}
       >
-        {/* 👇 תמונה עם TouchableOpacity */}
-        {messageItem.imageUrl &&
-          typeof messageItem.imageUrl === 'string' &&
-          messageItem.imageUrl.startsWith('http') && (
-            <TouchableOpacity onPress={() => onImagePress && onImagePress(messageItem.imageUrl)}>
-              <Image source={{ uri: messageItem.imageUrl }} style={styles.messageImage} />
-            </TouchableOpacity>
-          )}
+        {/* תמונה עם TouchableOpacity — רק אם יש url תקין */}
+        {validImageUrl && (
+          <TouchableOpacity onPress={() => handleImagePress(validImageUrl)}>
+            {/* כאן אנחנו מבטיחים מבחינה לוגית ש־validImageUrl קיים, לכן "as string" בטוח */}
+            <Image source={{ uri: validImageUrl as string }} style={styles.messageImage} />
+          </TouchableOpacity>
+        )}
 
-        {messageItem.text && (
+        {messageItem.text ? (
           <Text
             style={[
               styles.messageText,
@@ -112,7 +121,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ item, currentUid, onImagePres
           >
             {messageItem.text}
           </Text>
-        )}
+        ) : null}
 
         <Text
           style={[

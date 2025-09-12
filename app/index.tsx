@@ -79,7 +79,7 @@ export default function AppEntry() {
 
         // זמן מינימום לספלאש
         const splashTimerPromise = new Promise((resolve) => {
-          setTimeout(resolve, 7700);
+          setTimeout(resolve, 2800);
         });
 
         await Promise.all([authPromise, splashTimerPromise]);
