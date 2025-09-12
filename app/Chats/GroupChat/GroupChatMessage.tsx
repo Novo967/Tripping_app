@@ -171,8 +171,6 @@ const styles = StyleSheet.create({
   theirMessage: {
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
   },
   senderName: {
     fontSize: 12,

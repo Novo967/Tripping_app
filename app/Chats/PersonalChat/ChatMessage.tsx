@@ -167,8 +167,6 @@ const styles = StyleSheet.create({
   },
   theirMessage: {
     borderBottomLeftRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
   },
   messageText: {
     fontSize: 16,

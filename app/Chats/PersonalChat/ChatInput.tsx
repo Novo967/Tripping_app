@@ -51,17 +51,27 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage,
           />
           <TouchableOpacity
             onPress={() => onSendMessage()}
-            style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
+            style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled,
+            {
+              backgroundColor: input.trim()
+                ? '#3A8DFF'
+                : theme.isDark
+                ? '#3E506B'
+                : '#E8E8E8',
+              shadowColor: input.trim()
+                ? theme.isDark
+                ? '#1F2937'
+                : '#3A8DFF'
+                : '#000',
+              shadowOpacity: input.trim() ? 0.3 : 0,
+              elevation: input.trim() ? 4 : 0,
+            },
+          ]}
             activeOpacity={0.8}
             disabled={!input.trim()}
           >
-            <Ionicons
-              name="send"
-              size={20}
-              color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'}
-              style={{ alignItems: 'center' }}
-            />
-          </TouchableOpacity>
+          <Ionicons name="send" size={22} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'}/>
+        </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -124,8 +134,8 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     elevation: 4,
   },
   sendButtonDisabled: {

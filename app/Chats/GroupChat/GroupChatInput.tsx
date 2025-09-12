@@ -102,7 +102,7 @@ const GroupChatInput: React.FC<GroupChatInputProps> = ({
           activeOpacity={0.8}
           disabled={!input.trim()}
         >
-          <Ionicons name="send" size={20} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ }} />
+          <Ionicons name="send" size={22} color={input.trim() ? '#FFFFFF' : theme.isDark ? '#555' : '#CCC'} style={{ }} />
         </TouchableOpacity>
       </View>
     </View>
