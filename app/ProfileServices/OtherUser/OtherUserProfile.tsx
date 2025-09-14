@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 16, marginTop: 10 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 4 },
   headerButtons: { flexDirection: 'row', alignItems: 'center' },
-  backButton: { padding: 8, borderRadius: 20 },
+  backButton: { padding: 8, borderRadius: 20, marginLeft: 280 },
   onlineIndicator: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3A8DFF', marginRight: 6 },
   onlineText: { fontSize: 12, fontWeight: '600' },
