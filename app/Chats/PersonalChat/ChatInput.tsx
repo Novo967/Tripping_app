@@ -15,6 +15,23 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage,
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
+  const handleSendMessage = async () => {
+    if (!input.trim()) return;
+    
+    // שמור את ההודעה לפני הניקוי
+    const messageToSend = input.trim();
+    
+    // נקה את התיבה מיד
+    onSetInput('');
+    
+    // שלח את ההודעה
+      try {
+        await onSendMessage();
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -43,14 +60,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, onSetInput, onSendMessage,
             placeholderTextColor={theme.isDark ? '#999' : '#999'}
             value={input}
             onChangeText={onSetInput}
-            onSubmitEditing={() => onSendMessage()}
+            onSubmitEditing={handleSendMessage}
             returnKeyType="send"
             textAlign="right"
             multiline
             maxLength={500}
           />
           <TouchableOpacity
-            onPress={() => onSendMessage()}
+            onPress={handleSendMessage}
             style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled,
             {
               backgroundColor: input.trim()

@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../ProfileServices/ThemeContext';
@@ -13,7 +13,7 @@ import { useTheme } from '../../ProfileServices/ThemeContext';
 interface GroupChatInputProps {
   input: string;
   onSetInput: (text: string) => void;
-  onSendMessage: () => void;
+  onSendMessage: () => Promise<void>;
   onHandleImagePicker: () => void;
   isUploading: boolean;
 }
@@ -27,6 +27,23 @@ const GroupChatInput: React.FC<GroupChatInputProps> = ({
 }) => {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+
+  const handleSendMessage = async () => {
+    if (!input.trim()) return;
+    
+    // שמור את ההודעה לפני הניקוי
+    const messageToSend = input.trim();
+    
+    // נקה את התיבה מיד
+    onSetInput('');
+    
+    // שלח את ההודעה
+    try {
+      await onSendMessage();
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
 
   return (
     <View
@@ -73,14 +90,14 @@ const GroupChatInput: React.FC<GroupChatInputProps> = ({
           placeholderTextColor={theme.isDark ? '#BDC3C7' : '#999'}
           value={input}
           onChangeText={onSetInput}
-          onSubmitEditing={onSendMessage}
+          onSubmitEditing={handleSendMessage}
           returnKeyType="send"
           textAlign="right"
           multiline
           maxLength={500}
         />
         <TouchableOpacity
-          onPress={onSendMessage}
+          onPress={handleSendMessage}
           style={[
             styles.sendButton,
             !input.trim() && styles.sendButtonDisabled,
