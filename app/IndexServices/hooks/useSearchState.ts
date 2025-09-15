@@ -75,14 +75,15 @@ export const useSearchState = () => {
   }, []);
 
   const handleSelectSearchResult = useCallback(
-    (latitude: number, longitude: number, onLocationChange: (region: any) => void, mapRef: any) => {
+     (latitude: number, longitude: number, zoomLevel: number, onLocationChange: (region: any) => void, mapRef: any) => {
       setSearchCenter({ latitude, longitude });
       setIsCustomSearch(true);
+      const deltaValue = Math.max(0.001, 1 / zoomLevel);
       const newRegion = {
         latitude,
         longitude,
-        latitudeDelta: 0.5,
-        longitudeDelta: 0.5,
+        latitudeDelta: deltaValue,
+        longitudeDelta: deltaValue,
       };
       onLocationChange(newRegion);
       

@@ -210,8 +210,8 @@ export default function HomeScreen() {
   }, [handleMapPress, isChoosingLocation, closeAllModals, handleCloseSearchbar, resetCustomSearch, setIsChoosingLocation]);
 
   const handleSelectSearchResultInternal = useCallback(
-    (latitude: number, longitude: number) => {
-      handleSelectSearchResult(latitude, longitude, setRegion, mapRef);
+    (latitude: number, longitude: number, zoomLevel: number) => {
+      handleSelectSearchResult(latitude, longitude,zoomLevel, setRegion, mapRef);
     },
     [handleSelectSearchResult, setRegion]
   );
