@@ -8,6 +8,7 @@ import { LoadingComponent } from '../../IndexServices/components/LoadingComponen
 import { MapMarkersComponent } from '../../IndexServices/components/MapMarkersComponent';
 import { SearchBarComponent } from '../../IndexServices/components/SearchBarComponent';
 import EventDetailsModal from '../../IndexServices/EventDetailsModal';
+import { useAutoRefresh } from '../../IndexServices/hooks/useAutoRefresh';
 import { useBlockedUsers } from '../../IndexServices/hooks/useBlockedUsers';
 import { useFirestoreService } from '../../IndexServices/hooks/useFirestoreService';
 import { useLocationService } from '../../IndexServices/hooks/useLocationSevice';
@@ -106,6 +107,42 @@ export default function HomeScreen() {
 
   useLocationVisibility(user?.uid, setIsLocationVisible); // שימוש ב-hook החדש
 
+  // Auto refresh functionality
+  const refreshMapData = useCallback(async () => {
+    try {
+      // רענן רק את הנתונים החיוניים מבלי לשנות את מצב המפה
+      await Promise.all([
+        fetchCurrentUserUsername(), // רענן נתוני המשתמש הנוכחי
+        // אם יש לך פונקציות refresh נוספות ב-useFirestoreService, הוסף אותן כאן
+      ]);
+      console.log('✅ Map data refreshed successfully');
+    } catch (error) {
+      console.warn('⚠️ Failed to refresh map data:', error);
+    }
+  }, [fetchCurrentUserUsername]);
+
+  // קביעת מתי לא לעשות refresh (כשיש מודלים פתוחים)
+  const hasOpenModals = !!(
+    selectedEvent || 
+    distanceModalVisible || 
+    eventFilterModalVisible || 
+    isChoosingLocation || 
+    isSearchbarVisible
+  );
+
+  const { forceRefresh, resetTimer, refreshCount } = useAutoRefresh({
+    onRefresh: refreshMapData,
+    intervalMinutes: 2.5,
+    enabled: true,
+    pauseOnModal: true,
+    isModalOpen: hasOpenModals
+  });
+
+  // איפוס הטיימר כשהמשתמש מבצע פעולה אינטראקטיבית
+  const resetRefreshTimer = useCallback(() => {
+    resetTimer();
+  }, [resetTimer]);
+
   // Computed values
   const currentSearchCenter = useMemo(() => 
     getCurrentSearchCenter(currentLocation, mapCenter), 
@@ -181,8 +218,9 @@ export default function HomeScreen() {
       console.log('Updating location:', location);
       updateLocation(location);
       animateToRegion(mapRef, location, resetCustomSearch);
+      resetRefreshTimer(); // איפוס טיימר כשמעדכנים מיקום
     },
-    [updateLocation, animateToRegion, resetCustomSearch]
+    [updateLocation, animateToRegion, resetCustomSearch, resetRefreshTimer]
   );
 
   const handleMarkerPress = useCallback(
@@ -191,9 +229,10 @@ export default function HomeScreen() {
       if (eventData) {
         setSelectedEvent(eventData);
         console.log('Fetched single event data:', eventData);
+        resetRefreshTimer(); // איפוס טיימר כשפותחים אירוע
       }
     },
-    [fetchSingleEvent, setSelectedEvent, closeAllModals]
+    [fetchSingleEvent, setSelectedEvent, resetRefreshTimer]
   );
 
   const handleMapPressInternal = useCallback((event: any) => {
@@ -207,18 +246,21 @@ export default function HomeScreen() {
     if (isChoosingLocation) {
       setIsChoosingLocation(false);
     }
-  }, [handleMapPress, isChoosingLocation, closeAllModals, handleCloseSearchbar, resetCustomSearch, setIsChoosingLocation]);
+    resetRefreshTimer(); // איפוס טיימר בכל לחיצה על המפה
+  }, [handleMapPress, isChoosingLocation, closeAllModals, handleCloseSearchbar, resetCustomSearch, setIsChoosingLocation, resetRefreshTimer]);
 
   const handleSelectSearchResultInternal = useCallback(
     (latitude: number, longitude: number, zoomLevel: number) => {
-      handleSelectSearchResult(latitude, longitude,zoomLevel, setRegion, mapRef);
+      handleSelectSearchResult(latitude, longitude, zoomLevel, setRegion, mapRef);
+      resetRefreshTimer(); // איפוס טיימר כשבוחרים תוצאת חיפוש
     },
-    [handleSelectSearchResult, setRegion]
+    [handleSelectSearchResult, setRegion, resetRefreshTimer]
   );
 
   const handleSearchInAreaInternal = useCallback(() => {
     handleSearchInArea(mapCenter, setSearchCenter, setIsCustomSearch);
-  }, [handleSearchInArea, mapCenter, setSearchCenter, setIsCustomSearch]);
+    forceRefresh(); // רענון מיידי כשמחפשים באזור חדש
+  }, [handleSearchInArea, mapCenter, setSearchCenter, setIsCustomSearch, forceRefresh]);
   
   const handleToggleLocationVisibility = useCallback(async () => {
     if (!user?.uid) {
@@ -228,7 +270,8 @@ export default function HomeScreen() {
     const newVisibility = !isLocationVisible;
     console.log(`Toggling location visibility to ${newVisibility} in Firestore.`);
     await toggleUserLocationVisibility(user.uid, newVisibility);
-  }, [user?.uid, isLocationVisible, toggleUserLocationVisibility]);
+    resetRefreshTimer(); // איפוס טיימר כשמשנים נראות מיקום
+  }, [user?.uid, isLocationVisible, toggleUserLocationVisibility, resetRefreshTimer]);
 
   // Loading state
   if (!initialDataLoaded || !region) {
