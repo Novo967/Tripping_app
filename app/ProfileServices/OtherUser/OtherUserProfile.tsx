@@ -148,7 +148,7 @@ const OtherUserProfile = () => {
           />
           <TouchableOpacity 
             style={[styles.backButton, { backgroundColor: theme.isDark ? theme.colors.background : '#f8f9fa' }]} 
-            onPress={() => router.push('/(tabs)/home')}
+            onPress={() => router.back()}
           >
             <Feather name="arrow-right" size={24} color={theme.colors.text} />
           </TouchableOpacity>
