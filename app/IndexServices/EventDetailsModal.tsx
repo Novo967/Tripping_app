@@ -1,10 +1,9 @@
 // app/IndexServices/EventDetailsModal.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-// Note: We need all these imports to handle the Firebase logic
 import { addDoc, collection, getDocs, getFirestore, query, serverTimestamp, where } from 'firebase/firestore';
-import React from 'react';
-import { Alert, Linking, Modal, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { Alert, Dimensions, Linking, Modal, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { app } from '../../firebaseConfig';
 
 interface SelectedEventType {
@@ -39,8 +38,8 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
     userLocation,
 }) => {
     const db = getFirestore(app);
+    const { width } = Dimensions.get('window');
 
-    // פונקציה לתרגום סוג האירוע לעברית
     const getEventTypeInHebrew = (eventType: string): string => {
         const typeLabels: Record<string, string> = {
             'trip': 'טיול',
@@ -55,7 +54,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         return typeLabels[eventType] || eventType;
     };
 
-    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
         const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -64,11 +63,10 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = R * c;
-        return distance;
+        return R * c;
     };
 
-    const eventDistance = React.useMemo(() => {
+    const eventDistance = useMemo(() => {
         if (userLocation && selectedEvent) {
             const dist = calculateDistance(
                 userLocation.latitude,
@@ -81,20 +79,14 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         return null;
     }, [userLocation, selectedEvent]);
 
-    const handleOpenInMaps = async () => {
+    const handleOpenInMaps = useCallback(async () => {
         if (!selectedEvent) return;
-
         try {
-            const { latitude, longitude, location } = selectedEvent;
-            
-            // יצירת URL לגוגל מפס עם הקואורדינטות
-            const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
-            
-            // בדיקה אם ניתן לפתוח את הקישור
-            const supported = await Linking.canOpenURL(googleMapsUrl);
-            
+            const { latitude, longitude } = selectedEvent;
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+            const supported = await Linking.canOpenURL(url);
             if (supported) {
-                await Linking.openURL(googleMapsUrl);
+                await Linking.openURL(url);
             } else {
                 Alert.alert('שגיאה', 'לא ניתן לפתוח את יישום המפות');
             }
@@ -102,25 +94,22 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             console.error('Error opening maps:', error);
             Alert.alert('שגיאה', 'אירעה שגיאה בפתיחת המפה');
         }
-    };
+    }, [selectedEvent]);
 
-    const handleSendRequest = async () => {
+    const handleSendRequest = useCallback(async () => {
         if (!user || !selectedEvent || !currentUserUsername) {
             Alert.alert('שגיאה', 'לא ניתן לשלוח בקשה כרגע. נתונים חסרים.');
             return;
         }
-
         if (user.uid === selectedEvent.owner_uid) {
             Alert.alert('שגיאה', 'אינך יכול לשלוח בקשה לאירוע שאתה מנהל.');
             return;
         }
-
         if (selectedEvent.approved_users?.includes(user.uid)) {
             Alert.alert('שים לב', 'אתה כבר חלק מהאירוע.');
             onClose();
             return;
         }
-
         const q = query(
             collection(db, 'event_requests'),
             where('sender_uid', '==', user.uid),
@@ -133,7 +122,6 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             onClose();
             return;
         }
-
         try {
             await addDoc(collection(db, 'event_requests'), {
                 sender_uid: user.uid,
@@ -144,17 +132,17 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 status: 'pending',
                 createdAt: serverTimestamp(),
             });
-
+            Alert.alert('בקשה נשלחה', 'הבקשה שלך נשלחה בהצלחה וממתינה לאישור בעל האירוע.');
         } catch (error: any) {
             console.error('Error sending request:', error);
             const errorMessage = error.message || 'אירעה שגיאה לא ידועה בשליחת הבקשה.';
-            Alert.alert('שגיאה בשליחת בקשה', `אירעה שגיאה: ${errorMessage}\n\nאנא ודא שחוקי האבטחה של Firebase מעודכנים כראוי.`);
+            Alert.alert('שגיאה בשליחת בקשה', `אירעה שגיאה: ${errorMessage}`);
         } finally {
             onClose();
         }
-    };
+    }, [user, selectedEvent, currentUserUsername, db, onClose]);
 
-    const handleOpenGroupChat = (eventTitle: string) => {
+    const handleOpenGroupChat = useCallback((eventTitle: string) => {
         if (eventTitle) {
             onClose();
             router.push({
@@ -162,14 +150,12 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 params: { eventTitle: eventTitle }
             });
         }
-    };
+    }, [onClose]);
 
-    const handleAuthorPress = () => {
+    const handleAuthorPress = useCallback(() => {
         if (!selectedEvent || !user) return;
-
         const isMyEvent = user.uid === selectedEvent.owner_uid;
         onClose();
-
         if (isMyEvent) {
             router.push('/profile');
         } else {
@@ -178,15 +164,13 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 params: { uid: selectedEvent.owner_uid }
             });
         }
-    };
+    }, [selectedEvent, user, onClose]);
 
-    const handleShareEvent = async () => {
+    const handleShareEvent = useCallback(async () => {
         if (!selectedEvent) return;
-
         try {
             const shareUrl = `yourappname://event?id=${selectedEvent.id}&lat=${selectedEvent.latitude}&lon=${selectedEvent.longitude}`;
             const message = `הצטרף אלי לאירוע: ${selectedEvent.event_title}!\n${selectedEvent.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
-            
             await Share.share({
                 message: message,
                 url: shareUrl,
@@ -196,11 +180,10 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             console.error('Error sharing event:', error);
             Alert.alert('שגיאה', 'אירעה שגיאה בשיתוף האירוע');
         }
-    };
+    }, [selectedEvent]);
 
     const renderEventActionButton = () => {
         if (!user || !selectedEvent) return null;
-
         const isOwner = user.uid === selectedEvent.owner_uid;
         const isApproved = selectedEvent.approved_users?.includes(user.uid);
 
@@ -227,14 +210,31 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         }
     };
 
+    // New function to choose icon based on event type
+    const getEventTypeIcon = (eventType: string) => {
+        switch (eventType) {
+            case 'trip': return 'navigate-circle-outline';
+            case 'party': return 'star-outline';
+            case 'attraction': return 'map-outline';
+            case 'food': return 'restaurant-outline';
+            case 'nightlife': return 'wine-outline';
+            case 'beach': return 'water-outline';
+            case 'sport': return 'barbell-outline';
+            default: return 'bookmark-outline';
+        }
+    };
+
     if (!selectedEvent) return null;
+
+    const formattedDate = new Date(selectedEvent.event_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const formattedTime = new Date(selectedEvent.event_date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
     return (
         <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-                        {/* UPDATED HEADER CONTAINER */}
+                        {/* Header Container */}
                         <View style={styles.headerContainer}>
                             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                                 <Ionicons name="close-circle-outline" size={28} color="#999" />
@@ -244,48 +244,27 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                             </Text>
                             <View style={styles.closeButtonPlaceholder} />
                         </View>
+                        
+                        {/* Event Type Bubble with dynamic icon */}
+                        <View style={styles.eventTypeBubbleContainer}>
+                            <Ionicons name={getEventTypeIcon(selectedEvent.event_type)} size={16} color="#3A8DFF" style={styles.eventTypeIcon} />
+                            <Text style={styles.eventTypeBubbleText}>{getEventTypeInHebrew(selectedEvent.event_type)}</Text>
+                        </View>
 
                         <View style={styles.detailsContainer}>
                             <View style={styles.detailRow}>
                                 <Ionicons name="person-outline" size={18} color="#3A8DFF" style={styles.detailIcon} />
-                                <Text style={styles.modalAuthorPrefix}>מאת: </Text>
+                               <Text style={[styles.modalAuthorLink, { textDecorationLine: 'none' }]}>מנהל: </Text>
                                 <TouchableOpacity onPress={handleAuthorPress}>
                                     <Text style={styles.modalAuthorLink}>{selectedEvent.username}</Text>
                                 </TouchableOpacity>
                             </View>
-                            {/* Event Type Row - מתורגם לעברית */}
-                            <View style={styles.detailRow}>
-                                <Ionicons name="flag-outline" size={18} color="#555" style={styles.detailIcon} />
-                                <Text style={styles.modalAuthorPrefix}>סוג אירוע: </Text>
-                                <Text style={styles.modalAuthorPrefix}>{getEventTypeInHebrew(selectedEvent.event_type)}</Text>
-                            </View>
                             <View style={styles.detailRow}>
                                 <Ionicons name="calendar-outline" size={18} color="#555" style={styles.detailIcon} />
-                                <Text style={styles.modalAuthorPrefix}>תאריך: </Text>
-                                <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Text>
-                            </View>
-                            {/* Event Time Row */}
-                            <View style={styles.detailRow}>
+                                <Text style={styles.modalDate}>{formattedDate}</Text>
                                 <Ionicons name="time-outline" size={18} color="#555" style={styles.detailIcon} />
-                                <Text style={styles.modalAuthorPrefix}>שעה: </Text>
-                                <Text style={styles.modalDate}>{new Date(selectedEvent.event_date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</Text>
+                                <Text style={styles.modalDate}>{formattedTime}</Text>
                             </View>
-                            {selectedEvent.location && (
-                                <View style={styles.detailRow}>
-                                    <Ionicons name="location-outline" size={18} color="#3A8DFF" style={styles.detailIcon} />
-                                    <Text style={styles.modalLocationPrefix}>מיקום: </Text>
-                                    <TouchableOpacity onPress={handleOpenInMaps} style={styles.locationLinkContainer}>
-                                        <Text style={styles.modalLocationLink}>{selectedEvent.location}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-                            {eventDistance && (
-                                <View style={styles.detailRow}>
-                                    <Ionicons name="navigate-outline" size={18} color="#555" style={styles.detailIcon} />
-                                    <Text style={styles.modalDistance}>מרחק ממיקומך:</Text>
-                                    <Text style={styles.modalDistance}><Text style={styles.distanceValue}>{eventDistance} קמ</Text></Text>
-                                </View>
-                            )}
                             {selectedEvent.description && (
                                 <View style={styles.descriptionContainer}>
                                     <View style={styles.descriptionHeader}>
@@ -296,16 +275,32 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                                 </View>
                             )}
                         </View>
-                        
-                        {renderEventActionButton()}
 
-                        <TouchableOpacity
-                            style={[styles.actionButton, styles.shareButton]}
-                            onPress={handleShareEvent}
-                        >
-                            <Ionicons name="share-social-outline" size={22} color="#FFFFFF" />
-                            <Text style={styles.actionButtonText}>שתף אירוע</Text>
-                        </TouchableOpacity>
+                        {renderEventActionButton()}
+                        
+                        <View style={styles.buttonsContainer}>
+                            <TouchableOpacity
+                                style={[styles.actionButton, styles.shareButton, styles.halfWidthButton]}
+                                onPress={handleShareEvent}
+                            >
+                                <Ionicons name="share-social-outline" size={24} color="#FFFFFF" />
+                                <Text style={styles.actionButtonText}>שתף אירוע</Text>
+                            </TouchableOpacity>
+                            {selectedEvent.latitude && selectedEvent.longitude && (
+                                <TouchableOpacity
+                                    style={[styles.actionButton, styles.navigationButton, styles.halfWidthButton]}
+                                    onPress={handleOpenInMaps}
+                                >
+                                    <Ionicons name="navigate-circle-outline" size={24} color="#FFFFFF" />
+                                    <View style={styles.navigationButtonTextContainer}>
+                                        <Text style={styles.actionButtonText}>נווט לאירוע</Text>
+                                        {eventDistance && (
+                                            <Text style={styles.distanceText}>({eventDistance} ק"מ)</Text>
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
                 </View>
             </TouchableWithoutFeedback>
@@ -336,13 +331,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row-reverse',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 15,
-        paddingBottom: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
+        marginBottom: 10,
+        paddingBottom: 5,
     },
     modalTitle: {
-        fontSize: 24,
+        fontSize: 24, // Reverted to a static size
         fontWeight: '700',
         color: '#333',
         flex: 1,
@@ -355,6 +348,25 @@ const styles = StyleSheet.create({
     },
     closeButtonPlaceholder: {
         width: 28 + 10,
+    },
+    eventTypeBubbleContainer: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        backgroundColor: '#E6F0FF',
+        borderRadius: 20,
+        paddingVertical: 5,
+        paddingHorizontal: 15,
+        alignSelf: 'center',
+        marginBottom: 20,
+    },
+    eventTypeIcon: {
+        marginRight: 5,
+        transform: [{ scaleX: -1 }], // Flip icon to match RTL layout
+    },
+    eventTypeBubbleText: {
+        color: '#3A8DFF',
+        fontWeight: 'bold',
+        fontSize: 14,
     },
     detailsContainer: {
         marginBottom: 20,
@@ -383,41 +395,10 @@ const styles = StyleSheet.create({
         color: '#555',
         textAlign: 'right',
     },
-    modalLocationPrefix: {
-        fontSize: 15,
-        color: '#555',
-        textAlign: 'right',
-    },
-    locationLinkContainer: {
-        flex: 1,
-    },
-    modalLocationLink: {
-        fontSize: 15,
-        color: '#3A8DFF',
-        textAlign: 'right',
-        fontWeight: 'bold',
-        textDecorationLine: 'underline',
-    },
     modalDate: {
         fontSize: 15,
         color: '#555',
         textAlign: 'right',
-        flex: 1,
-    },
-    modalLocation: {
-        fontSize: 15,
-        color: '#555',
-        textAlign: 'right',
-        flex: 1,
-    },
-    modalDistance: {
-        fontSize: 15,
-        color: '#555',
-        textAlign: 'right',
-        flex: 1,
-    },
-    distanceValue: {
-        color: '#555',
     },
     descriptionContainer: {
         marginTop: 15,
@@ -449,15 +430,15 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         textAlign: 'right',
         marginRight: 15,
-        marginTop: 5,
+        marginTop: 0,
     },
     actionButton: {
         flexDirection: 'row-reverse',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
+        paddingVertical: 16,
         borderRadius: 30,
-        marginTop: 15,
+        marginTop: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
@@ -470,16 +451,43 @@ const styles = StyleSheet.create({
     chatButton: {
         backgroundColor: '#3A8DFF',
     },
+    buttonsContainer: {
+        flexDirection: 'row-reverse',
+        justifyContent: 'space-between',
+        marginTop: 2,
+    },
     shareButton: {
         backgroundColor: '#3A8DFF',
-        marginTop: 10,
+    },
+    navigationButton: {
+        backgroundColor: '#3A8DFF',
+    },
+    halfWidthButton: {
+        flex: 1,
+        marginHorizontal: 5,
+        paddingVertical: 12,
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    navigationButtonTextContainer: {
+        alignItems: 'center',
+        marginLeft: 5,
     },
     actionButtonText: {
         color: '#FFFFFF',
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: 'bold',
-        marginRight: 10,
-        marginLeft: 0,
+        marginRight: 2,
+        paddingLeft: 5,
+        paddingRight: 5,
+        textAlign: 'center',
+    },
+    distanceText: {
+        fontSize: 11,
+        color: '#FFFFFF',
+        fontWeight: 'normal',
+        marginTop: 2,
     },
 });
 
