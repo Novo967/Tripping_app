@@ -190,7 +190,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         if (isOwner || isApproved) {
             return (
                 <TouchableOpacity
-                    style={[styles.actionButton, styles.chatButton]}
+                    style={[styles.actionButton, styles.chatButton,styles.fullWidthButton]}
                     onPress={() => handleOpenGroupChat(selectedEvent.event_title)}
                 >
                     <Ionicons name="chatbubbles-outline" size={22} color="#FFFFFF" />
@@ -200,7 +200,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
         } else {
             return (
                 <TouchableOpacity
-                    style={[styles.actionButton, styles.requestButton]}
+                    style={[styles.actionButton, styles.requestButton,,styles.fullWidthButton]}
                     onPress={handleSendRequest}
                 >
                     <Ionicons name="paper-plane-outline" size={22} color="#FFFFFF" />
@@ -239,7 +239,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                                 <Ionicons name="close-circle-outline" size={28} color="#999" />
                             </TouchableOpacity>
-                            <Text style={styles.modalTitle} numberOfLines={2}>
+                            <Text style={styles.modalTitle}>
                                 {selectedEvent.event_title}
                             </Text>
                             <View style={styles.closeButtonPlaceholder} />
@@ -341,6 +341,7 @@ const styles = StyleSheet.create({
         flex: 1,
         textAlign: 'center',
         marginHorizontal: 10,
+        flexWrap: 'wrap',
     },
     closeButton: {
         padding: 5,
@@ -458,6 +459,7 @@ const styles = StyleSheet.create({
     },
     shareButton: {
         backgroundColor: '#3A8DFF',
+        paddingHorizontal: 12,
     },
     navigationButton: {
         backgroundColor: '#3A8DFF',
@@ -472,7 +474,7 @@ const styles = StyleSheet.create({
     },
     navigationButtonTextContainer: {
         alignItems: 'center',
-        marginLeft: 5,
+        marginLeft: 0,
     },
     actionButtonText: {
         color: '#FFFFFF',
@@ -480,7 +482,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginRight: 2,
         paddingLeft: 5,
-        paddingRight: 5,
         textAlign: 'center',
     },
     distanceText: {
@@ -488,6 +489,9 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontWeight: 'normal',
         marginTop: 2,
+    },
+    fullWidthButton: {
+        width: '100%',
     },
 });
 
