@@ -7,8 +7,8 @@ import { doc, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { I18nManager, Platform, View } from 'react-native';
 import { auth, db } from '../firebaseConfig';
-import SplashScreenComponent from './SplashScreen'; // ודא שהנתיב נכון
-import { getExpoPushToken } from './utils/pushNotifications';
+import SplashScreenComponent from './SplashScreen';
+import { getExpoPushToken, setupNotificationResponseHandler } from './utils/pushNotifications';
 
 // מונע מהספלאש סקרין המובנה להיעלם אוטומטית
 SplashScreen.preventAutoHideAsync();
@@ -77,7 +77,7 @@ export default function AppEntry() {
           });
         });
 
-        // זמן מינימום לספלאש
+        // זמן מינימום לספלש
         const splashTimerPromise = new Promise((resolve) => {
           setTimeout(resolve, 2800);
         });
@@ -91,6 +91,12 @@ export default function AppEntry() {
     }
 
     prepare();
+  }, []);
+
+  // הגדרת מאזין להתראות - רק פעם אחת כשהאפליקציה נטענת
+  useEffect(() => {
+    const responseListener = setupNotificationResponseHandler();
+    return () => responseListener.remove();
   }, []);
 
   const onLayoutRootView = useCallback(async () => {

@@ -2,6 +2,7 @@
 import * as Device from 'expo-device';
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { Alert, Linking, Platform } from 'react-native';
 
 // הקובץ הזה יתמקד כעת אך ורק בקבלת טוקן ההתראות של Expo
@@ -29,6 +30,67 @@ function openNotificationSettings() {
       }
     );
   }
+}
+
+// פונקציה לטיפול בניווט בהתבסס על סוג ההתראה
+function handleNotificationNavigation(data: any) {
+  if (!data) {
+    console.log('8. דאטה ההתראה ריקה');
+    return;
+  }
+
+  console.log('8. מטפל בניווט להתראה:', data);
+
+  // בהתבסס על הדאטה של ההתראה, נווט לדף המתאים
+  if (data.type === 'personal_message') {
+    // התראה מצ'ט אישי - נווט לדף הצ'אט האישי
+    router.push({
+      pathname: '/Chats/PersonalChat/chatModal',
+      params: {
+        otherUserId: data.userId,
+        otherUsername: data.userName,
+        otherUserImage: data.userImage || 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png'
+      }
+    });
+    console.log('8a. ניווט לצ\'אט אישי:', data.userId);
+    
+  } else if (data.type === 'group_message') {
+    // התראה מקבוצה - נווט לדף הקבוצה
+    router.push({
+      pathname: '/Chats/GroupChat/GroupChatModal',
+      params: {
+        eventTitle: data.groupId
+      }
+    });
+    console.log('8b. ניווט לקבוצה:', data.groupId);
+    
+  } else {
+    // במקרה של התראה כללית - ניווט למסך הראשי
+    router.push('/(tabs)/home');
+    console.log('8c. ניווט למסך הראשי');
+  }
+}
+
+// פונקציה לטיפול בלחיצה על התראה
+export function setupNotificationResponseHandler() {
+  // מאזין להתראה שנלחצה כשהאפליקציה פתוחה
+  const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+    console.log('6. התקבלה לחיצה על התראה:', response);
+    
+    const notificationData = response.notification.request.content.data;
+    handleNotificationNavigation(notificationData);
+  });
+
+  // מאזין להתראה אחרונה שנלחצה (כשהאפליקציה נסגרה ונפתחה דרך ההתראה)
+  Notifications.getLastNotificationResponseAsync().then(response => {
+    if (response) {
+      console.log('7. התקבלה התראה אחרונה:', response);
+      const notificationData = response.notification.request.content.data;
+      handleNotificationNavigation(notificationData);
+    }
+  });
+
+  return responseListener;
 }
 
 export async function getExpoPushToken() {
