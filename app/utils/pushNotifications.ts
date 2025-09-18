@@ -1,7 +1,8 @@
 // src/utils/pushNotifications.ts
 import * as Device from 'expo-device';
+import * as IntentLauncher from "expo-intent-launcher";
 import * as Notifications from 'expo-notifications';
-import { Alert, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 // הקובץ הזה יתמקד כעת אך ורק בקבלת טוקן ההתראות של Expo
 Notifications.setNotificationHandler({
@@ -12,6 +13,23 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+function openNotificationSettings() {
+  if (Platform.OS === "ios") {
+    // ב־iOS אפשר לפתוח רק את דף ההגדרות של האפליקציה
+    Linking.openSettings();
+  } else if (Platform.OS === "android") {
+    // ב־Android אפשר לפתוח ישירות את דף ההתראות של האפליקציה
+    IntentLauncher.startActivityAsync(
+      IntentLauncher.ActivityAction.APP_NOTIFICATION_SETTINGS,
+      {
+        extra: {
+          "android.provider.extra.APP_PACKAGE": "com.yourapp.bundleid", // שים כאן את ה־package name שלך
+        },
+      }
+    );
+  }
+}
 
 export async function getExpoPushToken() {
   console.log('1. התחלתי את תהליך רישום ההתראות.');
@@ -29,11 +47,24 @@ export async function getExpoPushToken() {
     finalStatus = status;
     console.log('2a. סטטוס הרשאות חדש:', finalStatus);
   }
-  if (finalStatus !== 'granted') {
-    Alert.alert('לא התקבלו הרשאות');
-    console.log('2b. יצאתי: אין הרשאות.');
-    return null;
-  }
+  if (finalStatus !== "granted") {
+  Alert.alert(
+    "האפליקציה צריכה אישור לקבלת התראות בשביל חוויה מקסימלית",
+    "",
+    [
+      {
+        text: "פתח הגדרות",
+        onPress: () => openNotificationSettings(),
+      },
+      {
+        text: "ביטול",
+        style: "cancel",
+      },
+    ]
+  );
+  console.log("2b. יצאתי: אין הרשאות.");
+  return null;
+}
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {

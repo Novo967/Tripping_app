@@ -71,7 +71,8 @@
     "react-native-svg": "15.11.2",
     "react-native-video": "^6.16.1",
     "react-native-web": "^0.20.0",
-    "react-native-webview": "13.13.5"
+    "react-native-webview": "13.13.5",
+    "expo-intent-launcher": "~13.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
