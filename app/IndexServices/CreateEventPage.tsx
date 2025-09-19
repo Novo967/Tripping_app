@@ -295,13 +295,13 @@ export default function CreateEventPage() {
     
     const getEventIcon = (type: EventType): keyof typeof Ionicons.glyphMap => {
         const iconMap: Record<EventType, keyof typeof Ionicons.glyphMap> = {
-            trip: 'car',
-            party: 'musical-notes',
+            trip: 'trail-sign',
+            party: 'headset',
             attraction: 'star',
             food: 'restaurant',
             nightlife: 'wine',
-            beach: 'water',
-            sport: 'fitness',
+            beach: 'sunny',
+            sport: 'barbell',
             other: 'ellipsis-horizontal-circle',
         };
         return iconMap[type];
@@ -369,7 +369,7 @@ export default function CreateEventPage() {
                     </View>
                    <TouchableOpacity
                       style={styles.editLocationButton}
-                      onPress={() => router.replace({
+                      onPress={() => router.push({
                           pathname: '/home',
                           params: { isChoosingLocation: 'true' }
                       })}

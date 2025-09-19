@@ -213,14 +213,14 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
     // New function to choose icon based on event type
     const getEventTypeIcon = (eventType: string) => {
         switch (eventType) {
-            case 'trip': return 'navigate-circle-outline';
-            case 'party': return 'star-outline';
-            case 'attraction': return 'map-outline';
+            case 'trip': return 'trail-sign-outline';
+            case 'party': return 'headset-outline';
+            case 'attraction': return 'star-outline';
             case 'food': return 'restaurant-outline';
             case 'nightlife': return 'wine-outline';
-            case 'beach': return 'water-outline';
+            case 'beach': return 'sunny-outline';
             case 'sport': return 'barbell-outline';
-            default: return 'bookmark-outline';
+            default: return 'ellipsis-horizontal-circle-outline';
         }
     };
 
