@@ -36,7 +36,7 @@ import Gallery from '../ProfileServices/GalleryServices/Gallery';
 import ImageModal from '../ProfileServices/ImageModal';
 import NotificationBell from '../ProfileServices/NoficationBell';
 import ProfileImage from '../ProfileServices/ProfileImage';
-import { useTheme } from '../ProfileServices/ThemeContext';
+import { useTheme } from '../ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 

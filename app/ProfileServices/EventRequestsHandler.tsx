@@ -4,7 +4,7 @@ import { arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, query, server
 import React, { useEffect, useState } from 'react';
 import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
-import { useTheme } from './ThemeContext';
+import { useTheme } from '../ThemeContext';
 
 const { width } = Dimensions.get('window');
 

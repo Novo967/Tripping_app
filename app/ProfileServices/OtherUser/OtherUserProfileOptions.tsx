@@ -4,17 +4,17 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Modal,
-  Share,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Animated,
+    Dimensions,
+    Modal,
+    Share,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
-import { useTheme } from '../ThemeContext';
+import { useTheme } from '../../ThemeContext';
 
 const { width } = Dimensions.get('window');
 

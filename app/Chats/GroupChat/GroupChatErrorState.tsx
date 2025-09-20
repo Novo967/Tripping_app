@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 
 const GroupChatErrorState: React.FC = () => {
   const { theme } = useTheme();

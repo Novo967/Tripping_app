@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // ייבוא Alert
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../firebaseConfig';
-import { useTheme } from '../../ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 
 interface ChatHeaderProps {
   otherUserId: string;

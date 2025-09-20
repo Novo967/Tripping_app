@@ -44,7 +44,7 @@ const lightTheme: Theme = {
 const darkTheme: Theme = {
   isDark: true,
   colors: {
-    primary: '#64B5F6', // גוון כחול בהיר שיתאים לרקע כהה
+    primary: '#3A8DFF', // גוון כחול בהיר שיתאים לרקע כהה
     secondary: '#1A3F78', // כחול כהה לניגודיות
     background: '#121C2B', // כחול-שחור עמוק כרקע כללי
     surface: '#1A283B', // כחול כהה יותר עבור רכיבים כמו כרטיסים

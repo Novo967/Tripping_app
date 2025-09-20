@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // ייבוא Dimensions
-import { useTheme } from '../../ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 
 interface Message {
   id: string;

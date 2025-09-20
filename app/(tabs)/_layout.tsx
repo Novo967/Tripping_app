@@ -4,8 +4,8 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { auth, db } from '../../firebaseConfig';
+import { useTheme } from '../ThemeContext';
 
 const NotificationBadge = () => {
   return <View style={styles.badge} />;

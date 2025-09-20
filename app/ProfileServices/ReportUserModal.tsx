@@ -17,7 +17,7 @@ import {
     View
 } from 'react-native';
 import { app, auth, db } from '../../firebaseConfig';
-import { useTheme } from './ThemeContext';
+import { useTheme } from '../ThemeContext';
 
 interface User {
   id: string;

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { useTheme } from './ThemeContext'; // Ensure this path is correct
+import { useTheme } from '../ThemeContext'; // Ensure this path is correct
 
 interface NotificationBellProps {
   hasNotifications: boolean;

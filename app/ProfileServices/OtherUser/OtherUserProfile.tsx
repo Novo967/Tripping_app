@@ -5,24 +5,24 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  Modal,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Image,
+    Modal,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import LikeableImage from '../../ProfileServices/GalleryServices/LikeableImage';
+import { useTheme } from '../../ThemeContext';
 import { RootStackParamList } from '../../types';
 import BlockUserModal from '../BlockUserModal';
-import { useTheme } from '../ThemeContext';
 import OtherUserProfileOptions from './OtherUserProfileOptions';
 import { useOtherUserProfile } from './useOtherUserProfile';
 

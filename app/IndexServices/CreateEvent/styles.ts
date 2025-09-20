@@ -2,10 +2,10 @@
 import Constants from 'expo-constants';
 import { Platform, StatusBar, StyleSheet } from 'react-native';
 
-const createStyles = (isDark: boolean) => StyleSheet.create({
+export const createStyles = (theme: any) => StyleSheet.create({
     container: { 
         flex: 1, 
-        backgroundColor: isDark ? '#121212' : '#f8f9fa'
+        backgroundColor: theme.colors.background
     },
     header: {
         flexDirection: 'row-reverse',
@@ -16,9 +16,9 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
             ? (StatusBar.currentHeight ?? 24) + 10
             : Constants.statusBarHeight + 10,
         paddingBottom: 10,
-        backgroundColor: isDark ? '#1E1E1E' : '#3A8DFF',
+        backgroundColor: theme.colors.primary,
         elevation: 5,
-        shadowColor: '#000',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
@@ -30,7 +30,7 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
     headerTitle: {
         flex: 1,
         textAlign: 'center',
-        color: isDark ? '#3A8DFF' : 'white',
+        color: theme.colors.background,
         fontSize: 20,
         fontWeight: 'bold',
     },
@@ -42,8 +42,8 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
         borderRadius: 20, 
         overflow: 'hidden', 
         marginBottom: 15,
-        borderWidth: isDark ? 1 : 0,
-        borderColor: isDark ? '#333' : 'transparent'
+        borderWidth: 1,
+        borderColor: theme.colors.border
     },
     customMarker: { 
         alignItems: 'center', 
@@ -53,12 +53,12 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
         flexDirection: 'row-reverse',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: isDark ? '#1E1E1E' : 'white',
+        backgroundColor: theme.colors.surface,
         padding: 12,
         marginVertical: 10,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: isDark ? '#333' : '#ddd',
+        borderColor: theme.colors.border,
     },
     locationInfo: {
         flexDirection: 'row-reverse',
@@ -69,27 +69,27 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
         flexShrink: 1,
     },
     locationText: {
-        color: isDark ? '#FFFFFF' : '#333',
+        color: theme.colors.text,
         textAlign: 'right',
         fontWeight: '600',
         fontSize: 16,
         flexShrink: 1,
     },
     cityText: {
-        color: isDark ? '#AAAAAA' : '#666',
+        color: theme.colors.textSecondary,
         textAlign: 'right',
         fontSize: 12,
         marginTop: 2,
         flexShrink: 1,
     },
     editLocationButton: {
-        backgroundColor: isDark ? '#1A2A4A' : '#E8F0FE',
+        backgroundColor: theme.isDark ? 'rgba(58, 141, 255, 0.2)' : 'rgba(58, 141, 255, 0.1)',
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 8,
     },
     editLocationButtonText: {
-        color: '#3A8DFF',
+        color: theme.colors.primary,
         fontWeight: '600',
         fontSize: 14,
     },
@@ -102,19 +102,19 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
         width: '100%',
         height: 180,
         borderRadius: 20,
-        backgroundColor: isDark ? '#1E1E1E' : '#E8F0FE',
+        backgroundColor: theme.colors.surface,
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
         borderWidth: 2,
-        borderColor: '#3A8DFF',
+        borderColor: theme.colors.primary,
         borderStyle: 'dashed',
     },
     imagePlaceholder: {
         alignItems: 'center',
     },
     imagePlaceholderText: {
-        color: '#3A8DFF',
+        color: theme.colors.primary,
         marginTop: 8,
         fontSize: 16,
         fontWeight: 'bold',
@@ -126,24 +126,24 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
     },
     imageLoadingOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backgroundColor: theme.colors.overlay,
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
     },
     input: {
-        backgroundColor: isDark ? '#1E1E1E' : 'white',
+        backgroundColor: theme.colors.surface,
         borderRadius: 10,
         padding: 12,
         marginVertical: 8,
-        color: isDark ? '#FFFFFF' : '#333',
+        color: theme.colors.text,
         textAlign: 'right',
         fontSize: 16,
         borderWidth: 1,
-        borderColor: isDark ? '#333' : '#eee',
+        borderColor: theme.colors.border,
     },
     inputError: {
-        borderColor: '#CF6679',
+        borderColor: theme.colors.error,
     },
     descriptionInput: {
         height: 100,
@@ -152,37 +152,38 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
     },
     typeSelector: {
         flexDirection: 'row',
-        marginVertical: 15,
+        marginVertical: 8,
     },
     typeSelectorContent: {
-        flexDirection: 'row',
+        flexDirection: 'row-reverse',
         paddingHorizontal: 5,
+
     },
     typeButton: {
         flexDirection: 'row-reverse',
         alignItems: 'center',
-        backgroundColor: isDark ? '#1E1E1E' : 'white',
+        backgroundColor: theme.colors.surface,
         paddingVertical: 10,
-        paddingHorizontal: 15,
+        paddingHorizontal: 10,
         borderRadius: 20,
-        marginRight: 10,
+        marginLeft: 10,
         borderWidth: 1,
-        borderColor: isDark ? '#333' : '#ddd',
+        borderColor: theme.colors.border,
         minWidth: 80,
     },
     typeSelected: {
-        backgroundColor: '#3A8DFF',
-        borderColor: '#3A8DFF',
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
     },
     typeText: {
         marginRight: 8,
         fontSize: 15,
         fontWeight: '500',
         textAlign: 'right',
-        color: isDark ? '#FFFFFF' : '#333',
+        color: theme.colors.text,
     },
     typeTextSelected: {
-        color: 'white',
+        color: theme.isDark ? theme.colors.text : '#FFFFFF',
     },
     dateAndTimeContainer: {
         flexDirection: 'row-reverse',
@@ -191,11 +192,11 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
     },
     dateTimeButton: {
         flex: 1,
-        backgroundColor: isDark ? '#1E1E1E' : 'white',
+        backgroundColor: theme.colors.surface,
         borderRadius: 10,
         padding: 12,
         borderWidth: 1,
-        borderColor: isDark ? '#333' : '#eee',
+        borderColor: theme.colors.border,
     },
     timeButton: {
         marginRight: 10,
@@ -208,26 +209,26 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
     dateText: { 
         marginRight: 10, 
         fontSize: 16, 
-        color: isDark ? '#FFFFFF' : '#333',
+        color: theme.colors.text,
         fontWeight: '500',
         flex: 1,
         textAlign: 'right',
     },
     createButton: {
-        backgroundColor: '#3A8DFF',
+        backgroundColor: theme.colors.primary,
         padding: 15,
         borderRadius: 10,
         alignItems: 'center',
         marginTop: 20,
         marginBottom: 30,
         elevation: 3,
-        shadowColor: '#3A8DFF',
+        shadowColor: theme.colors.primary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
     },
     createButtonText: { 
-        color: 'white',
+        color: theme.isDark ? theme.colors.text : '#FFFFFF',
         fontWeight: 'bold', 
         fontSize: 18 
     },
@@ -236,17 +237,17 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
     },
     modalBackground: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: theme.colors.overlay,
         justifyContent: 'center',
         alignItems: 'center',
     },
     modalContainer: {
-        backgroundColor: isDark ? '#1E1E1E' : 'white',
+        backgroundColor: theme.colors.surface,
         borderRadius: 15,
         margin: 20,
         width: '90%',
         maxWidth: 400,
-        shadowColor: '#000',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
@@ -259,12 +260,12 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
         paddingVertical: 15,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        borderBottomColor: isDark ? '#333' : '#f0f0f0',
+        borderBottomColor: theme.colors.border,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: isDark ? '#FFFFFF' : '#333',
+        color: theme.colors.text,
         textAlign: 'center',
         flex: 1,
     },
@@ -274,13 +275,13 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
         minWidth: 60,
     },
     modalButtonTextCancel: {
-        color: isDark ? '#AAAAAA' : '#666',
+        color: theme.colors.textSecondary,
         fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
     },
     modalButtonTextConfirm: {
-        color: '#3A8DFF',
+        color: theme.colors.primary,
         fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
@@ -291,22 +292,7 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
     },
     datePicker: {
         width: '100%',
-        borderColor: '#3A8DFF',
+        borderColor: theme.colors.primary,
         height: Platform.OS === 'ios' ? 180 : 'auto',
     },
 });
-
-// Export both light and dark styles
-export const lightStyles = createStyles(false);
-export const darkStyles = createStyles(true);
-
-// Hook for theme detection
-export const useTheme = () => {
-    // You'll need to implement theme detection logic here
-    // This could be from React Context, system preference, or user settings
-    const isDark = false; // Replace with actual theme detection
-    return {
-        isDark,
-        styles: isDark ? darkStyles : lightStyles
-    };
-};

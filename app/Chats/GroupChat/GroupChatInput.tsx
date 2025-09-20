@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  Platform,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    Platform,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 
 interface GroupChatInputProps {
   input: string;

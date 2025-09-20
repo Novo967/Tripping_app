@@ -21,8 +21,8 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../../app/ProfileServices/ThemeContext';
 import { app, db } from '../../../firebaseConfig';
+import { useTheme } from '../../ThemeContext';
 
 interface Member {
     uid: string;

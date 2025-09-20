@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ThemeProvider } from '../app/ProfileServices/ThemeContext'; // ייבוא ThemeProvider
 import '../firebaseConfig';
+import { ThemeProvider } from './ThemeContext'; // ייבוא ThemeProvider
 // זהו ה-layout הראשי (Root Layout) עבור כל האפליקציה שלך.
 // הוא עוטף את כל המסכים המוגדרים ב-expo-router.
 export default function RootLayout() {

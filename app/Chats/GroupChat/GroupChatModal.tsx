@@ -3,39 +3,39 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
+    addDoc,
+    collection,
+    doc,
+    getDoc,
+    onSnapshot,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc,
+    updateDoc,
 } from 'firebase/firestore';
 import {
-  getDownloadURL,
-  getStorage,
-  ref,
-  uploadBytesResumable
+    getDownloadURL,
+    getStorage,
+    ref,
+    uploadBytesResumable
 } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActionSheetIOS,
-  Alert,
-  FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  StatusBar,
-  StyleSheet,
-  TouchableWithoutFeedback,
-  View,
+    ActionSheetIOS,
+    Alert,
+    FlatList,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    StatusBar,
+    StyleSheet,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, db } from '../../../firebaseConfig';
-import { useTheme } from '../../ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 import ImageViewerModal from '../components/ImageViewerModal';
 import GroupChatEmptyState from './GroupChatEmptyState';
 import GroupChatErrorState from './GroupChatErrorState';

@@ -5,16 +5,16 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  ListRenderItemInfo,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    ListRenderItemInfo,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { useTheme } from '../../ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 import { LikeableImage } from './LikeableImage';
 import { useGallery } from './useGallery';
 

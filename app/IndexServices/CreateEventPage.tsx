@@ -1,4 +1,3 @@
-// app/IndexServices/CreateEventPage.tsx
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -17,22 +16,22 @@ import {
     View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-
-// Import services and constants
+import { useTheme } from '../ThemeContext';
 import { eventTypesArray, getDefaultEventDate, getEventIcon, typeLabels } from './CreateEvent/constants';
 import { FirebaseService } from './CreateEvent/firebaseService';
 import { ImageService } from './CreateEvent/imageService';
 import { LocationService } from './CreateEvent/locationService';
-import { useTheme } from './CreateEvent/styles';
+import { createStyles } from './CreateEvent/styles';
 import { EventType } from './CreateEvent/types';
 
 export default function CreateEventPage() {
-    const { latitude, longitude } = useLocalSearchParams();
-    const { isDark, styles } = useTheme();
+    const { theme } = useTheme();
+    const styles = createStyles(theme);
     
+    const { latitude, longitude } = useLocalSearchParams();
     const [eventTitle, setEventTitle] = useState('');
     const [eventType, setEventType] = useState<EventType | ''>('');
-    const [eventDate, setEventDate] = useState(getDefaultEventDate());
+    const [eventDate, setEventDate] = useState(getDefaultEventDate()); // Default +5 hours
     const [eventDescription, setEventDescription] = useState('');
     const [eventLocation, setEventLocation] = useState('טוען מיקום...');
     const [cityCountry, setCityCountry] = useState('');
@@ -170,11 +169,7 @@ export default function CreateEventPage() {
         >
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Ionicons 
-                        name="arrow-forward" 
-                        size={24} 
-                        color={isDark ? "#3A8DFF" : "white"} 
-                    />
+                    <Ionicons name="arrow-forward" size={24} color={theme.colors.background} />
                 </TouchableOpacity>
     
                 <Text style={styles.headerTitle}>יצירת אירוע</Text>
@@ -202,19 +197,14 @@ export default function CreateEventPage() {
                         }}
                     >
                         <View style={styles.customMarker}>
-                            <Ionicons name="location" size={30} color="#3A8DFF" />
+                            <Ionicons name="location" size={30} color={theme.colors.primary} />
                         </View>
                     </Marker>
                 </MapView>
     
                 <View style={styles.locationContainer}>
                     <View style={styles.locationInfo}>
-                        <Ionicons 
-                            name="location-outline" 
-                            size={20} 
-                            color="#3A8DFF" 
-                            style={{ marginRight: 8 }} 
-                        />
+                        <Ionicons name="location-outline" size={20} color={theme.colors.primary} style={{ marginRight: 8 }} />
                         <View style={styles.locationTextContainer}>
                             <Text style={styles.locationText}>{eventLocation}</Text>
                             {cityCountry ? (
@@ -239,14 +229,14 @@ export default function CreateEventPage() {
                             <Image source={{ uri: eventImageUri }} style={styles.eventImagePreview} />
                         ) : (
                             <View style={styles.imagePlaceholder}>
-                                <Ionicons name="camera-outline" size={30} color="#3A8DFF" />
+                                <Ionicons name="camera-outline" size={30} color={theme.colors.primary} />
                                 <Text style={styles.imagePlaceholderText}>הוסף תמונה לאירוע</Text>
                             </View>
                         )}
                     </TouchableOpacity>
-                   {isUploadingImage && (
+                    {isUploadingImage && (
                         <View style={styles.imageLoadingOverlay}>
-                            <ActivityIndicator size="small" color="#3A8DFF" />
+                            <ActivityIndicator size="small" color={theme.colors.primary} />
                         </View>
                     )}
                 </View>
@@ -260,51 +250,48 @@ export default function CreateEventPage() {
                     value={eventTitle}
                     onChangeText={setEventTitle}
                     maxLength={23}
-                    placeholderTextColor={isDark ? "#AAAAAA" : "#999"}
+                    placeholderTextColor={theme.colors.textSecondary}
                 />
 
-                <View style={styles.typeSelector}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.typeSelector}
-                        contentContainerStyle={styles.typeSelectorContent}
-                    >
-                        {eventTypesArray.map((type: EventType) => (
-                            <TouchableOpacity
-                                key={type}
-                                style={[styles.typeButton, eventType === type && styles.typeSelected]}
-                                onPress={() => setEventType(type)}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.typeSelector}
+                    contentContainerStyle={styles.typeSelectorContent}
+                >
+                    {eventTypesArray.map((type: EventType) => (
+                        <TouchableOpacity
+                            key={type}
+                            style={[styles.typeButton, eventType === type && styles.typeSelected]}
+                            onPress={() => setEventType(type)}
+                        >
+                            <Text
+                                style={[
+                                    styles.typeText,
+                                    eventType === type && styles.typeTextSelected
+                                ]}
                             >
-                                <Ionicons
-                                    name={getEventIcon(type)}
-                                    size={20}
-                                    color={eventType === type ? 'white' : '#3A8DFF'}
-                                />
-                                <Text
-                                    style={[
-                                        styles.typeText,
-                                        eventType === type && styles.typeTextSelected
-                                    ]}
-                                >
-                                    {typeLabels[type]}
-                                </Text>
-                                
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-    
+                                {typeLabels[type]}
+                            </Text>
+                            <Ionicons
+                                name={getEventIcon(type)}
+                                size={20}
+                                color={eventType === type ? (theme.isDark ? theme.colors.text : '#FFFFFF') : theme.colors.primary}
+                            />
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+
                 <View style={styles.dateAndTimeContainer}>
                     <TouchableOpacity
                         style={styles.dateTimeButton}
                         onPress={openDatePicker}
                     >
                         <View style={styles.dateButtonContent}>
+                            <Ionicons name="calendar" size={20} color={theme.colors.primary} />
                             <Text style={styles.dateText}>
                                 {eventDate.toLocaleDateString('he-IL')}
                             </Text>
-                            <Ionicons name="calendar" size={20} color="#3A8DFF" />
                         </View>
                     </TouchableOpacity>
 
@@ -313,10 +300,10 @@ export default function CreateEventPage() {
                         onPress={openTimePicker}
                     >
                         <View style={styles.dateButtonContent}>
+                            <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
                             <Text style={styles.dateText}>
                                 {formatTime(eventDate)}
                             </Text>
-                            <Ionicons name="time-outline" size={20} color="#3A8DFF" />
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -327,20 +314,25 @@ export default function CreateEventPage() {
                     value={eventDescription}
                     onChangeText={setEventDescription}
                     multiline
-                    placeholderTextColor={isDark ? "#AAAAAA" : "#999"}
+                    placeholderTextColor={theme.colors.textSecondary}
                 />
-    
+
                 <TouchableOpacity
-                    style={[styles.createButton, (isLoading || isUploadingImage) && styles.createButtonDisabled]}
+                    style={[
+                        styles.createButton, 
+                        isLoading && styles.createButtonDisabled
+                    ]}
                     onPress={handleCreateEvent}
-                    disabled={isLoading || isUploadingImage}
+                    disabled={isLoading}
                 >
-                    <Text style={styles.createButtonText}>
-                        {isLoading ? 'יוצר...' : 'צור אירוע'}
-                    </Text>
+                    {isLoading ? (
+                        <ActivityIndicator size="small" color={theme.isDark ? theme.colors.text : '#FFFFFF'} />
+                    ) : (
+                        <Text style={styles.createButtonText}>צור אירוע</Text>
+                    )}
                 </TouchableOpacity>
             </ScrollView>
-    
+
             {/* Modal for Date Picker */}
             {showDatePicker && (
                 <Modal visible={true} transparent animationType="slide">
@@ -369,8 +361,8 @@ export default function CreateEventPage() {
                                     minimumDate={new Date()}
                                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                     style={styles.datePicker}
-                                    {...(Platform.OS === 'ios' ? { textColor: "#3A8DFF" } : {})} 
-                                    themeVariant={isDark ? "dark" : "light"}
+                                    {...(Platform.OS === 'ios' ? { textColor: theme.colors.primary } : {})} 
+                                    themeVariant={theme.isDark ? "dark" : "light"}
                                 />
                             </View>
                         </View>
@@ -405,8 +397,8 @@ export default function CreateEventPage() {
                                     onChange={handleTimeChange}
                                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                     style={styles.datePicker}
-                                    {...(Platform.OS === 'ios' ? { textColor: "#3A8DFF" } : {})} 
-                                    themeVariant={isDark ? "dark" : "light"}
+                                    {...(Platform.OS === 'ios' ? { textColor: theme.colors.primary } : {})} 
+                                    themeVariant={theme.isDark ? "dark" : "light"}
                                 />
                             </View>
                         </View>

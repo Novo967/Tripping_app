@@ -2,7 +2,6 @@ import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
-import { useTheme } from '../../../app/ProfileServices/ThemeContext';
 import { useNotificationListeners } from '../../hooks/useNotificationListeners';
 import { LoadingComponent } from '../../IndexServices/components/LoadingComponent';
 import { MapMarkersComponent } from '../../IndexServices/components/MapMarkersComponent';
@@ -25,6 +24,7 @@ import SearchInAreaButton from '../../IndexServices/MapButtons/SearchInAreaButto
 import { homeScreenStyles } from '../../IndexServices/styles/homeScreenStyles';
 import { darkMapStyle } from '../../IndexServices/styles/mapStyles';
 import { useDistanceCalculation } from '../../IndexServices/utils/distanceUtils';
+import { useTheme } from '../../ThemeContext';
 
 export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);

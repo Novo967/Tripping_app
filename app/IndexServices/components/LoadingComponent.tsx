@@ -1,7 +1,7 @@
 import LottieView from 'lottie-react-native';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useTheme } from '../../../app/ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 
 export const LoadingComponent: React.FC = () => {
   const { theme } = useTheme();

@@ -15,7 +15,7 @@ import {
     View
 } from 'react-native';
 import { app, auth } from '../../firebaseConfig';
-import { useTheme } from '../ProfileServices/ThemeContext';
+import { useTheme } from '../ThemeContext';
 
 interface DeleteAccountModalProps {
     isVisible: boolean;

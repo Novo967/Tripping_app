@@ -16,7 +16,7 @@ import {
     View
 } from 'react-native';
 import { app } from '../../../firebaseConfig';
-import { useTheme } from '../../ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 
 const GOOGLE_PLACES_API_KEY = 'AIzaSyCGB--Rhj7I5Ld28GV7zwc2Oe8OpjquqnI';
 const db = getFirestore(app);

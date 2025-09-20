@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { TouchableOpacity } from 'react-native';
-import { useTheme } from '../../../app/ProfileServices/ThemeContext';
+import { useTheme } from '../../ThemeContext';
 import Searchbar, { SearchResult } from '../MapButtons/Searchbar';
 import { homeScreenStyles } from '../styles/homeScreenStyles';
 

@@ -1,35 +1,35 @@
 import { router } from 'expo-router';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  updateDoc,
-  where,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    updateDoc,
+    where,
 } from 'firebase/firestore';
 import moment from 'moment';
 import 'moment/locale/he';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Platform,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Platform,
+    StatusBar,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../app/ProfileServices/ThemeContext';
 import { db } from '../../firebaseConfig';
 import ChatHeader from '../Chats/components/ChatHeader';
 import ChatItem from '../Chats/PersonalChat/ChatItem';
+import { useTheme } from '../ThemeContext';
 
 moment.locale('he');
 
