@@ -1,7 +1,9 @@
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../firebaseConfig';
-import { ThemeProvider } from './ThemeContext'; // ייבוא ThemeProvider
+import { EventsProvider } from './EventEdit/EventService';
+import { ThemeProvider } from './ThemeContext';
+
 // זהו ה-layout הראשי (Root Layout) עבור כל האפליקציה שלך.
 // הוא עוטף את כל המסכים המוגדרים ב-expo-router.
 export default function RootLayout() {
@@ -9,6 +11,7 @@ export default function RootLayout() {
     // עוטפים את כל האפליקציה ב-ThemeProvider כדי לספק גישה ל-theme
     // לכל המסכים והרכיבים שבה.
     <ThemeProvider>
+      <EventsProvider>
       <SafeAreaProvider>
         {/* Stack הוא רכיב הניווט הראשי של expo-router. */}
         <Stack screenOptions={{ headerShown: false }}>
@@ -18,6 +21,7 @@ export default function RootLayout() {
           */}
         </Stack>
       </SafeAreaProvider>
+      </EventsProvider>
     </ThemeProvider>
   );
 }
