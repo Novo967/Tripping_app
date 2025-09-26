@@ -3,35 +3,35 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
-    addDoc,
-    collection,
-    doc,
-    getDoc,
-    onSnapshot,
-    orderBy,
-    query,
-    serverTimestamp,
-    setDoc,
-    updateDoc,
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import {
-    getDownloadURL,
-    getStorage,
-    ref,
-    uploadBytesResumable
+  getDownloadURL,
+  getStorage,
+  ref,
+  uploadBytesResumable
 } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActionSheetIOS,
-    Alert,
-    FlatList,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    StatusBar,
-    StyleSheet,
-    TouchableWithoutFeedback,
-    View,
+  ActionSheetIOS,
+  Alert,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { app, db } from '../../../firebaseConfig';
@@ -76,7 +76,7 @@ const GroupChatModal = () => {
   const [isGroupImageModalVisible, setIsGroupImageModalVisible] = useState(false);
   const [isGroupDetailsModalVisible, setIsGroupDetailsModalVisible] = useState(false);
   
-  // State חדש לניהול מציג התמונות
+  // State for image viewer modal
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -105,7 +105,7 @@ const GroupChatModal = () => {
     setIsGroupDetailsModalVisible(false);
   };
 
-  // פונקציות לפתיחה וסגירה של מציג התמונות
+  // Functions for image viewer modal
   const openImageViewer = (imageUrl: string) => {
     setSelectedImage(imageUrl);
     setIsImageViewerVisible(true);
@@ -135,6 +135,7 @@ const GroupChatModal = () => {
       await uploadBytesResumable(storageRef, blob);
       const newImageUrl = await getDownloadURL(storageRef);
       const groupDocRef = doc(db, 'group_chats', eventTitle);
+      // 🔧 Fixed: Use consistent field name 'groupImage'
       await updateDoc(groupDocRef, { groupImage: newImageUrl });
       setGroupImageUrl(newImageUrl);
       Alert.alert('התמונה עודכנה בהצלחה!');
@@ -254,6 +255,7 @@ const GroupChatModal = () => {
           const data = docSnap.data();
           setGroupName(data.name || eventTitle);
           setMemberCount(data.members?.length || 0);
+          // 🔧 Fixed: Use consistent field name 'groupImage'
           setGroupImageUrl(data.groupImage || null);
         } else {
           setGroupName(eventTitle);
@@ -321,6 +323,7 @@ const GroupChatModal = () => {
       await setDoc(chatDocRef, {
         name: eventTitle,
         members: [currentUid],
+        // 🔧 Fixed: Use consistent field name 'groupImage'
         groupImage: null,
         createdAt: serverTimestamp(),
       });
@@ -383,7 +386,6 @@ const GroupChatModal = () => {
 };
 
   const renderItem = ({ item }: { item: Message | DateSeparator }) => {
-    // שליחת הפונקציה openImageViewer ל-GroupChatMessage
     return (
       <GroupChatMessage item={item} currentUid={currentUid} onImagePress={openImageViewer} />
     );
@@ -408,7 +410,7 @@ const GroupChatModal = () => {
   const goBack = () => router.back();
   const keyboardProps = getKeyboardAvoidingViewProps();
 
-  // מודלים מוצגים לפי סדר העדיפות או המצב שלהם
+  // Modals displayed in priority order
   if (isGroupImageModalVisible) {
     return (
         <GroupImageModal
@@ -490,7 +492,7 @@ const GroupChatModal = () => {
         />
       </KeyboardAvoidingView>
       
-      {/* הוספת ה-ImageViewerModal */}
+      {/* ImageViewerModal */}
       <ImageViewerModal
         isVisible={isImageViewerVisible}
         imageUrl={selectedImage}

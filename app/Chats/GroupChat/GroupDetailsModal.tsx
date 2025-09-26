@@ -1,6 +1,5 @@
-// app/Chats/GroupChat/GroupDetailsPage.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
@@ -10,6 +9,7 @@ import {
     FlatList,
     Image,
     Linking,
+    Platform,
     SafeAreaView,
     ScrollView,
     Share,
@@ -39,11 +39,16 @@ interface EventDetails {
     eventType?: string;
     latitude?: number;
     longitude?: number;
-    id?: string;
+    pinDocumentId: string; // 🔧 Changed from 'id' to be more explicit
 }
 
-const GroupDetailsPage = () => {
-    const { eventTitle } = useLocalSearchParams();
+interface GroupDetailsModalProps {
+    eventTitle: string;
+    onClose: () => void;
+    onOpenImageModal: () => void;
+}
+
+const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ eventTitle, onClose, onOpenImageModal }) => {
     const [groupName, setGroupName] = useState('');
     const [groupProfileImageUrl, setGroupProfileImageUrl] = useState<string | null>(null);
     const [members, setMembers] = useState<Member[]>([]);
@@ -54,6 +59,7 @@ const GroupDetailsPage = () => {
     const currentUid = currentUser?.uid;
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
+    const [chatId, setChatId] = useState<string | null>(null);
     const isOrganizer = eventDetails?.ownerUid === currentUid;
 
     const getEventTypeInHebrew = (eventType: string): string => {
@@ -119,10 +125,20 @@ const GroupDetailsPage = () => {
         });
     };
 
+    // 🔧 Fixed: Now uses the correct pin document ID for editing
     const handleEditEvent = () => {
+        if (!eventDetails?.pinDocumentId) {
+            Alert.alert('שגיאה', 'לא ניתן לערוך. מזהה אירוע חסר.');
+            return;
+        }
+        
+        // Close this modal first
+        onClose();
+        
+        // Navigate to edit page with the correct pin document ID
         router.push({
             pathname: '/EventEdit/EditEventPage',
-            params: { eventTitle: eventTitle as string },
+            params: { eventId: eventDetails.pinDocumentId }, 
         });
     };
 
@@ -132,7 +148,8 @@ const GroupDetailsPage = () => {
             return;
         }
 
-        const groupDocRef = doc(db, 'group_chats', eventTitle as string);
+        // 1. Fetch group chat details
+        const groupDocRef = doc(db, 'group_chats', eventTitle);
 
         const unsubscribeGroup = onSnapshot(
             groupDocRef,
@@ -140,14 +157,19 @@ const GroupDetailsPage = () => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     setGroupName(data.name || eventTitle);
-                    setGroupProfileImageUrl(data.group_image_url || null);
+                    // 🔧 Fixed: Use consistent field name
+                    setGroupProfileImageUrl(data.groupImage || null);
+                    if (data.chat_id) {
+                        setChatId(data.chat_id);
+                    }
                     const memberIds = data.members || [];
                     const fetchedMembers: Member[] = [];
-
+                    
                     for (const uid of memberIds) {
                         const userDocRef = doc(db, 'users', uid);
                         const userDocSnap = await getDoc(userDocRef);
                         const userData = userDocSnap.exists() ? userDocSnap.data() : null;
+                        // 🔧 Fixed: Use consistent field name
                         const profileImageUrl = userData?.profile_image || null;
 
                         fetchedMembers.push({
@@ -158,11 +180,12 @@ const GroupDetailsPage = () => {
                     }
                     setMembers(fetchedMembers);
                 } else {
-                    setGroupName(eventTitle as string);
+                    setGroupName(eventTitle);
                     setGroupProfileImageUrl(null);
                     setMembers([]);
                 }
-                setLoading(false);
+                
+                fetchEventDetails(); 
             },
             (error) => {
                 console.error('Error fetching group details:', error);
@@ -170,21 +193,28 @@ const GroupDetailsPage = () => {
             }
         );
 
+        // 2. Fetch event (pin) details using the event_id field
         const fetchEventDetails = async () => {
+            if (!chatId) return;
             try {
                 const pinsCollection = collection(db, 'pins');
-                const q = query(pinsCollection, where('event_title', '==', eventTitle));
+                
+                // ✅ תיקון: חיפוש פרטי האירוע (Pin) לפי השדה event_id כפי שביקשת, התואם למזהה הצ'אט
+                const q = query(pinsCollection, where('event_id', '==', chatId)); // שינוי: מחפש לפי chatId
+                console.log('Querying pins with event_id:', chatId);
                 const querySnapshot = await getDocs(q);
-
+                
                 if (!querySnapshot.empty) {
-                    const docSnap = querySnapshot.docs[0];
-                    const data = docSnap.data();
+                    const pinDoc = querySnapshot.docs[0];
+                    const pinData = pinDoc.data();
+                    
                     let formattedDate = 'לא צוין';
                     let formattedTime = 'לא צוין';
 
-                    if (data.event_date) {
+                    // 🔧 Fixed: Use consistent field name 'event_date'
+                    if (pinData.event_date) {
                         try {
-                            const date = new Date(data.event_date);
+                            const date = new Date(pinData.event_date.toDate ? pinData.event_date.toDate() : pinData.event_date);
                             if (date && !isNaN(date.getTime())) {
                                 formattedDate = date.toLocaleDateString('he-IL', {
                                     day: '2-digit',
@@ -202,29 +232,32 @@ const GroupDetailsPage = () => {
                     }
 
                     setEventDetails({
-                        id: docSnap.id,
-                        description: data.description && data.description.trim() !== '' ? data.description : 'אין תיאור',
-                        location: data.location && data.location.trim() !== '' ? data.location : 'לא צוין',
+                        pinDocumentId: pinDoc.id, // 🔧 Store the actual pin document ID
+                        // 🔧 Fixed: Use consistent Firebase field names
+                        description: pinData.description && pinData.description.trim() !== '' ? pinData.description : 'אין תיאור',
+                        location: pinData.location && pinData.location.trim() !== '' ? pinData.location : 'לא צוין',
                         time: formattedTime,
                         date: formattedDate,
-                        organizer: data.username || data.organizer || 'לא צוין',
-                        ownerUid: data.owner_uid || null,
-                        eventType: data.event_type || 'אחר',
-                        latitude: data.latitude,
-                        longitude: data.longitude,
+                        organizer: pinData.username || pinData.organizer || 'לא צוין',
+                        ownerUid: pinData.owner_uid || '',
+                        eventType: pinData.event_type || 'אחר',
+                        latitude: pinData.latitude,
+                        longitude: pinData.longitude,
                     });
                 } else {
+                    console.log('No pin found with event_id:', eventTitle);
                     setEventDetails(null);
                 }
             } catch (error) {
                 console.error('Error fetching event details:', error);
                 setEventDetails(null);
+            } finally {
+                setLoading(false);
             }
         };
 
-        fetchEventDetails();
         return () => unsubscribeGroup();
-    }, [eventTitle, currentUid]);
+    }, [eventTitle, currentUid, chatId]);
 
     const handleOpenInMaps = async () => {
         if (!eventDetails?.latitude || !eventDetails?.longitude) {
@@ -233,13 +266,23 @@ const GroupDetailsPage = () => {
         }
         try {
             const { latitude, longitude } = eventDetails;
-            const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
-            const supported = await Linking.canOpenURL(googleMapsUrl);
+            
+            const label = encodeURIComponent(groupName || 'אירוע');
+            
+            const mapUrl = Platform.select({
+                ios: `http://maps.apple.com/?q=${latitude},${longitude}&label=${label}`,
+                android: `geo:${latitude},${longitude}?q=${latitude},${longitude}(${label})`,
+                default: `http://maps.google.com/maps?q=${latitude},${longitude}`, 
+            });
+            
+            if (mapUrl) {
+                const supported = await Linking.canOpenURL(mapUrl);
 
-            if (supported) {
-                await Linking.openURL(googleMapsUrl);
-            } else {
-                Alert.alert('שגיאה', 'לא ניתן לפתוח את יישום המפות');
+                if (supported) {
+                    await Linking.openURL(mapUrl);
+                } else {
+                    Alert.alert('שגיאה', 'לא ניתן לפתוח את יישום המפות');
+                }
             }
         } catch (error) {
             console.error('Error opening maps:', error);
@@ -248,18 +291,19 @@ const GroupDetailsPage = () => {
     };
 
     const handleShareEvent = async () => {
-        if (!eventDetails?.id || !eventDetails.latitude || !eventDetails.longitude) {
+        if (!eventDetails?.pinDocumentId || !eventDetails.latitude || !eventDetails.longitude) {
             Alert.alert('שגיאה', 'לא ניתן לשתף את האירוע. פרטים חסרים.');
             return;
         }
         try {
-            const shareUrl = `yourappname://event?id=${eventDetails.id}&lat=${eventDetails.latitude}&lon=${eventDetails.longitude}`;
-            const message = `הצטרף אלי לאירוע: ${eventTitle}!\n${eventDetails.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
+            // 🔧 Fixed: Use pin document ID for sharing
+            const shareUrl = `yourappname://event?id=${eventDetails.pinDocumentId}&lat=${eventDetails.latitude}&lon=${eventDetails.longitude}`;
+            const message = `הצטרף אלי לאירוע: ${groupName}!\n${eventDetails.location || ''}\n\nלחץ על הקישור כדי לראות את פרטי האירוע באפליקציה:\n${shareUrl}`;
 
             await Share.share({
                 message: message,
                 url: shareUrl,
-                title: eventTitle as string,
+                title: groupName,
             });
         } catch (error) {
             console.error('Error sharing event:', error);
@@ -282,7 +326,7 @@ const GroupDetailsPage = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            const groupDocRef = doc(db, 'group_chats', eventTitle as string);
+                            const groupDocRef = doc(db, 'group_chats', eventTitle);
                             await updateDoc(groupDocRef, {
                                 members: arrayRemove(currentUid),
                             });
@@ -290,6 +334,7 @@ const GroupDetailsPage = () => {
                                 {
                                     text: 'אישור',
                                     onPress: () => {
+                                        onClose();
                                         router.replace('/(tabs)/chat');
                                     },
                                 },
@@ -337,22 +382,22 @@ const GroupDetailsPage = () => {
             <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.isDark ? '#2C3946' : '#3A8DFF'} />
             <SafeAreaView style={[styles.headerContainer, { backgroundColor: theme.isDark ? '#2C3946' : '#3A8DFF', paddingTop: insets.top }]}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <TouchableOpacity onPress={onClose} style={styles.backButton}>
                         <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>{groupName}</Text>
-                    {isOrganizer ? (
-                    <TouchableOpacity onPress={handleEditEvent} style={styles.editButton}>
-                        <Ionicons name="create-outline" size={24} color="#FFFFFF" />
-                    </TouchableOpacity>
-                ) : (
-                    <View style={{ width: 34 }} /> // כדי לשמור על יישור
-                )}
+                    {isOrganizer && eventDetails ? (
+                        <TouchableOpacity onPress={handleEditEvent} style={styles.editButton}>
+                            <Ionicons name="create-outline" size={24} color="#FFFFFF" />
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={{ width: 34 }} /> 
+                    )}
                 </View>
             </SafeAreaView>
             <ScrollView contentContainerStyle={{ paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
                 {/* Group Image Section */}
-                <View style={[styles.groupImageContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#FFFFFF' }]}>
+                <TouchableOpacity onPress={onOpenImageModal} style={[styles.groupImageContainer, { backgroundColor: theme.isDark ? '#1C242E' : '#FFFFFF' }]}>
                     {groupProfileImageUrl ? (
                         <Image source={{ uri: groupProfileImageUrl }} style={styles.groupImage} />
                     ) : (
@@ -360,10 +405,10 @@ const GroupDetailsPage = () => {
                             <Ionicons name="people-outline" size={80} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} />
                         </View>
                     )}
-                </View>
+                </TouchableOpacity>
 
                 {/* Event Details Section */}
-                {eventDetails && (
+                {eventDetails ? (
                     <View style={[styles.section, { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA' }]}>
                         <View style={[styles.eventDetailsCard, { backgroundColor: theme.isDark ? '#2C3946' : '#FFFFFF', borderColor: theme.isDark ? '#3E506B' : '#E8E8E8' }]}>
                             <View style={styles.eventTypeBubbleContainer}>
@@ -386,6 +431,16 @@ const GroupDetailsPage = () => {
                                     <Text style={[styles.detailText, { color: theme.isDark ? '#E0E0E0' : '#2C3E50' }]}>{eventDetails.date}, {eventDetails.time}</Text>
                                 </View>
                             </View>
+                            <TouchableOpacity onPress={handleOpenInMaps} disabled={!eventDetails.latitude || !eventDetails.longitude}>
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="location-outline" size={18} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
+                                    <View style={styles.detailTextContainer}>
+                                        <Text style={[styles.detailLabel, { color: theme.isDark ? '#BDC3C7' : '#95A5A6' }]}>מיקום:</Text>
+                                        <Text style={[styles.detailText, styles.detailLocationLink, { color: theme.isDark ? '#A0C4FF' : '#3A8DFF' }]}>{eventDetails.location}</Text>
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                            
                             {eventDetails.description !== 'אין תיאור' && (
                                 <View style={styles.detailRow}>
                                     <Ionicons name="document-text-outline" size={18} color={theme.isDark ? '#BDC3C7' : '#95A5A6'} style={styles.detailIcon} />
@@ -396,6 +451,10 @@ const GroupDetailsPage = () => {
                                 </View>
                             )}
                         </View>
+                    </View>
+                ) : (
+                    <View style={[styles.section, { backgroundColor: theme.isDark ? '#1C242E' : '#F8F9FA' }]}>
+                        <Text style={[styles.sectionTitle, { color: theme.isDark ? '#E0E0E0' : '#2C3E50', textAlign: 'center' }]}>פרטי האירוע לא נמצאו</Text>
                     </View>
                 )}
 
@@ -643,4 +702,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default GroupDetailsPage;
+export default GroupDetailsModal;

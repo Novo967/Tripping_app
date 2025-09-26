@@ -27,7 +27,7 @@ import { EventType } from './CreateEvent/types';
 export default function CreateEventPage() {
     const { theme } = useTheme();
     const styles = createStyles(theme);
-    
+
     const { latitude, longitude } = useLocalSearchParams();
     const [eventTitle, setEventTitle] = useState('');
     const [eventType, setEventType] = useState<EventType | ''>('');
@@ -49,18 +49,29 @@ export default function CreateEventPage() {
     }, [latitude, longitude]);
 
     const loadLocation = async () => {
-        const locationData = await LocationService.reverseGeocode(
-            latitude as string, 
-            longitude as string
-        );
-        setEventLocation(locationData.eventLocation);
-        setCityCountry(locationData.cityCountry);
+        // הוספנו לוג כדי לוודא שהפונקציה מתחילה
+        console.log("Starting loadLocation for coordinates:", latitude, longitude);
+        try {
+            const locationData = await LocationService.reverseGeocode(
+                latitude as string,
+                longitude as string
+            );
+            setEventLocation(locationData.eventLocation);
+            setCityCountry(locationData.cityCountry);
+            console.log("Location loaded successfully:", locationData.eventLocation);
+        } catch (error) {
+            console.error("Error loading location:", error);
+            setEventLocation('שגיאת טעינת מיקום');
+        }
     };
 
     const handleImagePicker = async () => {
         const imageUri = await ImageService.pickImage();
         if (imageUri) {
             setEventImageUri(imageUri);
+            console.log("Image picked, URI:", imageUri);
+        } else {
+            console.log("Image picking cancelled or failed.");
         }
     };
 
@@ -70,40 +81,64 @@ export default function CreateEventPage() {
             return;
         }
 
+        console.log("Starting event creation process...");
         setIsLoading(true);
-        let imageUrl = null;
 
-        if (eventImageUri) {
-            setIsUploadingImage(true);
-            imageUrl = await ImageService.uploadImage(eventImageUri, eventTitle);
-            setIsUploadingImage(false);
-            if (!imageUrl) {
-                setIsLoading(false);
-                return;
+        try {
+            let imageUrl = null;
+
+            if (eventImageUri) {
+                console.log("Image URI found, starting upload...");
+                setIsUploadingImage(true);
+                imageUrl = await ImageService.uploadImage(eventImageUri, eventTitle);
+                setIsUploadingImage(false);
+                
+                if (!imageUrl) {
+                    Alert.alert('שגיאה', 'העלאת התמונה נכשלה. האירוע לא נוצר.');
+                    console.error("Image upload failed, stopping event creation.");
+                    setIsLoading(false);
+                    return;
+                }
+                console.log("Image uploaded successfully, URL:", imageUrl);
             }
-        }
 
-        const eventData = {
-            latitude: parseFloat(latitude as string),
-            longitude: parseFloat(longitude as string),
-            event_title: eventTitle,
-            event_type: eventType,
-            event_date: eventDate.toISOString(),
-            description: eventDescription,
-            location: eventLocation,
-            city_country: cityCountry,
-            ...(imageUrl && { eventImageUrl: imageUrl }),
-        };
+            const eventData = {
+                latitude: parseFloat(latitude as string),
+                longitude: parseFloat(longitude as string),
+                event_title: eventTitle,
+                event_type: eventType,
+                event_date: eventDate.toISOString(),
+                description: eventDescription,
+                location: eventLocation,
+                city_country: cityCountry,
+                ...(imageUrl && { eventImageUrl: imageUrl }),
+            };
 
-        const success = await FirebaseService.createEvent(eventData);
-        if (success) {
-            router.replace('/home');
+            console.log("Attempting to save event data to Firebase:", eventData);
+            const success = await FirebaseService.createEvent(eventData);
+
+            if (success) {
+                console.log("EVENT CREATED SUCCESSFULLY. Navigating to home.");
+                Alert.alert('הצלחה', 'האירוע נוצר בהצלחה!');
+                router.replace('/home');
+                // הערה: setIsLoading(false) מתבצעת לאחר הניווט, אבל זה בסדר מכיוון שהיא מתבצעת בבלוק finally או בסוף try
+            } else {
+                Alert.alert('שגיאה', 'יצירת האירוע נכשלה ב-Firebase.');
+                console.error("FirebaseService.createEvent returned false (Creation failed).");
+            }
+        } catch (error) {
+            // לכידת כל שגיאה בלתי צפויה אחרת במהלך התהליך
+            console.error("An unexpected error occurred during event creation:", error);
+            Alert.alert('שגיאה קריטית', 'אירעה שגיאה בלתי צפויה. אנא נסה שוב.');
+        } finally {
+            // לוודא שהטעינה תמיד נפסקת, גם אם קרתה שגיאה
+            console.log("Event creation process finished. Setting isLoading to false.");
+            setIsLoading(false);
         }
-        
-        setIsLoading(false);
     };
 
-    // Date and Time picker handlers
+    // Date and Time picker handlers - ללא שינוי, לוגיקה תקינה
+
     const openDatePicker = () => {
         setTempDate(eventDate);
         setShowDatePicker(true);
@@ -140,7 +175,7 @@ export default function CreateEventPage() {
         setEventDate(tempDate);
         setShowDatePicker(false);
     };
-    
+
     const confirmIOSTime = () => {
         setEventDate(tempDate);
         setShowTimePicker(false);
@@ -150,18 +185,18 @@ export default function CreateEventPage() {
         setTempDate(eventDate);
         setShowDatePicker(false);
     };
-    
+
     const cancelIOSTime = () => {
         setTempDate(eventDate);
         setShowTimePicker(false);
     };
-    
+
     const formatTime = (date: Date) => {
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
         return `${hours}:${minutes}`;
     };
-    
+
     return (
         <KeyboardAvoidingView
             style={styles.container}
@@ -171,12 +206,12 @@ export default function CreateEventPage() {
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Ionicons name="arrow-forward" size={24} color={theme.colors.background} />
                 </TouchableOpacity>
-    
+
                 <Text style={styles.headerTitle}>יצירת אירוע</Text>
-    
+
                 <View style={styles.backButton} />
             </View>
-    
+
             <ScrollView style={styles.scrollView}>
                 <MapView
                     style={styles.map}
@@ -201,7 +236,7 @@ export default function CreateEventPage() {
                         </View>
                     </Marker>
                 </MapView>
-    
+
                 <View style={styles.locationContainer}>
                     <View style={styles.locationInfo}>
                         <Ionicons name="location-outline" size={20} color={theme.colors.primary} style={{ marginRight: 8 }} />
@@ -213,16 +248,16 @@ export default function CreateEventPage() {
                         </View>
                     </View>
                    <TouchableOpacity
-                      style={styles.editLocationButton}
-                      onPress={() => router.push({
-                          pathname: '/home',
-                          params: { isChoosingLocation: 'true' }
-                      })}
-                  >
-                      <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
-                  </TouchableOpacity>
+                     style={styles.editLocationButton}
+                     onPress={() => router.push({
+                         pathname: '/home',
+                         params: { isChoosingLocation: 'true' }
+                     })}
+                   >
+                        <Text style={styles.editLocationButtonText}>ערוך מיקום</Text>
+                    </TouchableOpacity>
                 </View>
-    
+
                 <View style={styles.imagePickerContainer}>
                     <TouchableOpacity style={styles.imagePickerButton} onPress={handleImagePicker}>
                         {eventImageUri ? (
@@ -319,7 +354,7 @@ export default function CreateEventPage() {
 
                 <TouchableOpacity
                     style={[
-                        styles.createButton, 
+                        styles.createButton,
                         isLoading && styles.createButtonDisabled
                     ]}
                     onPress={handleCreateEvent}
@@ -339,14 +374,14 @@ export default function CreateEventPage() {
                     <View style={styles.modalBackground}>
                         <View style={styles.modalContainer}>
                             <View style={styles.modalHeader}>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={cancelIOSDate}
                                     style={styles.modalButton}
                                 >
                                     <Text style={styles.modalButtonTextCancel}>ביטול</Text>
                                 </TouchableOpacity>
                                 <Text style={styles.modalTitle}>בחר תאריך</Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={Platform.OS === 'ios' ? confirmIOSDate : () => {}}
                                     style={[styles.modalButton, Platform.OS === 'android' && { opacity: 0 }]}
                                 >
@@ -361,7 +396,7 @@ export default function CreateEventPage() {
                                     minimumDate={new Date()}
                                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                     style={styles.datePicker}
-                                    {...(Platform.OS === 'ios' ? { textColor: theme.colors.primary } : {})} 
+                                    {...(Platform.OS === 'ios' ? { textColor: theme.colors.primary } : {})}
                                     themeVariant={theme.isDark ? "dark" : "light"}
                                 />
                             </View>
@@ -376,14 +411,14 @@ export default function CreateEventPage() {
                     <View style={styles.modalBackground}>
                         <View style={styles.modalContainer}>
                             <View style={styles.modalHeader}>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={cancelIOSTime}
                                     style={styles.modalButton}
                                 >
                                     <Text style={styles.modalButtonTextCancel}>ביטול</Text>
                                 </TouchableOpacity>
                                 <Text style={styles.modalTitle}>בחר שעה</Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={Platform.OS === 'ios' ? confirmIOSTime : () => {}}
                                     style={[styles.modalButton, Platform.OS === 'android' && { opacity: 0 }]}
                                 >
@@ -397,7 +432,7 @@ export default function CreateEventPage() {
                                     onChange={handleTimeChange}
                                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                     style={styles.datePicker}
-                                    {...(Platform.OS === 'ios' ? { textColor: theme.colors.primary } : {})} 
+                                    {...(Platform.OS === 'ios' ? { textColor: theme.colors.primary } : {})}
                                     themeVariant={theme.isDark ? "dark" : "light"}
                                 />
                             </View>
