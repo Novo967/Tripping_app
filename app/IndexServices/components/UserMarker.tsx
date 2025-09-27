@@ -42,6 +42,7 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }
   useEffect(() => {
     const fetchImage = async () => {
       // Use the profile_image URL if it's already provided in the user object
+      console.log(user.profile_image);
       if (user.profile_image) {
         setImageUrl(user.profile_image);
       } else {
@@ -81,15 +82,28 @@ const UserMarker: React.FC<UserMarkerProps> = ({ user, currentUserUid, onPress }
   }
 
   return (
-    <Marker
-      key={user.uid}
-      coordinate={{ latitude: user.latitude, longitude: user.longitude }}
-      onPress={() => onPress(user)}
-      anchor={{ x: 0.5, y: 0.5 }}
-    >
-      {renderMarkerContent()}
-    </Marker>
-  );
+  <Marker
+    key={user.uid}
+    coordinate={{ latitude: user.latitude, longitude: user.longitude }}
+    onPress={() => onPress(user)}
+    anchor={{ x: 0.5, y: 0.5 }}
+  >
+    {imageUrl ? (
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.profileMarker}
+        resizeMode="cover"
+        onError={(e) => console.log("❌ Failed to load image:", imageUrl, e.nativeEvent)}
+        onLoad={() => console.log("✅ Loaded image:", imageUrl)}
+      />
+    ) : (
+      <View style={styles.defaultMarkerIcon}>
+        <Ionicons name="person" size={24} color="#3A8DFF" />
+      </View>
+    )}
+  </Marker>
+);
+
 };
 
 const styles = StyleSheet.create({
